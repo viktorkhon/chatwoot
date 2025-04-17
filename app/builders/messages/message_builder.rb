@@ -5,7 +5,7 @@ class Messages::MessageBuilder
   def initialize(user, conversation, params)
     @params = params
     @private = params[:private] || false
-    @conversation = conversation
+    @conversation = conversation # Assumes conversation is always non-nil here
     @user = user
     @message_type = params[:message_type] || 'outgoing'
     @attachments = params[:attachments]

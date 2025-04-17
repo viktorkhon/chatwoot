@@ -139,11 +139,7 @@ class Messages::MessageBuilder
   end
 
   def message_params
-    # Fetch the processed content_attributes hash once
-    processed_attributes = content_attributes
-
-    # Start building the hash for the Message model
-    params_hash = {
+    {
       account_id: @conversation.account_id,
       inbox_id: @conversation.inbox_id,
       message_type: message_type,
@@ -151,28 +147,10 @@ class Messages::MessageBuilder
       private: @private,
       sender: sender,
       content_type: @params[:content_type],
-      # --- Fix Start ---
-      # Include the processed content_attributes hash here
-      content_attributes: processed_attributes,
-      # Remove the incorrect top-level :items and :in_reply_to
-      # items: @items, # Removed
-      # in_reply_to: @in_reply_to, # Removed (these are within content_attributes)
-      # --- Fix End ---
+      items: @items,
+      in_reply_to: @in_reply_to,
       echo_id: @params[:echo_id],
       source_id: @params[:source_id]
-    }
-
-    # Merge other attributes carefully
-    params_hash.deep_merge!(external_created_at)
-    params_hash.deep_merge!(campaign_id) # Merges into additional_attributes
-    params_hash.deep_merge!(template_params) # Merges into additional_attributes
-
-    # Handle automation_rule_id separately if it needs to merge into content_attributes
-    # This merge might need adjustment if you need both incoming attributes and this rule ID
-    if @automation_rule.present?
-      params_hash[:content_attributes] ||= {} # Ensure content_attributes hash exists
-      params_hash[:content_attributes][:automation_rule_id] = @automation_rule
-    end
-
-    params_hash
+    }.merge(external_created_at).merge(automation_rule_id).merge(campaign_id).merge(template_params)
   end
+end

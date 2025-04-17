@@ -1,4 +1,6 @@
 class Api::V1::Accounts::Conversations::CustomCardsController < Api::BaseController
+  CUSTOM_CARD_ACTION = 'custom_card_action'.freeze
+
   before_action :set_conversation
   before_action :check_authorization
 

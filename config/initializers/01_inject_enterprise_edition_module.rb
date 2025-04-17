@@ -22,29 +22,42 @@ require 'active_support/inflector'
 
 module InjectEnterpriseEditionModule
   def prepend_mod_with(constant_name, namespace: Object, with_descendants: false)
+    Rails.logger.info "Attempting to prepend module for #{constant_name}"
     each_extension_for(constant_name, namespace) do |constant|
-      prepend_module(constant, with_descendants)
+      begin
+        prepend_module(constant, with_descendants)
+        Rails.logger.info "Successfully prepended module for #{constant_name}"
+      rescue => e
+        Rails.logger.error "Failed to prepend module for #{constant_name}: #{e.message}"
+        Rails.logger.error e.backtrace.join("\n")
+      end
     end
   end
 
   def extend_mod_with(constant_name, namespace: Object)
-    # rubocop:disable Performance/MethodObjectAsBlock
-    each_extension_for(
-      constant_name,
-      namespace,
-      &method(:extend)
-    )
-    # rubocop:enable Performance/MethodObjectAsBlock
+    Rails.logger.info "Attempting to extend module for #{constant_name}"
+    begin
+      each_extension_for(constant_name, namespace) do |constant|
+        extend(constant)
+        Rails.logger.info "Successfully extended module for #{constant_name}"
+      end
+    rescue => e
+      Rails.logger.error "Failed to extend module for #{constant_name}: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+    end
   end
 
   def include_mod_with(constant_name, namespace: Object)
-    # rubocop:disable Performance/MethodObjectAsBlock
-    each_extension_for(
-      constant_name,
-      namespace,
-      &method(:include)
-    )
-    # rubocop:enable Performance/MethodObjectAsBlock
+    Rails.logger.info "Attempting to include module for #{constant_name}"
+    begin
+      each_extension_for(constant_name, namespace) do |constant|
+        include(constant)
+        Rails.logger.info "Successfully included module for #{constant_name}"
+      end
+    rescue => e
+      Rails.logger.error "Failed to include module for #{constant_name}: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+    end
   end
 
   def prepend_mod(with_descendants: false)
@@ -68,20 +81,45 @@ module InjectEnterpriseEditionModule
   end
 
   def each_extension_for(constant_name, namespace)
+    return unless ChatwootApp.respond_to?(:extensions)
+    
+    Rails.logger.info "Loading extensions for #{constant_name}"
     ChatwootApp.extensions.each do |extension_name|
-      extension_namespace =
-        const_get_maybe_false(namespace, extension_name.camelize)
+      begin
+        Rails.logger.info "Processing extension: #{extension_name}"
+        extension_namespace = const_get_maybe_false(namespace, extension_name.camelize)
+        next unless extension_namespace
 
-      extension_module =
-        const_get_maybe_false(extension_namespace, constant_name)
+        Rails.logger.info "Found namespace for #{extension_name}: #{extension_namespace}"
+        extension_module = const_get_maybe_false(extension_namespace, constant_name)
+        next unless extension_module
 
-      yield(extension_module) if extension_module
+        Rails.logger.info "Found module for #{constant_name} in #{extension_name}"
+        yield(extension_module)
+      rescue => e
+        Rails.logger.error "Error processing extension #{extension_name}: #{e.message}"
+        Rails.logger.error e.backtrace.join("\n")
+      end
     end
   end
 
   def const_get_maybe_false(mod, name)
-    mod&.const_defined?(name, false) && mod&.const_get(name, false)
+    return false unless mod
+    return false unless mod.const_defined?(name, false)
+    
+    begin
+      mod.const_get(name, false)
+    rescue => e
+      Rails.logger.error "Error getting constant #{name} from #{mod}: #{e.message}"
+      false
+    end
   end
 end
 
-Module.prepend(InjectEnterpriseEditionModule)
+begin
+  Module.prepend(InjectEnterpriseEditionModule)
+  Rails.logger.info "Successfully prepended InjectEnterpriseEditionModule"
+rescue => e
+  Rails.logger.error "Failed to prepend InjectEnterpriseEditionModule: #{e.message}"
+  Rails.logger.error e.backtrace.join("\n")
+end

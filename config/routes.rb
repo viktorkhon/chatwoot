@@ -109,6 +109,11 @@ Rails.application.routes.draw do
               resource :participants, only: [:show, :create, :update, :destroy]
               resource :direct_uploads, only: [:create]
               resource :draft_messages, only: [:show, :update, :destroy]
+              resources :custom_cards, only: [:create] do
+                collection do
+                  post :handle_action
+                end
+              end
             end
             member do
               post :mute
@@ -123,11 +128,6 @@ Rails.application.routes.draw do
               get :attachments
               post :copilot
               get :inbox_assistant
-            end
-            resources :custom_cards, only: [:create, :handle_action] do
-              collection do
-                post :handle_action
-              end
             end
           end
 

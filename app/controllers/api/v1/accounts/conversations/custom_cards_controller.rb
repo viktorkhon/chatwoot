@@ -2,17 +2,11 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
   CUSTOM_CARD_ACTION = 'custom_card_action'.freeze
 
   def create
-    @message = @conversation.messages.create!(
-      content: params[:content],
-      content_type: 'custom_cards',
-      content_attributes: params[:content_attributes],
-      account_id: @conversation.account_id,
-      inbox_id: @conversation.inbox_id,
-      message_type: :outgoing,
-      sender: Current.user || @resource
-    )
-
-    render json: @message
+    user = Current.user || @resource
+    mb = Messages::MessageBuilder.new(user, @conversation, params)
+    @message = mb.perform
+  rescue StandardError => e
+    render_could_not_create_error(e.message)
   end
 
   def handle_action

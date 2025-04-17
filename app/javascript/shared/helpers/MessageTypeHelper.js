@@ -1,4 +1,4 @@
-import { MESSAGE_TYPES } from 'shared/constants/messages';
+import { MESSAGE_TYPE } from 'shared/constants/messages';
 
 export const isAFormMessage = message => message.content_type === 'form';
 export const isASubmittedFormMessage = (message = {}) =>
@@ -17,11 +17,11 @@ export const isCustomCardMessage = message => {
 };
 
 export const isOutgoingMessage = message => {
-  return message.message_type === MESSAGE_TYPES.OUTGOING;
+  return message.message_type === MESSAGE_TYPE.OUTGOING;
 };
 
 export const isIncomingMessage = message => {
-  return message.message_type === MESSAGE_TYPES.INCOMING;
+  return message.message_type === MESSAGE_TYPE.INCOMING;
 };
 
 export const isTemplateMessage = message => {

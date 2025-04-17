@@ -140,7 +140,7 @@ class Messages::MessageBuilder
 
   def message_params
     main_content_attributes = content_attributes
-    automation_attributes = automation_rule_id_data[:content_attributes]
+    automation_attributes = automation_rule_id[:content_attributes]
 
     if automation_attributes.present?
       main_content_attributes ||= {}
@@ -164,8 +164,8 @@ class Messages::MessageBuilder
 
     # Merge other helpers that return top-level keys or additional_attributes
     params_hash.merge!(external_created_at)
-    params_hash.deep_merge!(campaign_id_data)      # Use deep_merge! for additional_attributes
-    params_hash.deep_merge!(template_params_data)  # Use deep_merge! for additional_attributes
+    params_hash.deep_merge!(campaign_id)
+    params_hash.deep_merge!(template_params)
 
     params_hash
   end

@@ -1,8 +1,5 @@
-class Api::V1::Accounts::Conversations::CustomCardsController < Api::BaseController
+class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Accounts::Conversations::BaseController
   CUSTOM_CARD_ACTION = 'custom_card_action'.freeze
-
-  before_action :set_conversation
-  before_action :check_authorization
 
   def create
     @message = @conversation.messages.create!(
@@ -23,7 +20,7 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::BaseControl
       account_id: @conversation.account_id,
       inbox_id: @conversation.inbox_id,
       message_type: :outgoing,
-      sender: current_user
+      sender: Current.user || @resource
     )
 
     render json: @message
@@ -43,15 +40,5 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::BaseControl
     )
 
     render json: { status: 'success' }
-  end
-
-  private
-
-  def set_conversation
-    @conversation = current_account.conversations.find(params[:conversation_id])
-  end
-
-  def check_authorization
-    authorize(@conversation)
   end
 end 

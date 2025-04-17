@@ -28,6 +28,7 @@ import { useTrack } from 'dashboard/composables';
 import { emitter } from 'shared/helpers/mitt';
 
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import CustomCard from './bubble/CustomCard.vue';
 
 export default {
   components: {
@@ -47,6 +48,7 @@ export default {
     InstagramStoryReply,
     Spinner,
     NextButton,
+    CustomCard,
   },
   props: {
     data: {
@@ -117,7 +119,8 @@ export default {
         this.isUnsupported ||
         this.isAnIntegrationMessage ||
         this.isCardType ||
-        this.isFormType
+        this.isFormType ||
+        this.isCustomCardType
       );
     },
     emailMessageContent() {
@@ -361,7 +364,10 @@ export default {
     isFormType() {
       return this.contentType === 'form';
     },
-    formItems() {
+    isCustomCardType() {
+      return this.contentType === 'custom_cards';
+    },
+    customCardItems() {
       return this.contentAttributes.items || [];
     },
   },
@@ -534,6 +540,9 @@ export default {
           :submitted-values="contentAttributes.submitted_values"
           @submit="onFormSubmit"
         />
+        <div v-else-if="isCustomCardType">
+          <CustomCard :items="customCardItems" />
+        </div>
         <BubbleIntegration
           :message-id="data.id"
           :content-attributes="contentAttributes"

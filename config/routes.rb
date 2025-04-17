@@ -124,6 +124,11 @@ Rails.application.routes.draw do
               post :copilot
               get :inbox_assistant
             end
+            resources :custom_cards, only: [:create, :handle_action] do
+              collection do
+                post :handle_action
+              end
+            end
           end
 
           resources :search, only: [:index] do

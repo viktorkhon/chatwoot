@@ -14,12 +14,14 @@ class Messages::MessageBuilder
 
     @in_reply_to = content_attributes&.dig(:in_reply_to)
     @items = content_attributes&.dig(:items)
+    @custom_cards = content_attributes&.dig(:custom_cards)
   end
 
   def perform
     @message = @conversation.messages.build(message_params)
     process_attachments
     process_emails
+    process_custom_cards if @custom_cards
     @message.save!
     @message
   end
@@ -136,6 +138,27 @@ class Messages::MessageBuilder
     return if @params[:sender_type] != 'AgentBot'
 
     AgentBot.where(account_id: [nil, @conversation.account.id]).find_by(id: @params[:sender_id])
+  end
+
+  def process_custom_cards
+    return unless @custom_cards
+
+    @message.content_type = 'custom_cards'
+    @message.content_attributes = {
+      items: @custom_cards.map do |card|
+        {
+          id: card[:id],
+          title: card[:title],
+          description: card[:description],
+          price: card[:price],
+          image_url: card[:image_url],
+          actions: card[:actions] || [],
+          created_at: card[:created_at],
+          updated_at: card[:updated_at],
+          supports_markdown: true
+        }
+      end
+    }
   end
 
   def message_params

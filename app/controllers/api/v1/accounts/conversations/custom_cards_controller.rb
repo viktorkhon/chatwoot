@@ -5,18 +5,7 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     @message = @conversation.messages.create!(
       content: params[:content],
       content_type: 'custom_cards',
-      content_attributes: {
-        items: params[:custom_cards].map do |card|
-          {
-            title: card[:title],
-            description: card[:description],
-            price: card[:price],
-            image_url: card[:image_url],
-            actions: card[:actions] || [],
-            supports_markdown: card[:supports_markdown] != false
-          }
-        end
-      },
+      content_attributes: params[:content_attributes],
       account_id: @conversation.account_id,
       inbox_id: @conversation.inbox_id,
       message_type: :outgoing,

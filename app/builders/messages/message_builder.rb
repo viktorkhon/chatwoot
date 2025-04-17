@@ -138,6 +138,7 @@ class Messages::MessageBuilder
     AgentBot.where(account_id: [nil, @conversation.account.id]).find_by(id: @params[:sender_id])
   end
 
+  # comments
   def message_params
     {
       account_id: @conversation.account_id,

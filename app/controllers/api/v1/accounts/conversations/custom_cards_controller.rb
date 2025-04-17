@@ -2,18 +2,14 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
   CUSTOM_CARD_ACTION = 'custom_card_action'.freeze
 
   def create
-    Rails.logger.debug "CustomCardsController#create - params: #{params.inspect}"
-    Rails.logger.debug "CustomCardsController#create - @conversation: #{@conversation.inspect}"
     user = Current.user || @resource
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
   rescue StandardError => e
-    Rails.logger.error "CustomCardsController#create - Error: #{e.message}\n#{e.backtrace.join("\n")}"
     render_could_not_create_error(e.message)
   end
 
   def handle_action
-    Rails.logger.debug "CustomCardsController#handle_action - params: #{params.inspect}"
     action = params[:action]
     card = params[:card]
 

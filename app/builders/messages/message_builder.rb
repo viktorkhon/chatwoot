@@ -5,15 +5,11 @@ class Messages::MessageBuilder
   def initialize(user, conversation, params)
     @params = params
     @private = params[:private] || false
-    @conversation = conversation # Assumes conversation is always non-nil here
+    @conversation = conversation
     @user = user
     @message_type = params[:message_type] || 'outgoing'
     @attachments = params[:attachments]
-    # Uses helper method, which seems safe now
     @automation_rule = content_attributes&.dig(:automation_rule_id)
-
-    # This early return might be slightly odd, but unlikely to cause a startup crash.
-    # If params is a regular Hash, @in_reply_to and @items won't be set here.
     return unless params.instance_of?(ActionController::Parameters)
 
     @in_reply_to = content_attributes&.dig(:in_reply_to)
@@ -21,17 +17,19 @@ class Messages::MessageBuilder
   end
 
   def perform
-    # Build requires message_params to work without errors
     @message = @conversation.messages.build(message_params)
-    process_attachments # Modifies @message.attachments based on @attachments
-    process_emails # Modifies @message.content_attributes based on @params
+    process_attachments
+    process_emails
     @message.save!
     @message
   end
 
   private
 
-  # This helper looks robust. Handles string parsing, hash checking.
+  # Extracts content attributes from the given params.
+  # - Converts ActionController::Parameters to a regular hash if needed.
+  # - Attempts to parse a JSON string if content is a string.
+  # - Returns an empty hash if content is not present, if there's a parsing error, or if it's an unexpected type.
   def content_attributes
     params = convert_to_hash(@params)
     content_attributes = params.fetch(:content_attributes, {})
@@ -42,21 +40,24 @@ class Messages::MessageBuilder
     {}
   end
 
-  # This helper looks fine.
+  # Converts the given object to a hash.
+  # If it's an instance of ActionController::Parameters, converts it to an unsafe hash.
+  # Otherwise, returns the object as-is.
   def convert_to_hash(obj)
     return obj.to_unsafe_h if obj.instance_of?(ActionController::Parameters)
 
     obj
   end
 
-  # This helper looks robust.
+  # Attempts to parse a string as JSON.
+  # If successful, returns the parsed hash with symbolized names.
+  # If unsuccessful, returns nil.
   def parse_json(content)
     JSON.parse(content, symbolize_names: true)
   rescue JSON::ParserError
     {}
   end
 
-  # This accesses @message.account_id, so @message must be built first. Fine within perform.
   def process_attachments
     return if @attachments.blank?
 
@@ -65,14 +66,18 @@ class Messages::MessageBuilder
         account_id: @message.account_id,
         file: uploaded_attachment
       )
-      # ... file_type logic ... looks ok
+
+      attachment.file_type = if uploaded_attachment.is_a?(String)
+                               file_type_by_signed_id(
+                                 uploaded_attachment
+                               )
+                             else
+                               file_type(uploaded_attachment&.content_type)
+                             end
     end
   end
 
-  # Modifies @message.content_attributes directly *after* message_params is called.
-  # Needs @conversation.inbox to exist. Use safe navigation.
   def process_emails
-    # V-- Add &. here
     return unless @conversation.inbox&.inbox_type == 'Email'
 
     cc_emails = process_email_string(@params[:cc_emails])
@@ -82,87 +87,92 @@ class Messages::MessageBuilder
     all_email_addresses = cc_emails + bcc_emails + to_emails
     validate_email_addresses(all_email_addresses)
 
-    # This direct modification should be fine, but happens *after* initial build
     @message.content_attributes[:cc_emails] = cc_emails
     @message.content_attributes[:bcc_emails] = bcc_emails
     @message.content_attributes[:to_emails] = to_emails
   end
 
-  # These helpers look fine
-  def process_email_string(email_string) # ...
-  def validate_email_addresses(all_emails) # ...
+  def process_email_string(email_string)
+    return [] if email_string.blank?
 
-  # This method accesses @conversation.inbox.channel_type
-  # !! POTENTIAL STARTUP CRASH POINT !! if @conversation.inbox is nil
+    email_string.gsub(/\s+/, '').split(',')
+  end
+
+  def validate_email_addresses(all_emails)
+    all_emails&.each do |email|
+      raise StandardError, 'Invalid email address' unless email.match?(URI::MailTo::EMAIL_REGEXP)
+    end
+  end
+
   def message_type
-    # V-- Add &. here
-    if @conversation.inbox&.channel_type != 'Channel::Api' && @message_type == 'incoming'
+    if @conversation.inbox.channel_type != 'Channel::Api' && @message_type == 'incoming'
       raise StandardError, 'Incoming messages are only allowed in Api inboxes'
     end
 
     @message_type
   end
 
-  # Calls message_type (needs fix above).
-  # Calls message_sender.
-  # Accesses @conversation.contact - !! POTENTIAL CRASH POINT !! if @conversation or contact is nil
   def sender
-    # Add &. here ---------------V---------------------------------V
-    message_type == 'outgoing' ? (message_sender || @user) : @conversation&.contact
+    message_type == 'outgoing' ? (message_sender || @user) : @conversation.contact
   end
 
-  # These helpers look fine - just check presence
-  def external_created_at # ...
-  def automation_rule_id # ... # Note: This returns { content_attributes: { ... } }
-  def campaign_id # ... # Note: This returns { additional_attributes: { ... } }
-  def template_params # ... # Note: This returns { additional_attributes: { ... } }
+  def external_created_at
+    @params[:external_created_at].present? ? { external_created_at: @params[:external_created_at] } : {}
+  end
 
+  def automation_rule_id
+    @automation_rule.present? ? { content_attributes: { automation_rule_id: @automation_rule } } : {}
+  end
 
-  # Accesses @conversation.account.id
-  # !! POTENTIAL STARTUP CRASH POINT !! if @conversation or account is nil
+  def campaign_id
+    @params[:campaign_id].present? ? { additional_attributes: { campaign_id: @params[:campaign_id] } } : {}
+  end
+
+  def template_params
+    @params[:template_params].present? ? { additional_attributes: { template_params: JSON.parse(@params[:template_params].to_json) } } : {}
+  end
+
   def message_sender
     return if @params[:sender_type] != 'AgentBot'
-    # Add &. here ------------------V-------------V
-    AgentBot.where(account_id: [nil, @conversation&.account&.id]).find_by(id: @params[:sender_id])
+
+    AgentBot.where(account_id: [nil, @conversation.account.id]).find_by(id: @params[:sender_id])
   end
 
-  # --- This is the method you modified ---
   def message_params
     # Fetch the processed content_attributes hash once
     processed_attributes = content_attributes
 
     # Start building the hash for the Message model
     params_hash = {
-      # Accesses @conversation.account_id - !! POTENTIAL CRASH POINT !!
-      # V-- Add &. here
-      account_id: @conversation&.account_id,
-      # Accesses @conversation.inbox_id - !! POTENTIAL CRASH POINT !!
-      # V-- Add &. here
-      inbox_id: @conversation&.inbox_id,
-      message_type: message_type, # Calls helper (needs fix)
+      account_id: @conversation.account_id,
+      inbox_id: @conversation.inbox_id,
+      message_type: message_type,
       content: @params[:content],
       private: @private,
-      sender: sender, # Calls helper (needs fix)
+      sender: sender,
       content_type: @params[:content_type],
-      content_attributes: processed_attributes, # Correctly includes the hash
+      # --- Fix Start ---
+      # Include the processed content_attributes hash here
+      content_attributes: processed_attributes,
+      # Remove the incorrect top-level :items and :in_reply_to
+      # items: @items, # Removed
+      # in_reply_to: @in_reply_to, # Removed (these are within content_attributes)
+      # --- Fix End ---
       echo_id: @params[:echo_id],
       source_id: @params[:source_id]
     }
 
     # Merge other attributes carefully
-    # Use deep_merge! for nested hashes like additional_attributes
-    params_hash.deep_merge!(external_created_at) # This returns { external_created_at: ... } - direct merge is fine
-    params_hash.deep_merge!(campaign_id)        # This returns { additional_attributes: { ... } } - deep_merge needed
-    params_hash.deep_merge!(template_params)    # This returns { additional_attributes: { ... } } - deep_merge needed
+    params_hash.deep_merge!(external_created_at)
+    params_hash.deep_merge!(campaign_id) # Merges into additional_attributes
+    params_hash.deep_merge!(template_params) # Merges into additional_attributes
 
-    # Handle automation_rule_id - Note: automation_rule_id helper returns { content_attributes: { ... } }
-    # Merging it directly would overwrite existing content_attributes. Needs specific handling.
+    # Handle automation_rule_id separately if it needs to merge into content_attributes
+    # This merge might need adjustment if you need both incoming attributes and this rule ID
     if @automation_rule.present?
       params_hash[:content_attributes] ||= {} # Ensure content_attributes hash exists
-      # Merge automation_rule_id INTO the existing hash
       params_hash[:content_attributes][:automation_rule_id] = @automation_rule
     end
 
     params_hash
   end
-end

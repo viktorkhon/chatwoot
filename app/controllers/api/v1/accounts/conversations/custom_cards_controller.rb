@@ -24,4 +24,11 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
 
     render json: { status: 'success' }
   end
+
+  private
+
+  def conversation
+    @conversation ||= Current.account.conversations.find_by!(display_id: params[:id])
+    authorize @conversation.inbox, :show?
+  end
 end 

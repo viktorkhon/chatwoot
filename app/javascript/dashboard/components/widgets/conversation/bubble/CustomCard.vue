@@ -99,7 +99,7 @@ export default {
   }
 
   :deep(a) {
-    @apply text-blue-600 dark:text-blue-400 hover:underline;
+    @apply text-woot-500 dark:text-woot-400 hover:underline;
   }
 
   :deep(h1) {
@@ -151,7 +151,7 @@ export default {
   }
 
   :deep(a) {
-    @apply text-blue-600 dark:text-blue-400 hover:underline;
+    @apply text-woot-500 dark:text-woot-400 hover:underline;
   }
 
   :deep(h1) {
@@ -189,8 +189,8 @@ export default {
   @apply text-slate-700 dark:text-slate-200;
 
   &.is-link {
-    @apply bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800;
-    @apply text-blue-700 dark:text-blue-200;
+    @apply bg-woot-100 hover:bg-woot-200 dark:bg-woot-900 dark:hover:bg-woot-800;
+    @apply text-woot-700 dark:text-woot-200;
   }
 
   &.is-postback {

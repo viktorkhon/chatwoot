@@ -68,7 +68,7 @@ export default {
     :key="action.payload"
     class="custom-action-button button"
     :class="{
-      '!bg-n-background dark:!bg-n-alpha-black1 text-n-brand': !isCustom,
+      '!bg-n-background dark:!bg-n-alpha-black1 text-woot-500': !isCustom,
       '!bg-purple-100 dark:!bg-purple-900 text-purple-700 dark:text-purple-200': isCustom,
     }"
     :style="{ borderColor: widgetColor, color: widgetColor }"

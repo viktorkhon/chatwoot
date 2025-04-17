@@ -143,7 +143,7 @@ class Messages::MessageBuilder
   def process_custom_cards
     return unless @custom_cards
 
-    @message.content_type = 'custom_cards'
+    @message.content_type = 'cards'
     @message.content_attributes = {
       items: @custom_cards.map do |card|
         {

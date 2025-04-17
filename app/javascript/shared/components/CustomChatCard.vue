@@ -1,14 +1,14 @@
 <template>
-  <div class="custom-chat-card chat-bubble agent bg-n-background dark:bg-n-solid-3 max-w-56 rounded-lg overflow-hidden">
+  <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-800 max-w-56 rounded-lg overflow-hidden">
     <img v-if="mediaUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl" />
     <div class="custom-chat-card-body">
-      <h4 class="!text-base !font-medium !mt-1 !mb-1 !leading-[1.5] text-n-slate-12">
+      <h4 class="!text-base !font-medium !mt-1 !mb-1 !leading-[1.5] text-slate-900 dark:text-slate-100">
         {{ title }}
       </h4>
-      <p class="!mb-1 text-n-slate-11">
+      <p class="!mb-1 text-slate-700 dark:text-slate-300">
         {{ description }}
       </p>
-      <p v-if="price" class="!mb-1 font-bold text-n-slate-12" v-html="renderMarkdown(price, supportsMarkdown)"></p>
+      <p v-if="price" class="!mb-1 font-bold text-slate-900 dark:text-slate-100" v-html="renderMarkdown(price, supportsMarkdown)"></p>
       <div v-if="customFields" class="custom-chat-card-fields">
         <div v-for="(field, index) in customFields" :key="index" class="custom-chat-card-field">
           <span class="custom-chat-card-field-label">{{ field.label }}:</span>
@@ -111,7 +111,7 @@ export default {
   }
 
   :deep(a) {
-    @apply text-blue-600 dark:text-blue-400 hover:underline;
+    @apply text-woot-500 dark:text-woot-400 hover:underline;
   }
 
   :deep(h1) {

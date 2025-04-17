@@ -138,20 +138,35 @@ class Messages::MessageBuilder
     AgentBot.where(account_id: [nil, @conversation.account.id]).find_by(id: @params[:sender_id])
   end
 
-  # comments
   def message_params
-    {
-      account_id: @conversation.account_id,
-      inbox_id: @conversation.inbox_id,
+    main_content_attributes = content_attributes
+    automation_attributes = automation_rule_id_data[:content_attributes]
+
+    if automation_attributes.present?
+      main_content_attributes ||= {}
+      main_content_attributes.merge!(automation_attributes)
+    end
+
+    params_hash = {
+      # Added safe navigation
+      account_id: @conversation&.account_id,
+      inbox_id: @conversation&.inbox_id,
       message_type: message_type,
       content: @params[:content],
       private: @private,
       sender: sender,
       content_type: @params[:content_type],
-      items: @items,
-      in_reply_to: @in_reply_to,
+      # Core Fix: Assign the processed content_attributes hash
+      content_attributes: main_content_attributes,
       echo_id: @params[:echo_id],
       source_id: @params[:source_id]
-    }.merge(external_created_at).merge(automation_rule_id).merge(campaign_id).merge(template_params)
+    }
+
+    # Merge other helpers that return top-level keys or additional_attributes
+    params_hash.merge!(external_created_at)
+    params_hash.deep_merge!(campaign_id_data)      # Use deep_merge! for additional_attributes
+    params_hash.deep_merge!(template_params_data)  # Use deep_merge! for additional_attributes
+
+    params_hash
   end
 end

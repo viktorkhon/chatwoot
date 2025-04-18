@@ -143,26 +143,22 @@ class Messages::MessageBuilder
   def process_custom_cards
     return unless @custom_cards
 
-    Rails.logger.debug "MessageBuilder#process_custom_cards - Processing custom cards: #{@custom_cards.inspect}"
-    
     @message.content_type = 'custom_cards'
     @message.content_attributes = {
       items: @custom_cards.map do |card|
         {
-          id: card[:id] || SecureRandom.uuid,
+          id: card[:id],
           title: card[:title],
           description: card[:description],
           price: card[:price],
           image_url: card[:image_url],
           actions: card[:actions] || [],
-          created_at: card[:created_at] || Time.current,
-          updated_at: card[:updated_at] || Time.current,
+          created_at: card[:created_at],
+          updated_at: card[:updated_at],
           supports_markdown: true
-        }.compact
+        }
       end
     }
-    
-    Rails.logger.debug "MessageBuilder#process_custom_cards - Set content attributes: #{@message.content_attributes.inspect}"
   end
 
   def message_params

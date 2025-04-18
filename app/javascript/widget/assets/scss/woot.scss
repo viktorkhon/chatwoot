@@ -7,6 +7,7 @@
 @import 'tailwindcss/utilities';
 @import 'shared/assets/fonts/widget_fonts';
 @import 'views/conversation';
+@import 'custom_card';
 
 html,
 body {
@@ -48,9 +49,14 @@ body {
 }
 
 .is-flat-design {
-  .chat-bubble {
+  .chat-bubble:not(.custom-chat-card) {
     border-radius: 0 !important;
     box-shadow: none;
+  }
+
+  .custom-chat-card.chat-bubble {
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
   }
 
   button {

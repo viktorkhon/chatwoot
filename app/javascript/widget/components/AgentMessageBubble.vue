@@ -151,7 +151,7 @@ export default {
       :message-content-attributes="messageContentAttributes.submitted_values"
       :message-id="messageId"
     />
-    <div v-if="isCustomCards">
+    <div v-if="isCustomCards" class="custom-cards-container">
       <CustomChatCard
         v-for="item in messageContentAttributes.items"
         :key="item.title"
@@ -167,3 +167,14 @@ export default {
     </div>
   </div>
 </template>
+
+<style lang="scss">
+.custom-cards-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+</style>

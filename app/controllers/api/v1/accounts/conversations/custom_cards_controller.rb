@@ -7,6 +7,8 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     user = Current.user || @resource
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
+    
+    render json: @message
   rescue StandardError => e
     Rails.logger.error "CustomCardsController#create - Error: #{e.message}\n#{e.backtrace.join("\n")}"
     render_could_not_create_error(e.message)
@@ -27,12 +29,27 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     )
 
     render json: { status: 'success' }
+  rescue StandardError => e
+    Rails.logger.error "CustomCardsController#handle_action - Error: #{e.message}\n#{e.backtrace.join("\n")}"
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   private
 
   def conversation
-    @conversation ||= Current.account.conversations.find_by!(display_id: params[:id])
-    authorize @conversation.inbox, :show?
+    Rails.logger.debug "CustomCardsController#conversation - params: #{params.inspect}"
+    if params[:id].blank?
+      Rails.logger.error "CustomCardsController#conversation - Conversation ID is blank in params"
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation with display_id=NULL"
+    end
+    
+    begin
+      @conversation ||= Current.account.conversations.find_by!(display_id: params[:id])
+      Rails.logger.debug "CustomCardsController#conversation - Found conversation: #{@conversation.display_id}"
+      authorize @conversation.inbox, :show?
+    rescue ActiveRecord::RecordNotFound => e
+      Rails.logger.error "CustomCardsController#conversation - Could not find conversation with display_id=#{params[:id]}"
+      raise
+    end
   end
 end 

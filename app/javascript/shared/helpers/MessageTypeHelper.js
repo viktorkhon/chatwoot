@@ -13,7 +13,7 @@ export const MESSAGE_MAX_LENGTH = {
 };
 
 export const isCustomCardMessage = message => {
-  return message.content_type === 'custom_cards';
+  return message.content_type === 'custom_cards' || message.content_type === 'cards';
 };
 
 export const isOutgoingMessage = message => {

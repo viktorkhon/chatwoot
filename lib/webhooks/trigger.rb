@@ -8,7 +8,62 @@ class Webhooks::Trigger
   end
 
   def self.execute(url, payload, webhook_type)
-    new(url, payload, webhook_type).execute
+    Rails.logger.debug "Webhooks::Trigger.execute - URL: #{url}, Webhook Type: #{webhook_type}, Payload: #{payload.to_json}"
+    
+    begin
+      response = perform_request(url, payload)
+      Rails.logger.debug "Webhooks::Trigger.execute - Response: Status #{response.status}, Body: #{response.body.to_s[0...500]}"
+      
+      update_message_status(payload, response) if should_update_message_status?(webhook_type)
+      
+      response
+    rescue StandardError => e
+      error_class = e.class.name
+      error_message = e.message
+      error_backtrace = e.backtrace[0..5].join("\n")
+      Rails.logger.error "Webhooks::Trigger.execute - Error: #{error_class}: #{error_message}\n#{error_backtrace}"
+      
+      handle_error(url, e)
+      
+      nil
+    end
+  end
+
+  def self.perform_request(url, payload)
+    response = HTTParty.post(
+      url,
+      body: payload.to_json,
+      headers: { 'Content-Type' => 'application/json' },
+      timeout: 5
+    )
+
+    if response.success?
+      response
+    else
+      Rails.logger.warn "Webhooks::Trigger - Unsuccessful response: #{response.code} #{response.message}"
+      raise StandardError, "#{response.code} #{response.message}"
+    end
+  end
+
+  def self.handle_error(url, error)
+    Rails.logger.warn "Invalid webhook URL #{url} : #{error.message}"
+  end
+
+  def self.should_update_message_status?(webhook_type)
+    %w[message_created message_updated].include?(webhook_type)
+  end
+
+  def self.update_message_status(payload, response)
+    message = Message.find_by(id: payload[:id])
+    return if message.blank?
+
+    response = evaluate_response(response)
+    message.external_status = response&.dig(:status) || ''
+    message.save!
+  end
+
+  def self.evaluate_response(response)
+    response&.parsed_response.presence || { status: 'delivered' }
   end
 
   def execute

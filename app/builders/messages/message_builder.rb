@@ -165,30 +165,6 @@ class Messages::MessageBuilder
     Rails.logger.debug "MessageBuilder#process_custom_cards - Set content attributes: #{@message.content_attributes.inspect}"
   end
 
-  def process_cards
-    return unless @cards
-
-    Rails.logger.debug "MessageBuilder#process_cards - Processing cards: #{@cards.inspect}"
-    
-    @message.content_type = 'cards'
-    @message.content_attributes = {
-      items: @cards.map do |card|
-        {
-          id: card[:id] || SecureRandom.uuid,
-          title: card[:title],
-          description: card[:description],
-          price: card[:price],
-          media_url: card[:media_url],
-          actions: card[:actions] || [],
-          created_at: card[:created_at] || Time.current,
-          updated_at: card[:updated_at] || Time.current
-        }.compact
-      end
-    }
-    
-    Rails.logger.debug "MessageBuilder#process_cards - Set content attributes: #{@message.content_attributes.inspect}"
-  end
-
   def message_params
     main_content_attributes = content_attributes
     automation_attributes = automation_rule_id[:content_attributes]

@@ -5,6 +5,7 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     user = Current.user || @resource
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
+    render json: { message: @message, status: 'success' }
   rescue StandardError => e
     render_could_not_create_error(e.message)
   end

@@ -155,7 +155,8 @@ export default {
       <CustomChatCard
         v-for="item in messageContentAttributes.items"
         :key="item.title"
-        :media-url="item.media_url"
+        :media-url="item.image_url"
+        :image-url="item.image_url"
         :title="item.title"
         :description="item.description"
         :price="item.price"

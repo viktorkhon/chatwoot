@@ -1,6 +1,6 @@
 <template>
   <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-800 max-w-56 rounded-lg overflow-hidden">
-    <img v-if="mediaUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl" />
+    <img v-if="displayUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="displayUrl" />
     <div class="custom-chat-card-body">
       <h4 class="!text-base !font-medium !mt-1 !mb-1 !leading-[1.5] text-slate-900 dark:text-slate-100">
         {{ title }}
@@ -8,7 +8,7 @@
       <p class="!mb-1 text-slate-700 dark:text-slate-300">
         {{ description }}
       </p>
-      <p v-if="price" class="!mb-1 font-bold text-slate-900 dark:text-slate-100" v-html="renderMarkdown(price, supportsMarkdown)"></p>
+      <p v-if="price" class="!mb-2 font-bold text-center text-2xl text-slate-900 dark:text-slate-100" v-html="renderMarkdown(price, supportsMarkdown)"></p>
       <div v-if="customFields" class="custom-chat-card-fields">
         <div v-for="(field, index) in customFields" :key="index" class="custom-chat-card-field">
           <span class="custom-chat-card-field-label">{{ field.label }}:</span>
@@ -42,6 +42,10 @@ export default {
       type: String,
       default: '',
     },
+    imageUrl: {
+      type: String,
+      default: '',
+    },
     price: {
       type: String,
       default: '',
@@ -58,6 +62,11 @@ export default {
       type: Boolean,
       default: true,
     },
+  },
+  computed: {
+    displayUrl() {
+      return this.imageUrl || this.mediaUrl || '';
+    }
   },
   methods: {
     renderMarkdown,

@@ -160,6 +160,7 @@ export default {
         :title="item.title"
         :description="item.description"
         :price="item.price"
+        :reason="item.reason"
         :actions="item.actions"
         :custom-fields="item.custom_fields"
         :supports-markdown="item.supports_markdown"

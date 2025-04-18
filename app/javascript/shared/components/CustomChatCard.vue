@@ -101,26 +101,34 @@ export default {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
   background-color: white !important;
   color: #1a202c !important; /* Ensure text is dark for readability */
+  border: 1px solid #e2e8f0 !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 
   &.dark\:bg-slate-100 {
     background-color: #f8fafc !important; /* Light background in dark mode for readability */
   }
 
+  &:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+  }
+
   &-image-container {
+    position: relative !important;
     width: 100% !important;
-    height: auto !important;
-    max-height: 150px !important;
+    height: 150px !important;
     overflow: hidden !important;
-    display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: #f8fafc !important;
+    border-radius: 5px 5px 0 0 !important;
   }
 
   &-image {
     width: 100% !important;
     object-fit: contain !important;
     max-height: 150px !important;
-    border-radius: 5px 5px 0 0 !important;
     display: block !important;
   }
 
@@ -136,10 +144,15 @@ export default {
     margin: 0.5rem 0 1rem !important;
     line-height: 1.2 !important;
     color: #1a202c !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   &-section {
     margin-bottom: 1rem !important;
+    padding: 0.5rem !important;
+    background-color: #f8fafc !important;
+    border-radius: 0.25rem !important;
   }
 
   &-section-title {
@@ -148,6 +161,8 @@ export default {
     text-align: center !important;
     margin-bottom: 0.5rem !important;
     color: #4a5568 !important;
+    padding-bottom: 0.25rem !important;
+    border-bottom: 1px solid #e2e8f0 !important;
   }
 
   &-description, &-reason {
@@ -156,6 +171,7 @@ export default {
     color: #2d3748 !important;
     text-align: left !important;
     margin-bottom: 0.5rem !important;
+    word-break: break-word !important;
   }
 
   &-price {
@@ -165,6 +181,9 @@ export default {
     font-size: 1.5rem !important;
     line-height: 1.2 !important;
     color: #1a202c !important;
+    padding: 0.5rem !important;
+    background-color: #f0fff4 !important;
+    border-radius: 0.25rem !important;
   }
 
   &-fields {

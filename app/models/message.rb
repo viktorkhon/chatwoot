@@ -40,6 +40,7 @@
 class Message < ApplicationRecord
   include MessageFilterHelpers
   include Liquidable
+  include MessageFormatHelper
   NUMBER_OF_PERMITTED_ATTACHMENTS = 15
 
   TEMPLATE_PARAMS_SCHEMA = {
@@ -167,7 +168,7 @@ class Message < ApplicationRecord
       account: account.webhook_data,
       additional_attributes: additional_attributes,
       content_attributes: content_attributes,
-      content_type: content_type,
+      content_type: content_type.to_s,
       content: content,
       conversation: conversation.webhook_data,
       created_at: created_at,

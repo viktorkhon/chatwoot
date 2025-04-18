@@ -11,6 +11,16 @@ class Webhooks::Trigger
     Rails.logger.debug "Webhooks::Trigger.execute - URL: #{url}, Webhook Type: #{webhook_type}, Payload: #{payload.to_json}"
     
     begin
+      # Ensure payload content_type is properly serialized as a string, not a symbol
+      if payload[:content_type].present? && payload[:content_type].is_a?(Symbol)
+        payload[:content_type] = payload[:content_type].to_s
+      end
+      
+      # Adds additional debug logging for content_type
+      if payload[:content_type].present?
+        Rails.logger.debug "Webhooks::Trigger.execute - Content Type: #{payload[:content_type]}, Class: #{payload[:content_type].class}"
+      end
+      
       response = perform_request(url, payload)
       Rails.logger.debug "Webhooks::Trigger.execute - Response: Status #{response.status}, Body: #{response.body.to_s[0...500]}"
       
@@ -76,6 +86,11 @@ class Webhooks::Trigger
   private
 
   def perform_request
+    # Ensure payload content_type is properly serialized as a string
+    if @payload[:content_type].present? && @payload[:content_type].is_a?(Symbol)
+      @payload[:content_type] = @payload[:content_type].to_s
+    end
+    
     RestClient::Request.execute(
       method: :post,
       url: @url,

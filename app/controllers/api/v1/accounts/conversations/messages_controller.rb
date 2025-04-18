@@ -62,4 +62,11 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
   def already_translated_content_available?
     message.translations.present? && message.translations[permitted_params[:target_language]].present?
   end
+  
+  # Override the conversation method from BaseController to support both :id and :conversation_id parameters
+  def conversation
+    conversation_id = params[:conversation_id] || params[:id]
+    @conversation ||= Current.account.conversations.find_by!(display_id: conversation_id)
+    authorize @conversation.inbox, :show?
+  end
 end

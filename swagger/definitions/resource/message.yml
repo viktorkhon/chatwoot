@@ -5,7 +5,7 @@ properties:
     description: The text content of the message
   content_type:
     type: string
-    enum: ["text", "input_select", "cards", "form"]
+    enum: ["text", "input_select", "cards", "custom_cards", "form"]
     description: The type of the template message
   content_attributes:
     type: object

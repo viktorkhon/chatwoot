@@ -12,16 +12,8 @@ class Webhooks::Trigger
   end
 
   def execute
-    Rails.logger.debug "Webhooks::Trigger#execute - Sending webhook to #{@url}"
-    Rails.logger.debug "Webhooks::Trigger#execute - Payload: #{@payload.inspect}"
-    Rails.logger.debug "Webhooks::Trigger#execute - Webhook type: #{@webhook_type}"
-    
-    response = perform_request
-    Rails.logger.debug "Webhooks::Trigger#execute - Response: #{response.inspect}"
-    response
+    perform_request
   rescue StandardError => e
-    Rails.logger.error "Webhooks::Trigger#execute - Error: #{e.class.name} - #{e.message}"
-    Rails.logger.error "Webhooks::Trigger#execute - Backtrace: #{e.backtrace.join("\n")}"
     handle_error(e)
     Rails.logger.warn "Exception: Invalid webhook URL #{@url} : #{e.message}"
   end

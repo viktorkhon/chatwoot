@@ -145,24 +145,48 @@ class Messages::MessageBuilder
 
     Rails.logger.debug "MessageBuilder#process_custom_cards - Processing custom cards: #{@custom_cards.inspect}"
     
-    @message.content_type = 'cards'
+    @message.content_type = 'custom_cards'
     @message.content_attributes = {
       items: @custom_cards.map do |card|
         {
-          id: card[:id],
+          id: card[:id] || SecureRandom.uuid,
           title: card[:title],
           description: card[:description],
           price: card[:price],
           image_url: card[:image_url],
           actions: card[:actions] || [],
-          created_at: card[:created_at],
-          updated_at: card[:updated_at],
+          created_at: card[:created_at] || Time.current,
+          updated_at: card[:updated_at] || Time.current,
           supports_markdown: true
-        }
+        }.compact
       end
     }
     
     Rails.logger.debug "MessageBuilder#process_custom_cards - Set content attributes: #{@message.content_attributes.inspect}"
+  end
+
+  def process_cards
+    return unless @cards
+
+    Rails.logger.debug "MessageBuilder#process_cards - Processing cards: #{@cards.inspect}"
+    
+    @message.content_type = 'cards'
+    @message.content_attributes = {
+      items: @cards.map do |card|
+        {
+          id: card[:id] || SecureRandom.uuid,
+          title: card[:title],
+          description: card[:description],
+          price: card[:price],
+          media_url: card[:media_url],
+          actions: card[:actions] || [],
+          created_at: card[:created_at] || Time.current,
+          updated_at: card[:updated_at] || Time.current
+        }.compact
+      end
+    }
+    
+    Rails.logger.debug "MessageBuilder#process_cards - Set content attributes: #{@message.content_attributes.inspect}"
   end
 
   def message_params

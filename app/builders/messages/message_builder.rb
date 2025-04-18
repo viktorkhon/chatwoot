@@ -143,6 +143,8 @@ class Messages::MessageBuilder
   def process_custom_cards
     return unless @custom_cards
 
+    Rails.logger.debug "MessageBuilder#process_custom_cards - Processing custom cards: #{@custom_cards.inspect}"
+    
     @message.content_type = 'cards'
     @message.content_attributes = {
       items: @custom_cards.map do |card|
@@ -159,6 +161,8 @@ class Messages::MessageBuilder
         }
       end
     }
+    
+    Rails.logger.debug "MessageBuilder#process_custom_cards - Set content attributes: #{@message.content_attributes.inspect}"
   end
 
   def message_params

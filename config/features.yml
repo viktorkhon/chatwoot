@@ -157,10 +157,7 @@
 - name: shopify_integration
   display_name: Shopify Integration
   enabled: true
-<<<<<<< Updated upstream
   chatwoot_internal: true
-=======
->>>>>>> Stashed changes
 - name: search_with_gin
   display_name: Search messages with GIN
   enabled: false

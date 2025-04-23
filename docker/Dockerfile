@@ -152,12 +152,3 @@ COPY --from=pre-builder /app/.git_sha /app/.git_sha
 WORKDIR /app
 
 EXPOSE 3000
-
-# Copy and set up the rails.sh script (modified version from Step 1)
-COPY docker/entrypoints/rails.sh /usr/bin/rails.sh
-RUN chmod +x /usr/bin/rails.sh
-
-ENTRYPOINT ["/usr/bin/rails.sh"]
-
-# CMD to run Foreman using the Procfile
-CMD ["bundle", "exec", "foreman", "start", "-f", "Procfile"]

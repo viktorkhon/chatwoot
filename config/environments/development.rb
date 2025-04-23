@@ -63,6 +63,9 @@ Rails.application.configure do
   # Disable host check during development
   config.hosts = nil
 
+  # Allow web console access from Docker networks
+  config.web_console.permissions = ['127.0.0.0/8', '::1', '172.0.0.0/8', '192.168.0.0/16']
+
   # customize using the environment variables
   config.log_level = ENV.fetch('LOG_LEVEL', 'debug').to_sym
 

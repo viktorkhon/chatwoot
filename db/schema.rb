@@ -18,6 +18,10 @@ ActiveRecord::Schema[7.0].define(version: 2025_04_16_182131) do
   enable_extension "plpgsql"
   enable_extension "vector"
 
+  # Custom types defined in this database.
+  # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "message_content_type", ["text", "input_text", "input_textarea", "input_email", "input_select", "form", "article", "incoming_email", "input_csat", "integrations", "sticker", "custom_cards"]
+
   create_table "access_tokens", force: :cascade do |t|
     t.string "owner_type"
     t.bigint "owner_id"

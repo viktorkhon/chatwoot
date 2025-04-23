@@ -86,8 +86,10 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   && rm -rf spec node_modules tmp/cache; \
   fi
 
-# Generate .git_sha file with current commit hash
-RUN git rev-parse HEAD > /app/.git_sha
+# Use the environment variable provided by Railway to generate the .git_sha file
+# (this also provides a default value if the variable isn't set for some reason):
+  RUN echo ${RAILWAY_GIT_COMMIT_SHA:-unknown} > /app/.git_sha
+
 
 # Remove unnecessary files
 RUN rm -rf /gems/ruby/3.3.0/cache/*.gem \

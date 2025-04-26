@@ -48,7 +48,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor': ['vue', 'vuex', 'vue-router'],
-          // Remove the dashboard-icons chunking to allow it to be dynamically imported
+          // Split dashboard icons into a separate chunk
+          'dashboard-icons': ['./app/javascript/shared/components/FluentIcon/dashboard-icons.json']
         },
         ...(isLibraryMode
           ? {
@@ -64,8 +65,6 @@ export default defineConfig({
         inlineDynamicImports: isLibraryMode, // Disable code-splitting for SDK
       },
     },
-    // Add a specific config for handling large JSON files
-    assetsInlineLimit: 4096, // Don't inline files larger than ~4kb
     lib: isLibraryMode
       ? {
           entry: path.resolve(__dirname, './app/javascript/entrypoints/sdk.js'),

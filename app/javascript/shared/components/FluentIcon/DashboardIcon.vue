@@ -1,8 +1,6 @@
 <script>
 import BaseIcon from './Icon.vue';
-// Import only the necessary icons dynamically
-// The full import was causing the bundle size issue
-const icons = {};
+import icons from './dashboard-icons.json';
 
 export default {
   name: 'FluentIcon',
@@ -33,13 +31,6 @@ export default {
   },
   data() {
     return { icons };
-  },
-  async created() {
-    // Only import the dashboard-icons.json when the component is actually used
-    if (Object.keys(this.icons).length === 0) {
-      const iconsModule = await import('./dashboard-icons.json');
-      Object.assign(this.icons, iconsModule.default);
-    }
   },
 };
 </script>

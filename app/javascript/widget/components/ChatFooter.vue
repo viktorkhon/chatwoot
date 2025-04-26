@@ -84,13 +84,25 @@ export default {
       this.inReplyTo = null;
     },
     startNewConversation() {
+      // Clear all conversation data
       this.clearConversations();
       this.clearConversationAttributes();
+      
+      // Reset the widget state
+      window.$chatwoot.reset();
+      
+      // Clear any stored conversation data
+      localStorage.removeItem('cw_conversation');
+      localStorage.removeItem('cw_contact');
+      
+      // Redirect to pre-chat form
       this.replaceRoute('prechat-form');
+      
+      // Notify about new conversation
       IFrameHelper.sendMessage({
         event: 'onEvent',
         eventIdentifier: CHATWOOT_ON_START_CONVERSATION,
-        data: { hasConversation: true },
+        data: { hasConversation: false },
       });
     },
     toggleReplyTo(message) {

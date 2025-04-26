@@ -40,6 +40,7 @@
 class Message < ApplicationRecord
   include MessageFilterHelpers
   include Liquidable
+  include MessageFormatHelper
   NUMBER_OF_PERMITTED_ATTACHMENTS = 15
 
   TEMPLATE_PARAMS_SCHEMA = {
@@ -92,7 +93,8 @@ class Message < ApplicationRecord
     incoming_email: 8,
     input_csat: 9,
     integrations: 10,
-    sticker: 11
+    sticker: 11,
+    custom_cards: 12
   }
   enum status: { sent: 0, delivered: 1, read: 2, failed: 3 }
   # [:submitted_email, :items, :submitted_values] : Used for bot message types
@@ -166,7 +168,7 @@ class Message < ApplicationRecord
       account: account.webhook_data,
       additional_attributes: additional_attributes,
       content_attributes: content_attributes,
-      content_type: content_type,
+      content_type: content_type.to_s,
       content: content,
       conversation: conversation.webhook_data,
       created_at: created_at,

@@ -13,13 +13,13 @@ class ApiController < ApplicationController
   def redis_status
     r = Redis.new(Redis::Config.app)
     return 'ok' if r.ping
-  rescue Redis::CannotConnectError
+  rescue Redis::CannotConnectError => e
     'failing'
   end
 
   def postgres_status
     ActiveRecord::Base.connection.active? ? 'ok' : 'failing'
-  rescue ActiveRecord::ConnectionNotEstablished
+  rescue ActiveRecord::ConnectionNotEstablished => e
     'failing'
   end
 end

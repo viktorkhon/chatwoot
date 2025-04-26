@@ -14,12 +14,14 @@ class Messages::MessageBuilder
 
     @in_reply_to = content_attributes&.dig(:in_reply_to)
     @items = content_attributes&.dig(:items)
+    @custom_cards = content_attributes&.dig(:custom_cards)
   end
 
   def perform
     @message = @conversation.messages.build(message_params)
     process_attachments
     process_emails
+    process_custom_cards if @custom_cards
     @message.save!
     @message
   end
@@ -138,19 +140,56 @@ class Messages::MessageBuilder
     AgentBot.where(account_id: [nil, @conversation.account.id]).find_by(id: @params[:sender_id])
   end
 
+  def process_custom_cards
+    return unless @custom_cards
+
+    @message.content_type = 'custom_cards'
+    @message.content_attributes = {
+      items: @custom_cards.map do |card|
+        {
+          id: card[:id],
+          title: card[:title],
+          description: card[:description],
+          price: card[:price],
+          image_url: card[:image_url],
+          actions: card[:actions] || [],
+          created_at: card[:created_at],
+          updated_at: card[:updated_at],
+          supports_markdown: true
+        }
+      end
+    }
+  end
+
   def message_params
-    {
-      account_id: @conversation.account_id,
-      inbox_id: @conversation.inbox_id,
+    main_content_attributes = content_attributes
+    automation_attributes = automation_rule_id[:content_attributes]
+
+    if automation_attributes.present?
+      main_content_attributes ||= {}
+      main_content_attributes.merge!(automation_attributes)
+    end
+
+    params_hash = {
+      # Added safe navigation
+      account_id: @conversation&.account_id,
+      inbox_id: @conversation&.inbox_id,
       message_type: message_type,
       content: @params[:content],
       private: @private,
       sender: sender,
       content_type: @params[:content_type],
-      items: @items,
-      in_reply_to: @in_reply_to,
+      # Core Fix: Assign the processed content_attributes hash
+      content_attributes: main_content_attributes,
       echo_id: @params[:echo_id],
       source_id: @params[:source_id]
-    }.merge(external_created_at).merge(automation_rule_id).merge(campaign_id).merge(template_params)
+    }
+
+    # Merge other helpers that return top-level keys or additional_attributes
+    params_hash.merge!(external_created_at)
+    params_hash.deep_merge!(campaign_id)
+    params_hash.deep_merge!(template_params)
+
+    params_hash
   end
 end

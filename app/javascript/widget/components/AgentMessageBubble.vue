@@ -7,6 +7,7 @@ import ChatArticle from './template/Article.vue';
 import EmailInput from './template/EmailInput.vue';
 import CustomerSatisfaction from 'shared/components/CustomerSatisfaction.vue';
 import IntegrationCard from './template/IntegrationCard.vue';
+import CustomChatCard from 'shared/components/CustomChatCard.vue';
 
 export default {
   name: 'AgentMessageBubble',
@@ -18,6 +19,7 @@ export default {
     EmailInput,
     CustomerSatisfaction,
     IntegrationCard,
+    CustomChatCard,
   },
   props: {
     message: { type: String, default: null },
@@ -64,6 +66,9 @@ export default {
     isIntegrations() {
       return this.contentType === 'integrations';
     },
+    isCustomCards() {
+      return this.contentType === 'custom_cards';
+    },
   },
   methods: {
     onResponse(messageResponse) {
@@ -93,7 +98,7 @@ export default {
   <div class="chat-bubble-wrap">
     <div
       v-if="
-        !isCards && !isOptions && !isForm && !isArticle && !isCards && !isCSAT
+        !isCards && !isOptions && !isForm && !isArticle && !isCards && !isCSAT && !isCustomCards
       "
       class="chat-bubble agent bg-n-background dark:bg-n-solid-3 text-n-slate-12"
     >
@@ -146,5 +151,31 @@ export default {
       :message-content-attributes="messageContentAttributes.submitted_values"
       :message-id="messageId"
     />
+    <div v-if="isCustomCards" class="custom-cards-container">
+      <CustomChatCard
+        v-for="item in messageContentAttributes.items"
+        :key="item.title"
+        :media-url="item.image_url"
+        :image-url="item.image_url"
+        :title="item.title"
+        :description="item.description"
+        :price="item.price"
+        :reason="item.reason"
+        :actions="item.actions"
+        :custom-fields="item.custom_fields"
+        :supports-markdown="item.supports_markdown"
+      />
+    </div>
   </div>
 </template>
+
+<style lang="scss">
+.custom-cards-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+</style>

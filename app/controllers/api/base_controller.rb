@@ -13,7 +13,6 @@ class Api::BaseController < ApplicationController
 
   def check_authorization(model = nil)
     model ||= controller_name.classify.constantize
-
     authorize(model)
   end
 

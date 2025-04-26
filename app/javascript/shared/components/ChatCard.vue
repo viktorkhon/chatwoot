@@ -6,6 +6,10 @@ export default {
     CardButton,
   },
   props: {
+    items: {
+      type: Array,
+      default: null
+    },
     title: {
       type: String,
       default: '',
@@ -18,6 +22,10 @@ export default {
       type: String,
       default: '',
     },
+    price: {
+      type: String,
+      default: '',
+    },
     actions: {
       type: Array,
       default: () => [],
@@ -27,21 +35,17 @@ export default {
 </script>
 
 <template>
-  <div
-    class="card-message chat-bubble agent bg-n-background dark:bg-n-solid-3 max-w-56 rounded-lg overflow-hidden"
-  >
-    <img
-      class="w-full object-contain max-h-[150px] rounded-[5px]"
-      :src="mediaUrl"
-    />
+  <div class="card-message chat-bubble agent bg-n-background dark:bg-n-solid-3 max-w-56 rounded-lg overflow-hidden">
+    <img class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl" />
     <div class="card-body">
-      <h4
-        class="!text-base !font-medium !mt-1 !mb-1 !leading-[1.5] text-n-slate-12"
-      >
+      <h4 class="!text-base !font-medium !mt-1 !mb-1 !leading-[1.5] text-n-slate-12">
         {{ title }}
       </h4>
       <p class="!mb-1 text-n-slate-11">
         {{ description }}
+      </p>
+      <p v-if="price" class="!mb-1 font-bold text-n-slate-12">
+        {{ price }}
       </p>
       <CardButton v-for="action in actions" :key="action.id" :action="action" />
     </div>

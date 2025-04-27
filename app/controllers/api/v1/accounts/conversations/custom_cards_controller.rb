@@ -6,10 +6,8 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
     
-    # Broadcast the message creation event via ActionCable
-    Rails.logger.info "--- CustomCardsController: Before broadcast. Message ID: #{@message&.id}, Content Type: #{@message&.content_type}"
-    ConversationChannel.broadcast_to(@conversation, :message_created, @message)
-    Rails.logger.info "--- CustomCardsController: After broadcast. Message ID: #{@message&.id}"
+    # Broadcast the message creation event via ActionCable - REMOVED as model callback handles it
+    # ConversationChannel.broadcast_to(@conversation, :message_created, @message)
     
     # Ensure message is immediately sent (especially important for bot messages)
     SendReplyJob.perform_now(@message.id) if @message.outgoing?

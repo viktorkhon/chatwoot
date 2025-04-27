@@ -518,7 +518,7 @@ export default {
           </template>
         </div>
         <BubbleText
-          v-else-if="data.content && !isCardType && !isFormType && !isCustomCardType"
+          v-else-if="data.content && !isCardType && !isFormType"
           :message="message"
           :is-email="isEmailContentType"
           :display-quoted-button="displayQuotedButton"

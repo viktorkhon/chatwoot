@@ -147,13 +147,14 @@ class Messages::MessageBuilder
     @message.content_attributes = {
       items: @custom_cards.map do |card|
         {
+          id: card[:id],
           title: card[:title],
           description: card[:description],
           price: card[:price],
           image_url: card[:image_url],
           actions: card[:actions] || [],
-          reason: card[:reason],
-          custom_fields: card[:custom_fields],
+          created_at: card[:created_at],
+          updated_at: card[:updated_at],
           supports_markdown: true
         }
       end

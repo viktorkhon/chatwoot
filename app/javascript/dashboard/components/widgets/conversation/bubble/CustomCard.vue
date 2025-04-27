@@ -7,10 +7,6 @@
       <div class="card-content">
         <h3 v-if="item.title" class="card-title" v-html="renderMarkdown(item.title, item.supports_markdown)"></h3>
         <div v-if="item.description" class="card-description" v-html="renderMarkdown(item.description, item.supports_markdown)"></div>
-        <div v-if="item.reason" class="card-reason">
-          <h4 class="card-reason-title">Reason for Suggestion</h4>
-          <div class="card-reason-content" v-html="renderMarkdown(item.reason, item.supports_markdown)"></div>
-        </div>
         <div v-if="item.price" class="card-price" v-html="renderMarkdown(item.price, item.supports_markdown)"></div>
         <div v-if="item.actions && item.actions.length" class="card-actions">
           <button
@@ -77,18 +73,6 @@ export default {
 
 .card-title {
   @apply text-base font-semibold text-slate-900 dark:text-slate-100 mb-2;
-}
-
-.card-reason {
-  @apply bg-slate-50 dark:bg-slate-700 p-3 rounded-md mb-3;
-}
-
-.card-reason-title {
-  @apply text-sm font-medium text-slate-700 dark:text-slate-200 mb-1;
-}
-
-.card-reason-content {
-  @apply text-sm text-slate-600 dark:text-slate-300;
 }
 
 .card-description {

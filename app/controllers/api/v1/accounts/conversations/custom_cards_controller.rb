@@ -6,6 +6,9 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
     
+    # Broadcast the message creation event via ActionCable
+    ConversationChannel.broadcast_to(@conversation, :message_created, @message)
+    
     # Ensure message is immediately sent (especially important for bot messages)
     SendReplyJob.perform_now(@message.id) if @message.outgoing?
     

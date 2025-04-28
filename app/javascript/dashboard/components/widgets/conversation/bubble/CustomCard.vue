@@ -3,6 +3,14 @@
     <div class="debug-info p-2 mb-2 bg-yellow-100 border border-yellow-400 text-yellow-800 hidden" style="display: block !important;">
       Debug: Custom Card component with {{items.length}} items
     </div>
+    
+    <!-- Basic hardcoded version for testing -->
+    <div style="border: 4px dashed green; padding: 16px; background: white; margin: 8px 0;">
+      <h2 style="color: black; font-size: 18px; font-weight: bold;">THIS IS A HARDCODED TEST CARD</h2>
+      <p style="color: black;">If you can see this, the CustomCard component is being rendered.</p>
+    </div>
+    
+    <!-- Dynamic version -->
     <div v-for="(item, index) in items" :key="index" class="card custom-card-item-debug">
       <div v-if="item.image_url" class="card-media">
         <img :src="item.image_url" :alt="item.title" class="card-image" />
@@ -28,7 +36,6 @@
         </div>
       </div>
     </div>
-    <div v-if="hasSeparator" class="separator"></div>
   </div>
 </template>
 

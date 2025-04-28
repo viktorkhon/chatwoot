@@ -200,9 +200,7 @@ export default {
       };
     },
     contentAttributes() {
-      const attrs = this.data.content_attributes || {};
-      console.log(`[Message.vue] Message ID ${this.data.id}: Computed contentAttributes:`, JSON.parse(JSON.stringify(attrs)));
-      return attrs;
+      return this.data.content_attributes || {};
     },
     externalError() {
       return this.contentAttributes.external_error || '';
@@ -223,8 +221,9 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      const { data: { content_type: contentType } } = this;
-      console.log(`[Message.vue] Message ID ${this.data.id}: Computed contentType: ${contentType}`);
+      const {
+        data: { content_type: contentType },
+      } = this;
       return contentType;
     },
     twitterProfileLink() {
@@ -371,9 +370,7 @@ export default {
       return isType;
     },
     customCardItems() {
-      const items = this.contentAttributes.items || [];
-      console.log(`[Message.vue] Message ID ${this.data.id}: Computed customCardItems:`, JSON.parse(JSON.stringify(items)));
-      return items;
+      return this.contentAttributes.items || [];
     },
   },
   watch: {
@@ -382,7 +379,6 @@ export default {
     },
   },
   mounted() {
-    console.log(`[Message.vue] Mounted for Message ID ${this.data.id}. Raw data prop:`, JSON.parse(JSON.stringify(this.data)));
     this.hasMediaLoadError = false;
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();

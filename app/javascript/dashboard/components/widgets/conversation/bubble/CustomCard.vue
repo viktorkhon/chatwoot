@@ -41,9 +41,6 @@ export default {
       required: true,
     },
   },
-  mounted() {
-    console.log(`[CustomCard.vue] Mounted. Received items prop:`, JSON.parse(JSON.stringify(this.items)));
-  },
   methods: {
     handleAction(action) {
       if (action.type === 'link') {

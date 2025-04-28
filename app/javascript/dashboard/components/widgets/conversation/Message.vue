@@ -392,6 +392,16 @@ export default {
   mounted() {
     this.hasMediaLoadError = false;
     console.log(`[Message.vue] Message ID ${this.data.id} MOUNTED. Content type: ${this.contentType}`);
+    
+    // Additional debugging for custom_cards
+    if (this.contentType === 'custom_cards' || this.isCustomCardType) {
+      console.log(
+        `[Message.vue] Custom card message detected: ID=${this.data.id}, isCustomCardType=${this.isCustomCardType}`,
+        JSON.stringify(this.contentAttributes)
+      );
+      console.log(`[Message.vue] Custom card items:`, this.customCardItems);
+    }
+    
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
     this.highlightedContent = '';

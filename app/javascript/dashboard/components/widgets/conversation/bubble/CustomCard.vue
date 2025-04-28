@@ -1,20 +1,20 @@
 <template>
   <div class="card-container">
-    <div v-for="(item, index) in items" :key="index" class="card">
-      <div v-if="item.image_url" class="card-media">
-        <img :src="item.image_url" :alt="item.title" class="card-image" />
+    <div class="card">
+      <div v-if="card.image_url" class="card-media">
+        <img :src="card.image_url" :alt="card.title" class="card-image" />
       </div>
       <div class="card-content">
-        <h3 v-if="item.title" class="card-title" v-html="renderMarkdown(item.title, item.supports_markdown)"></h3>
-        <div v-if="item.description" class="card-description" v-html="renderMarkdown(item.description, item.supports_markdown)"></div>
-        <div v-if="item.reason" class="card-reason">
+        <h3 v-if="card.title" class="card-title" v-html="renderMarkdown(card.title, card.supports_markdown)"></h3>
+        <div v-if="card.description" class="card-description" v-html="renderMarkdown(card.description, card.supports_markdown)"></div>
+        <div v-if="card.reason" class="card-reason">
           <h4 class="card-reason-title">Reason for Suggestion</h4>
-          <div class="card-reason-content" v-html="renderMarkdown(item.reason, item.supports_markdown)"></div>
+          <div class="card-reason-content" v-html="renderMarkdown(card.reason, card.supports_markdown)"></div>
         </div>
-        <div v-if="item.price" class="card-price" v-html="renderMarkdown(item.price, item.supports_markdown)"></div>
-        <div v-if="item.actions && item.actions.length" class="card-actions">
+        <div v-if="card.price" class="card-price" v-html="renderMarkdown(card.price, card.supports_markdown)"></div>
+        <div v-if="card.actions && card.actions.length" class="card-actions">
           <button
-            v-for="(action, actionIndex) in item.actions"
+            v-for="(action, actionIndex) in card.actions"
             :key="actionIndex"
             class="card-action-button"
             :class="{ 'is-link': action.type === 'link', 'is-postback': action.type === 'postback' }"
@@ -25,6 +25,7 @@
         </div>
       </div>
     </div>
+    <div v-if="hasSeparator" class="separator"></div>
   </div>
 </template>
 
@@ -36,13 +37,17 @@ import { renderMarkdown } from 'dashboard/helper/customCardHelper';
 export default {
   name: 'CustomCard',
   props: {
-    items: {
-      type: Array,
+    card: {
+      type: Object,
       required: true,
+    },
+    hasSeparator: {
+      type: Boolean,
+      default: false,
     },
   },
   mounted() {
-    console.log(`[CustomCard.vue] Mounted. Items received:`, JSON.parse(JSON.stringify(this.items)));
+    console.log(`[CustomCard.vue] Mounted. Card received:`, JSON.parse(JSON.stringify(this.card)));
   },
   methods: {
     handleAction(action) {
@@ -59,11 +64,15 @@ export default {
 
 <style lang="scss" scoped>
 .card-container {
-  @apply flex flex-col gap-4;
+  @apply flex flex-col;
 }
 
 .card {
   @apply bg-white dark:bg-slate-800 rounded-lg overflow-hidden shadow-sm max-w-[20rem];
+}
+
+.separator {
+  @apply border-t border-slate-200 dark:border-slate-700 my-3;
 }
 
 .card-media {

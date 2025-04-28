@@ -181,18 +181,35 @@ export const mutations = {
   },
 
   [types.ADD_MESSAGE]({ allConversations, selectedChatId }, message) {
-    const { conversation_id: conversationId } = message;
+    const { conversation_id: conversationId, content_type: contentType, id: messageId } = message;
+    
+    // Debug logging for custom_cards messages
+    if (contentType === 'custom_cards') {
+      console.log(`[Vuex Mutation] Adding custom_cards message ID=${messageId} to conversation ${conversationId}`);
+      console.log(`[Vuex Mutation] Message items:`, message.content_attributes?.items);
+    }
+    
     const [chat] = getSelectedChatConversation({
       allConversations,
       selectedChatId: conversationId,
     });
-    if (!chat) return;
+    
+    if (!chat) {
+      console.warn(`[Vuex Mutation] Chat not found for message ID=${messageId}, conversation ${conversationId}`);
+      return;
+    }
 
     const pendingMessageIndex = findPendingMessageIndex(chat, message);
     if (pendingMessageIndex !== -1) {
       chat.messages[pendingMessageIndex] = message;
+      if (contentType === 'custom_cards') {
+        console.log(`[Vuex Mutation] Updated pending custom_cards message at index ${pendingMessageIndex}`);
+      }
     } else {
       chat.messages.push(message);
+      if (contentType === 'custom_cards') {
+        console.log(`[Vuex Mutation] Added new custom_cards message. Total messages: ${chat.messages.length}`);
+      }
       chat.timestamp = message.created_at;
       const { conversation: { unread_count: unreadCount = 0 } = {} } = message;
       chat.unread_count = unreadCount;

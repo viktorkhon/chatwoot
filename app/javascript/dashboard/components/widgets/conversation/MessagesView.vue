@@ -128,6 +128,8 @@ export default {
       currentUserId: 'getCurrentUserID',
       listLoadingStatus: 'getAllMessagesLoaded',
       currentAccountId: 'getCurrentAccountId',
+      inboxes: 'inboxes/getInboxes',
+      labelSuggestions: 'getLabelSuggestions',
     }),
     isOpen() {
       return this.currentChat?.status === wootConstants.STATUS_TYPE.OPEN;
@@ -166,23 +168,69 @@ export default {
       return '';
     },
     getMessages() {
-      const messages = this.currentChat.messages || [];
-      if (this.isAWhatsAppChannel) {
-        return filterDuplicateSourceMessages(messages);
+      const { messages = [] } = this.currentChat || {};
+      
+      // Check for custom_cards messages
+      const customCardMessages = messages.filter(
+        message => message.content_type === 'custom_cards'
+      );
+      
+      if (customCardMessages.length > 0) {
+        console.log(
+          `[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat:`, 
+          customCardMessages.map(msg => `ID: ${msg.id}`)
+        );
       }
+      
       return messages;
     },
     readMessages() {
-      return getReadMessages(
-        this.getMessages,
-        this.currentChat.agent_last_seen_at
+      const { messages = [] } = this.currentChat || {};
+      if (!this.unReadMessageIds.length) {
+        return messages;
+      }
+      
+      const readMessages = messages.filter(
+        message => !this.unReadMessageIds.includes(message.id)
       );
+      
+      // Check for custom_cards messages in readMessages
+      const customCardMessages = readMessages.filter(
+        message => message.content_type === 'custom_cards'
+      );
+      
+      if (customCardMessages.length > 0) {
+        console.log(
+          `[MessagesView] Found ${customCardMessages.length} custom_cards messages in readMessages:`, 
+          customCardMessages.map(msg => `ID: ${msg.id}`)
+        );
+      }
+      
+      return readMessages;
     },
     unReadMessages() {
-      return getUnreadMessages(
-        this.getMessages,
-        this.currentChat.agent_last_seen_at
+      const { messages = [] } = this.currentChat || {};
+      if (!this.unReadMessageIds.length) {
+        return [];
+      }
+      
+      const unreadMessages = messages.filter(message =>
+        this.unReadMessageIds.includes(message.id)
       );
+      
+      // Check for custom_cards messages in unReadMessages
+      const customCardMessages = unreadMessages.filter(
+        message => message.content_type === 'custom_cards'
+      );
+      
+      if (customCardMessages.length > 0) {
+        console.log(
+          `[MessagesView] Found ${customCardMessages.length} custom_cards messages in unReadMessages:`, 
+          customCardMessages.map(msg => `ID: ${msg.id}`)
+        );
+      }
+      
+      return unreadMessages;
     },
     shouldShowSpinner() {
       return (
@@ -324,6 +372,15 @@ export default {
     this.addScrollListener();
     this.fetchAllAttachmentsFromCurrentChat();
     this.fetchSuggestions();
+    
+    // Log any existing custom_cards messages
+    const allMessages = this.currentChat?.messages || [];
+    const customCardMessages = allMessages.filter(msg => msg.content_type === 'custom_cards');
+    if (customCardMessages.length) {
+      console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in chat:`, 
+        customCardMessages.map(msg => `ID: ${msg.id}`)
+      );
+    }
   },
 
   unmounted() {

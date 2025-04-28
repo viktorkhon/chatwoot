@@ -1,8 +1,9 @@
 <template>
-  <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-100 max-w-56 rounded-lg overflow-hidden">
-    <div v-if="displayUrl" class="custom-chat-card-image-container">
-      <img class="custom-chat-card-image" :src="displayUrl" />
+  <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-800 max-w-56 rounded-lg overflow-hidden custom-chat-card-debug">
+    <div class="debug-info p-2 mb-2 bg-green-100 border border-green-400 text-green-800" style="display: block !important;">
+      Debug: CustomChatCard for "{{title}}"
     </div>
+    <img v-if="mediaUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl" />
     <div class="custom-chat-card-body">
       <h4 class="custom-chat-card-title" v-html="renderMarkdown(title, supportsMarkdown)"></h4>
       
@@ -76,10 +77,17 @@ export default {
       default: true,
     },
   },
-  computed: {
-    displayUrl() {
-      return this.imageUrl || this.mediaUrl || '';
-    }
+  mounted() {
+    console.log(`[CustomChatCard] Component mounted with title: ${this.title}`);
+    console.log(`[CustomChatCard] Props:`, {
+      title: this.title,
+      description: this.description,
+      mediaUrl: this.mediaUrl,
+      price: this.price,
+      actions: this.actions,
+      customFields: this.customFields,
+      supportsMarkdown: this.supportsMarkdown,
+    });
   },
   methods: {
     renderMarkdown,
@@ -227,48 +235,46 @@ export default {
     font-style: italic !important;
   }
 
-  ul, ol {
-    padding-left: 1rem !important;
-    margin-bottom: 0.5rem !important;
+  :deep(ul), :deep(ol) {
+    @apply pl-4 mb-2;
   }
 
-  li {
-    margin-bottom: 0.25rem !important;
-    color: #2d3748 !important;
+  :deep(li) {
+    @apply mb-1;
   }
 
-  a {
-    color: #3182ce !important;
+  :deep(a) {
+    @apply text-woot-500 dark:text-woot-400 hover:underline;
   }
 
-  a:hover {
-    text-decoration: underline !important;
+  :deep(h1) {
+    @apply text-2xl font-bold mb-2;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    color: #1a202c !important;
+  :deep(h2) {
+    @apply text-xl font-bold mb-2;
   }
 
-  blockquote {
-    border-left: 4px solid #e2e8f0 !important;
-    padding-left: 1rem !important;
-    font-style: italic !important;
-    color: #4a5568 !important;
+  :deep(h3) {
+    @apply text-lg font-bold mb-2;
   }
 
-  code {
-    background-color: #edf2f7 !important;
-    padding: 0 0.25rem !important;
-    border-radius: 0.25rem !important;
-    color: #2d3748 !important;
+  :deep(blockquote) {
+    @apply border-l-4 border-slate-300 dark:border-slate-600 pl-4 italic;
   }
 
-  pre {
-    background-color: #edf2f7 !important;
-    padding: 0.5rem !important;
-    border-radius: 0.25rem !important;
-    overflow-x: auto !important;
-    color: #2d3748 !important;
+  :deep(code) {
+    @apply bg-slate-100 dark:bg-slate-700 px-1 rounded;
   }
+
+  :deep(pre) {
+    @apply bg-slate-100 dark:bg-slate-700 p-2 rounded overflow-x-auto;
+  }
+}
+
+.custom-chat-card-debug {
+  border: 2px solid green !important;
+  padding: 4px !important;
+  margin: 8px 0 !important;
 }
 </style> 

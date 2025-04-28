@@ -1,8 +1,11 @@
 <template>
-  <div class="card-container">
-    <div class="card">
-      <div v-if="card.image_url" class="card-media">
-        <img :src="card.image_url" :alt="card.title" class="card-image" />
+  <div class="card-container custom-card-debug">
+    <div class="debug-info p-2 mb-2 bg-yellow-100 border border-yellow-400 text-yellow-800 hidden" style="display: block !important;">
+      Debug: Custom Card component with {{items.length}} items
+    </div>
+    <div v-for="(item, index) in items" :key="index" class="card custom-card-item-debug">
+      <div v-if="item.image_url" class="card-media">
+        <img :src="item.image_url" :alt="item.title" class="card-image" />
       </div>
       <div class="card-content">
         <h3 v-if="card.title" class="card-title" v-html="renderMarkdown(card.title, card.supports_markdown)"></h3>
@@ -41,13 +44,10 @@ export default {
       type: Object,
       required: true,
     },
-    hasSeparator: {
-      type: Boolean,
-      default: false,
-    },
   },
   mounted() {
-    console.log(`[CustomCard.vue] Mounted. Card received:`, JSON.parse(JSON.stringify(this.card)));
+    console.log(`[CustomCard] Dashboard component mounted with ${this.items.length} items`);
+    console.log(`[CustomCard] Items:`, this.items);
   },
   methods: {
     handleAction(action) {
@@ -225,5 +225,15 @@ export default {
     @apply bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800;
     @apply text-green-700 dark:text-green-200;
   }
+}
+
+.custom-card-debug {
+  border: 2px solid red !important;
+  padding: 4px !important;
+  margin: 8px 0 !important;
+}
+
+.custom-card-item-debug {
+  border: 2px solid blue !important;
 }
 </style> 

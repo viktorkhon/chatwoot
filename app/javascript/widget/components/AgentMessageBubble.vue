@@ -68,12 +68,17 @@ export default {
       return this.contentType === 'integrations';
     },
     isCustomCards() {
-      // Check content type using only the constant
-      const isCustomCard = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      console.log(`[AgentMessageBubble] Message ID ${this.messageId}: Content type: "${this.contentType}", isCustomCards: ${isCustomCard}`);
-      
-      return isCustomCard;
+      const result = this.contentType === 'custom_cards';
+      console.log(`[AgentMessageBubble] isCustomCards check for message ID ${this.messageId}: ${result}, contentType: ${this.contentType}`);
+      return result;
     },
+  },
+  mounted() {
+    console.log(`[AgentMessageBubble] Component mounted for message ID: ${this.messageId}, contentType: ${this.contentType}`);
+    if (this.contentType === 'custom_cards') {
+      console.log(`[AgentMessageBubble] Custom card message content attributes:`, this.messageContentAttributes);
+      console.log(`[AgentMessageBubble] Custom card items:`, this.messageContentAttributes.items);
+    }
   },
   methods: {
     onResponse(messageResponse) {
@@ -170,6 +175,10 @@ export default {
         :custom-fields="item.custom_fields"
         :supports-markdown="item.supports_markdown"
       />
+      <p class="debug-placeholder" style="display:none;">Custom cards visible</p>
+    </div>
+    <div v-else-if="contentType === 'custom_cards'" class="text-red-500 p-2">
+      Custom cards should appear here but condition failed. Check console logs.
     </div>
   </div>
 </template>

@@ -379,16 +379,17 @@ export default {
     this.fetchAllAttachmentsFromCurrentChat();
     this.fetchSuggestions();
     
-    // Initialize unReadMessageIds
-    this.updateUnreadMessageIds();
-    
-    // Log any existing custom_cards messages
-    const allMessages = this.currentChat?.messages || [];
-    const customCardMessages = allMessages.filter(msg => msg.content_type === 'custom_cards');
-    if (customCardMessages.length) {
-      console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in chat:`, 
-        customCardMessages.map(msg => `ID: ${msg.id}`)
-      );
+    // Debug custom_cards messages
+    if (this.currentChat && this.currentChat.messages) {
+      const customCardMessages = this.currentChat.messages.filter(message => message.content_type === 'custom_cards');
+      console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat: `, 
+        customCardMessages.map(msg => `ID: ${msg.id}`));
+        
+      // Check for items in each message
+      customCardMessages.forEach(msg => {
+        console.log(`[MessagesView] Custom card message ID ${msg.id} content attributes:`, msg.content_attributes);
+        console.log(`[MessagesView] Items in message ID ${msg.id}:`, msg.content_attributes?.items || 'No items');
+      });
     }
   },
 

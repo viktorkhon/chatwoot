@@ -141,6 +141,12 @@ export default {
   mounted() {
     this.hasImageError = false;
     this.hasVideoError = false;
+    console.log(`[AgentMessage] Component mounted for message ID: ${this.message.id}`);
+    console.log(`[AgentMessage] Message type: ${this.messageType}, Content type: ${this.contentType}`);
+    if (this.contentType === 'custom_cards') {
+      console.log(`[AgentMessage] Custom card message detected:`, this.message);
+      console.log(`[AgentMessage] Content attributes:`, this.message.content_attributes);
+    }
   },
   methods: {
     onImageLoadError() {

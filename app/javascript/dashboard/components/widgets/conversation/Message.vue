@@ -373,14 +373,13 @@ export default {
       return isType;
     },
     isCustomCardType() {
-      const contentType = this.contentType;
-      const isCustomCard = contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      console.log(`[Message.vue] Message ID=${this.data.id}, isCustomCard=${isCustomCard}, contentType=${contentType}, hasContentAttributes=${!!this.contentAttributes}`);
-      return isCustomCard;
+      const result = this.contentType === 'custom_cards';
+      console.log(`[Message] isCustomCardType for ID ${this.data.id}: ${result}, contentType: ${this.contentType}`);
+      return result;
     },
     customCardItems() {
       const items = this.contentAttributes.items || [];
-      console.log(`[Message.vue] Message ID ${this.data.id}: Computing customCardItems. Found ${items.length} items.`);
+      console.log(`[Message] customCardItems for message ID ${this.data.id}: `, items);
       return items;
     },
   },
@@ -552,58 +551,24 @@ export default {
             :actions="item.actions"
           />
         </div>
-        <ChatForm v-else-if="isFormType"> <!-- Check for Forms -->
-          <ChatForm
-            :items="formItems"
-            :button-label="contentAttributes.button_label"
-            :submitted-values="contentAttributes.submitted_values"
-            @submit="onFormSubmit"
-          />
-        </ChatForm>
-        <div v-else-if="isCustomCardType" class="message-text--custom-card">
-          <div 
-            v-if="isCustomCardType" 
-            class="template-wrap"
-            @click="onCustomCardClick"
-          >
-            <template v-if="customCardItems && customCardItems.length">
-              <template v-for="(card, index) in customCardItems" :key="index">
-                <CustomCard
-                  :card="card"
-                  :has-separator="index !== customCardItems.length - 1"
-                />
-              </template>
-            </template>
+        <ChatForm
+          v-else-if="isFormType"
+          :items="formItems"
+          :button-label="contentAttributes.button_label"
+          :submitted-values="contentAttributes.submitted_values"
+          @submit="onFormSubmit"
+        />
+        <div v-else-if="isCustomCardType">
+          <div class="debug-info p-2 mb-2 bg-purple-100 border border-purple-400 text-purple-800" style="display: block !important;">
+            Debug: Message Component rendering CustomCard with {{customCardItems.length}} items
           </div>
+          <CustomCard :items="customCardItems" />
         </div>
-        <div v-else-if="isUnsupported"> <!-- Check for Unsupported -->
-          <template v-if="isAFacebookInbox && isInstagram">
-            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE_INSTAGRAM') }}
-          </template>
-          <template v-else-if="isAFacebookInbox">
-            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE_FACEBOOK') }}
-          </template>
-          <template v-else>
-            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
-          </template>
-        </div>
-        <BubbleText v-else-if="data.content"> <!-- Check for Text -->
-          <BubbleText
-            :message="message"
-            :is-email="isEmailContentType"
-            :display-quoted-button="displayQuotedButton"
-          />
-        </BubbleText>
-        <BubbleIntegration v-else-if="isAnIntegrationMessage"> <!-- Check for Integration -->
-           <BubbleIntegration
-             :message-id="data.id"
-             :content-attributes="contentAttributes"
-             :inbox-id="data.inbox_id"
-           />
-        </BubbleIntegration>
-        <!-- End of Content Type Checks -->
-
-        <!-- Attachments (can be independent or after content) -->
+        <BubbleIntegration
+          :message-id="data.id"
+          :content-attributes="contentAttributes"
+          :inbox-id="data.inbox_id"
+        />
         <span
           v-if="isPending && hasAttachments"
           class="chat-bubble has-attachment agent"

@@ -68,12 +68,11 @@ export default {
       return this.contentType === 'integrations';
     },
     isCustomCards() {
-      // Check both ways: using constant and direct string comparison
-      const isTypeByConstant = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      const isTypeByString = this.contentType === 'custom_cards';
-      console.log(`[AgentMessageBubble] Message ID ${this.messageId}: Content type: "${this.contentType}", isCustomCards: ${isTypeByString || isTypeByConstant}`);
+      // Check content type using only the constant
+      const isCustomCard = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
+      console.log(`[AgentMessageBubble] Message ID ${this.messageId}: Content type: "${this.contentType}", isCustomCards: ${isCustomCard}`);
       
-      return isTypeByString || isTypeByConstant;
+      return isCustomCard;
     },
   },
   methods: {

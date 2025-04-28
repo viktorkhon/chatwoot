@@ -96,6 +96,8 @@ export default {
       hasMediaLoadError: false,
       contextMenuPosition: {},
       showBackgroundHighlight: false,
+      highlightedContent: '',
+      copyState: false,
     };
   },
   computed: {
@@ -112,7 +114,7 @@ export default {
       return getDayDifferenceFromNow(new Date(), this.data?.created_at) >= 1;
     },
     shouldRenderMessage() {
-      return (
+      const result = (
         this.hasAttachments ||
         this.data.content ||
         this.isEmailContentType ||
@@ -122,6 +124,8 @@ export default {
         this.isFormType ||
         this.isCustomCardType
       );
+      console.log(`[Message.vue] Message ID ${this.data.id}: shouldRenderMessage = ${result}. Content type: ${this.contentType}`);
+      return result;
     },
     emailMessageContent() {
       const {
@@ -221,9 +225,9 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      const {
-        data: { content_type: contentType },
-      } = this;
+      const contentType = this.data.content_type || 
+                         (this.contentAttributes && this.contentAttributes.content_type);
+      console.log(`[Message.vue] Message ID=${this.data.id}, contentType=${contentType}, data=`, JSON.stringify(this.data));
       return contentType;
     },
     twitterProfileLink() {
@@ -356,22 +360,23 @@ export default {
       return this.contentType === CONTENT_TYPES.INCOMING_EMAIL;
     },
     isCardType() {
-      return this.contentType === CONTENT_TYPES.CARDS;
+      const isType = this.contentType === CONTENT_TYPES.CARDS;
+      console.log(`[Message.vue] Message ID ${this.data.id}: isCardType check. Result: ${isType}, ContentType: ${this.contentType}`);
+      return isType;
     },
     cardItems() {
       return this.contentAttributes.items || [];
     },
     isFormType() {
-      return this.contentType === CONTENT_TYPES.FORM;
+      const isType = this.contentType === CONTENT_TYPES.FORM;
+      console.log(`[Message.vue] Message ID ${this.data.id}: isFormType check. Result: ${isType}, ContentType: ${this.contentType}`);
+      return isType;
     },
     isCustomCardType() {
-      // Use the CONTENT_TYPES constant for checking
-      const isType = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      // Optional: Keep logging for debugging
-      // if (isType) {
-      //   console.log(`[Message.vue] Message ID ${this.data.id}: Detected custom_cards type. Attributes:`, this.data.content_attributes);
-      // }
-      return isType;
+      const contentType = this.contentType;
+      const isCustomCard = contentType === CONTENT_TYPES.CUSTOM_CARDS;
+      console.log(`[Message.vue] Message ID=${this.data.id}, isCustomCard=${isCustomCard}, contentType=${contentType}, hasContentAttributes=${!!this.contentAttributes}`);
+      return isCustomCard;
     },
     customCardItems() {
       const items = this.contentAttributes.items || [];
@@ -386,8 +391,19 @@ export default {
   },
   mounted() {
     this.hasMediaLoadError = false;
+    console.log(`[Message.vue] Message ID ${this.data.id} MOUNTED. Content type: ${this.contentType}`);
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
+    this.highlightedContent = '';
+    this.copyState = false;
+
+    console.log(`[Message.vue] Message created: ID=${this.data.id}, Content=${this.contentType}, hasAttachments=${this.hasAttachments}, isDeliveryFailed=${this.isDeliveryFailed}`);
+    
+    if (this.showActions) {
+      bus.$on('execute-message-action', data => {
+        // ... existing code ...
+      });
+    }
   },
   unmounted() {
     emitter.off(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
@@ -534,8 +550,21 @@ export default {
             @submit="onFormSubmit"
           />
         </ChatForm>
-        <div v-else-if="isCustomCardType"> <!-- Check for Custom Cards -->
-          <CustomCard :items="customCardItems" />
+        <div v-else-if="isCustomCardType" class="message-text--custom-card">
+          <div 
+            v-if="isCustomCardType" 
+            class="template-wrap"
+            @click="onCustomCardClick"
+          >
+            <template v-if="customCardItems && customCardItems.length">
+              <template v-for="(card, index) in customCardItems" :key="index">
+                <CustomCard
+                  :card="card"
+                  :has-separator="index !== customCardItems.length - 1"
+                />
+              </template>
+            </template>
+          </div>
         </div>
         <div v-else-if="isUnsupported"> <!-- Check for Unsupported -->
           <template v-if="isAFacebookInbox && isInstagram">

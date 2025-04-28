@@ -12,6 +12,8 @@ import {
 import messageReadActions from './actions/messageReadActions';
 import messageTranslateActions from './actions/messageTranslateActions';
 import * as Sentry from '@sentry/vue';
+import { CONVERSATION_EVENTS } from '../../../helper/AnalyticsHelper/events';
+import { CONTENT_TYPES } from 'shared/constants/contentType';
 
 export const hasMessageFailedWithExternalError = pendingMessage => {
   // This helper is used to check if the message has failed with an external error.
@@ -29,7 +31,7 @@ export const processMessageForFormat = (message = {}) => {
   let formattedMessage = { ...message }; // Use let to allow reassignment
   
   // Ensure proper handling of custom_cards messages for reactivity
-  if (message.content_type === 'custom_cards') {
+  if (message.content_type === CONTENT_TYPES.CUSTOM_CARDS) {
     console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
     if (message.content_attributes?.items) {
       console.log('[ActionHelper] Creating new items array reference for reactivity.');

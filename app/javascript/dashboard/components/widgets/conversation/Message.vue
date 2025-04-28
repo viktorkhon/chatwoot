@@ -374,7 +374,9 @@ export default {
       return isType;
     },
     customCardItems() {
-      return this.contentAttributes.items || [];
+      const items = this.contentAttributes.items || [];
+      console.log(`[Message.vue] Message ID ${this.data.id}: Computing customCardItems. Found ${items.length} items.`);
+      return items;
     },
   },
   watch: {

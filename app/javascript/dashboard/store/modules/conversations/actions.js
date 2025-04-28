@@ -26,14 +26,25 @@ export const hasMessageFailedWithExternalError = pendingMessage => {
 };
 
 export const processMessageForFormat = (message = {}) => {
-  const formattedMessage = { ...message };
+  let formattedMessage = { ...message }; // Use let to allow reassignment
   
   // Ensure proper handling of custom_cards messages for reactivity
-  if (message.content_type === 'custom_cards' && message.content_attributes?.items) {
-    formattedMessage.content_attributes = {
-      ...message.content_attributes,
-      items: [...message.content_attributes.items]
-    };
+  if (message.content_type === 'custom_cards') {
+    console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
+    if (message.content_attributes?.items) {
+      console.log('[ActionHelper] Creating new items array reference for reactivity.');
+      // Reassign formattedMessage to ensure the whole object reference might change if needed
+      formattedMessage = {
+        ...formattedMessage,
+        content_attributes: {
+          ...formattedMessage.content_attributes,
+          // Ensure deep copy of items array
+          items: message.content_attributes.items.map(item => ({ ...item }))
+        }
+      };
+    } else {
+      console.log(`[ActionHelper] Message ID: ${message.id} is custom_cards but has no items.`);
+    }
   }
   
   if (formattedMessage.attachments && formattedMessage.attachments.length) {

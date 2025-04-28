@@ -227,7 +227,13 @@ export default {
     contentType() {
       const contentType = this.data.content_type || 
                          (this.contentAttributes && this.contentAttributes.content_type);
-      console.log(`[Message.vue] Message ID=${this.data.id}, contentType=${contentType}, data=`, JSON.stringify(this.data));
+      
+      // More detailed debugging of content_type detection
+      console.log(`[Message] contentType for ID ${this.data.id}:`);
+      console.log(`  - data.content_type: ${this.data.content_type}`);
+      console.log(`  - contentAttributes.content_type: ${this.contentAttributes?.content_type}`);
+      console.log(`  - Final contentType used: ${contentType}`);
+      
       return contentType;
     },
     twitterProfileLink() {
@@ -375,6 +381,14 @@ export default {
     isCustomCardType() {
       const result = this.contentType === 'custom_cards';
       console.log(`[Message] isCustomCardType for ID ${this.data.id}: ${result}, contentType: ${this.contentType}`);
+      
+      // Additional debug to check data structure
+      if (this.contentType === 'custom_cards') {
+        console.log(`[Message] Custom card data structure for ID ${this.data.id}:`, this.data);
+        console.log(`[Message] Content attributes:`, this.contentAttributes);
+        console.log(`[Message] Content type property actual value:`, this.data.content_type);
+      }
+      
       return result;
     },
     customCardItems() {
@@ -562,6 +576,13 @@ export default {
           <div class="debug-info p-2 mb-2 bg-purple-100 border border-purple-400 text-purple-800" style="display: block !important;">
             Debug: Message Component rendering CustomCard with {{customCardItems.length}} items
           </div>
+          <!-- Add a test button to verify interaction is possible -->
+          <button 
+            class="p-2 mb-2 bg-red-500 text-white rounded"
+            @click="() => console.log('Debug button clicked in custom card container')"
+          >
+            Click if you can see this (Debug)
+          </button>
           <CustomCard :items="customCardItems" />
         </div>
         <BubbleIntegration

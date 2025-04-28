@@ -8,16 +8,16 @@
         <img :src="item.image_url" :alt="item.title" class="card-image" />
       </div>
       <div class="card-content">
-        <h3 v-if="card.title" class="card-title" v-html="renderMarkdown(card.title, card.supports_markdown)"></h3>
-        <div v-if="card.description" class="card-description" v-html="renderMarkdown(card.description, card.supports_markdown)"></div>
-        <div v-if="card.reason" class="card-reason">
+        <h3 v-if="item.title" class="card-title" v-html="renderMarkdown(item.title, item.supports_markdown)"></h3>
+        <div v-if="item.description" class="card-description" v-html="renderMarkdown(item.description, item.supports_markdown)"></div>
+        <div v-if="item.reason" class="card-reason">
           <h4 class="card-reason-title">Reason for Suggestion</h4>
-          <div class="card-reason-content" v-html="renderMarkdown(card.reason, card.supports_markdown)"></div>
+          <div class="card-reason-content" v-html="renderMarkdown(item.reason, item.supports_markdown)"></div>
         </div>
-        <div v-if="card.price" class="card-price" v-html="renderMarkdown(card.price, card.supports_markdown)"></div>
-        <div v-if="card.actions && card.actions.length" class="card-actions">
+        <div v-if="item.price" class="card-price" v-html="renderMarkdown(item.price, item.supports_markdown)"></div>
+        <div v-if="item.actions && item.actions.length" class="card-actions">
           <button
-            v-for="(action, actionIndex) in card.actions"
+            v-for="(action, actionIndex) in item.actions"
             :key="actionIndex"
             class="card-action-button"
             :class="{ 'is-link': action.type === 'link', 'is-postback': action.type === 'postback' }"
@@ -40,8 +40,8 @@ import { renderMarkdown } from 'dashboard/helper/customCardHelper';
 export default {
   name: 'CustomCard',
   props: {
-    card: {
-      type: Object,
+    items: {
+      type: Array,
       required: true,
     },
   },

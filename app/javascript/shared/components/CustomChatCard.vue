@@ -3,7 +3,10 @@
     <div class="debug-info p-2 mb-2 bg-green-100 border border-green-400 text-green-800" style="display: block !important;">
       Debug: CustomChatCard for "{{title}}"
     </div>
-    <img v-if="mediaUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl" />
+    <div class="debug-info p-2 mb-2 bg-blue-100 border border-blue-400 text-blue-800">
+      Media URL: {{mediaUrl || imageUrl}}
+    </div>
+    <img v-if="mediaUrl || imageUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl || imageUrl" />
     <div class="custom-chat-card-body">
       <h4 class="custom-chat-card-title" v-html="renderMarkdown(title, supportsMarkdown)"></h4>
       
@@ -83,11 +86,14 @@ export default {
       title: this.title,
       description: this.description,
       mediaUrl: this.mediaUrl,
+      imageUrl: this.imageUrl,
       price: this.price,
+      reason: this.reason,
       actions: this.actions,
       customFields: this.customFields,
       supportsMarkdown: this.supportsMarkdown,
     });
+    console.log(`[CustomChatCard] Image URL being used: ${this.mediaUrl || this.imageUrl}`);
   },
   methods: {
     renderMarkdown,

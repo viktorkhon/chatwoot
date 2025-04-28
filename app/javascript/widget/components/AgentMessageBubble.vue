@@ -162,11 +162,14 @@ export default {
       :message-id="messageId"
     />
     <div v-if="isCustomCards" class="custom-cards-container">
+      <div class="debug-info p-2 mb-2 bg-green-100 border border-green-400 text-green-800" style="display: block !important;">
+        Debug: AgentMessageBubble rendering CustomChatCards - #items: {{messageContentAttributes.items?.length}}
+      </div>
       <CustomChatCard
         v-for="item in messageContentAttributes.items"
         :key="item.title"
-        :media-url="item.image_url"
-        :image-url="item.image_url"
+        :media-url="item.image_url || item.media_url"
+        :image-url="item.image_url || item.media_url"
         :title="item.title"
         :description="item.description"
         :price="item.price"

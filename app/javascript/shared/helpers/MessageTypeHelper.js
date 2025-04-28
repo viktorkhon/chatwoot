@@ -1,4 +1,5 @@
 import { MESSAGE_TYPE } from 'shared/constants/messages';
+import { CONTENT_TYPES } from 'shared/constants/contentType';
 
 export const isAFormMessage = message => message.content_type === 'form';
 export const isASubmittedFormMessage = (message = {}) =>
@@ -25,7 +26,7 @@ export const MESSAGE_MAX_LENGTH = {
 };
 
 export const isCustomCardMessage = message => {
-  return message.content_type === 'custom_cards';
+  return message.content_type === CONTENT_TYPES.CUSTOM_CARDS;
 };
 
 export const isOutgoingMessage = message => {
@@ -61,5 +62,5 @@ export const isArticleMessage = message => {
 };
 
 export const isCardMessage = message => {
-  return message.content_type === 'cards';
+  return message.content_type === CONTENT_TYPES.CARDS;
 };

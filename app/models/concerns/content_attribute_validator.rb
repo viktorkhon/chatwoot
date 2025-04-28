@@ -5,24 +5,30 @@ class ContentAttributeValidator < ActiveModel::Validator
   ALLOWED_CARD_ITEM_ACTION_KEYS = [:text, :type, :payload, :uri].freeze
   ALLOWED_FORM_ITEM_KEYS = [:type, :placeholder, :label, :name, :options, :default, :required, :pattern, :title, :pattern_error].freeze
   ALLOWED_ARTICLE_KEYS = [:title, :description, :link].freeze
+  
+  CONTENT_TYPE_INPUT_SELECT = 'input_select'.freeze
+  CONTENT_TYPE_CARDS = 'cards'.freeze
+  CONTENT_TYPE_CUSTOM_CARDS = 'custom_cards'.freeze
+  CONTENT_TYPE_FORM = 'form'.freeze
+  CONTENT_TYPE_ARTICLE = 'article'.freeze
 
   def validate(record)
     case record.content_type
-    when 'input_select'
+    when CONTENT_TYPE_INPUT_SELECT
       validate_items!(record)
       validate_item_attributes!(record, ALLOWED_SELECT_ITEM_KEYS)
-    when 'cards'
+    when CONTENT_TYPE_CARDS
       validate_items!(record)
       validate_item_attributes!(record, ALLOWED_CARD_ITEM_KEYS)
       validate_item_actions!(record)
-    when 'custom_cards'
+    when CONTENT_TYPE_CUSTOM_CARDS
       validate_items!(record)
       validate_item_attributes!(record, ALLOWED_CUSTOM_CARD_ITEM_KEYS)
       validate_item_actions!(record)
-    when 'form'
+    when CONTENT_TYPE_FORM
       validate_items!(record)
       validate_item_attributes!(record, ALLOWED_FORM_ITEM_KEYS)
-    when 'article'
+    when CONTENT_TYPE_ARTICLE
       validate_items!(record)
       validate_item_attributes!(record, ALLOWED_ARTICLE_KEYS)
     end

@@ -357,16 +357,16 @@ export default {
       return this.contentType === CONTENT_TYPES.INCOMING_EMAIL;
     },
     isCardType() {
-      return this.contentType === 'cards';
+      return this.contentType === CONTENT_TYPES.CARDS;
     },
     cardItems() {
       return this.contentAttributes.items || [];
     },
     isFormType() {
-      return this.contentType === 'form';
+      return this.contentType === CONTENT_TYPES.FORM;
     },
     isCustomCardType() {
-      const isType = this.contentType === 'custom_cards';
+      const isType = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
       console.log(`[Message.vue] Message ID ${this.data.id}: Computed isCustomCardType: ${isType}`);
       return isType;
     },

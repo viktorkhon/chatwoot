@@ -1,5 +1,6 @@
 <script>
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
+import { CONTENT_TYPES } from 'shared/constants/contentType';
 import ChatCard from 'shared/components/ChatCard.vue';
 import ChatForm from 'shared/components/ChatForm.vue';
 import ChatOptions from 'shared/components/ChatOptions.vue';
@@ -49,13 +50,13 @@ export default {
       return this.contentType === 'input_email';
     },
     isCards() {
-      return this.contentType === 'cards';
+      return this.contentType === CONTENT_TYPES.CARDS;
     },
     isOptions() {
       return this.contentType === 'input_select';
     },
     isForm() {
-      return this.contentType === 'form';
+      return this.contentType === CONTENT_TYPES.FORM;
     },
     isArticle() {
       return this.contentType === 'article';
@@ -67,7 +68,7 @@ export default {
       return this.contentType === 'integrations';
     },
     isCustomCards() {
-      return this.contentType === 'custom_cards';
+      return this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
     },
   },
   methods: {

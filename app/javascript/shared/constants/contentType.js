@@ -1,3 +1,4 @@
 export const CONTENT_TYPES = {
   INCOMING_EMAIL: 'incoming_email',
+  CUSTOM_CARDS: 'custom_cards',
 };

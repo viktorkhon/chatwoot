@@ -63,6 +63,7 @@ export const CONTENT_TYPES = {
   INPUT_CSAT: 'input_csat',
   INTEGRATIONS: 'integrations',
   STICKER: 'sticker',
+  CUSTOM_CARDS: 'custom_cards',
 };
 
 export const MEDIA_TYPES = [

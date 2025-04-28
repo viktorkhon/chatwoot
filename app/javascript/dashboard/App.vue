@@ -19,7 +19,6 @@ import {
   verifyServiceWorkerExistence,
 } from './helper/pushHelper';
 import ReconnectService from 'dashboard/helper/ReconnectService';
-import './helper/customCardLoader';
 
 export default {
   name: 'App',

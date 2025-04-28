@@ -1,4 +1,15 @@
 export const CONTENT_TYPES = {
   INCOMING_EMAIL: 'incoming_email',
   CUSTOM_CARDS: 'custom_cards',
+  TEXT: 'text',
+  INPUT_TEXT: 'input_text',
+  INPUT_TEXTAREA: 'input_textarea',
+  INPUT_EMAIL: 'input_email',
+  INPUT_SELECT: 'input_select',
+  CARDS: 'cards',
+  FORM: 'form',
+  ARTICLE: 'article',
+  INPUT_CSAT: 'input_csat',
+  INTEGRATIONS: 'integrations',
+  STICKER: 'sticker',
 };

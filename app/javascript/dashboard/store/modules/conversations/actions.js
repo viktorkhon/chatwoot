@@ -30,20 +30,29 @@ export const hasMessageFailedWithExternalError = pendingMessage => {
 export const processMessageForFormat = (message = {}) => {
   let formattedMessage = { ...message }; // Use let to allow reassignment
   
-  // Ensure proper handling of custom_cards messages for reactivity
-  if (message.content_type === CONTENT_TYPES.CUSTOM_CARDS) {
+  // Special handling for custom_cards
+  if (message.content_type === 'custom_cards' || message.content_type === CONTENT_TYPES.CUSTOM_CARDS) {
     console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
+    
+    // Ensure content_type is properly set
+    formattedMessage.content_type = 'custom_cards';
+    
     if (message.content_attributes?.items) {
       console.log('[ActionHelper] Creating new items array reference for reactivity.');
-      // Reassign formattedMessage to ensure the whole object reference might change if needed
+      // Create a completely new object for reactivity
       formattedMessage = {
         ...formattedMessage,
+        content_type: 'custom_cards', // Ensure this is explicitly set
         content_attributes: {
           ...formattedMessage.content_attributes,
           // Ensure deep copy of items array
           items: message.content_attributes.items.map(item => ({ ...item }))
         }
       };
+      
+      // Log for debugging
+      console.log('[ActionHelper] Formatted message:', formattedMessage);
+      console.log('[ActionHelper] Items count:', formattedMessage.content_attributes.items.length);
     } else {
       console.log(`[ActionHelper] Message ID: ${message.id} is custom_cards but has no items.`);
     }
@@ -63,6 +72,7 @@ export const processMessageForFormat = (message = {}) => {
     });
     formattedMessage.attachments = attachments;
   }
+  
   return formattedMessage;
 };
 
@@ -346,6 +356,46 @@ const actions = {
 
   addMessage({ commit }, message) {
     const formattedMessage = processMessageForFormat(message);
+    
+    // Debug custom_cards messages
+    if (formattedMessage.content_type === 'custom_cards') {
+      console.log('🔴 [STORE] Custom card message detected in addMessage action:', formattedMessage);
+      console.log('🔴 [STORE] Custom card items:', formattedMessage.content_attributes?.items);
+      
+      // Force some DOM manipulation to add a visible element for custom cards
+      setTimeout(() => {
+        try {
+          const msgId = formattedMessage.id;
+          const msgElement = document.getElementById(`message${msgId}`);
+          
+          if (msgElement) {
+            console.log('🔴 [STORE] Found message element in DOM, adding debug overlay');
+            
+            // Create debug element
+            const debugDiv = document.createElement('div');
+            debugDiv.style.border = '5px solid red';
+            debugDiv.style.background = 'yellow';
+            debugDiv.style.padding = '10px';
+            debugDiv.style.margin = '10px 0';
+            debugDiv.style.zIndex = '9999';
+            debugDiv.style.position = 'relative';
+            debugDiv.innerHTML = `
+              <h3 style="color: black; font-weight: bold;">EMERGENCY DEBUG: CUSTOM CARD FROM STORE HANDLER</h3>
+              <p style="color: black;">Message ID: ${msgId}</p>
+              <p style="color: black;">Items: ${formattedMessage.content_attributes?.items?.length || 0}</p>
+            `;
+            
+            // Insert at beginning of message element
+            msgElement.insertBefore(debugDiv, msgElement.firstChild);
+          } else {
+            console.log('🔴 [STORE] Could not find message element in DOM');
+          }
+        } catch (e) {
+          console.error('🔴 [STORE] Error in DOM manipulation:', e);
+        }
+      }, 1000); // Wait for the DOM to update
+    }
+    
     commit(types.ADD_MESSAGE, formattedMessage);
     if (message.message_type === MESSAGE_TYPE.INCOMING) {
       commit(types.SET_CONVERSATION_CAN_REPLY, {

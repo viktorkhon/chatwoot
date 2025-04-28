@@ -441,6 +441,69 @@ export default {
         }
       });
     },
+    
+    // Add diagnostic function here
+    runContentTypeAudit() {
+      console.log('=== STARTING CONTENT TYPE AUDIT ===');
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('No messages to audit');
+        return;
+      }
+
+      const messages = this.currentChat.messages;
+      console.log(`Auditing ${messages.length} messages in conversation ${this.currentChat.id}`);
+      
+      // Find custom_cards messages
+      const customCardMessages = messages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        msg.content_attributes?.items?.length > 0
+      );
+      
+      console.log(`Found ${customCardMessages.length} custom_cards messages`);
+      
+      // Detailed logging of all custom_cards messages
+      customCardMessages.forEach(msg => {
+        console.log(`Custom card message ID ${msg.id}:`);
+        console.log(`  content_type: ${msg.content_type}`);
+        console.log(`  has items: ${!!msg.content_attributes?.items}`);
+        console.log(`  items length: ${msg.content_attributes?.items?.length || 0}`);
+        
+        // Force content_type to custom_cards if it has items
+        if (msg.content_attributes?.items && msg.content_type !== 'custom_cards') {
+          console.log(`  ⚠️ Fixing content_type to 'custom_cards'`);
+          msg.content_type = 'custom_cards';
+        }
+        
+        // Try manually forcing DOM update
+        const msgElement = document.getElementById(`message${msg.id}`);
+        if (msgElement) {
+          console.log(`  ✅ Found message element in DOM, adding debug marker`);
+          msgElement.style.border = '5px solid red';
+          msgElement.style.position = 'relative';
+          msgElement.style.zIndex = '9999';
+          
+          // Add a debug overlay
+          const debugDiv = document.createElement('div');
+          debugDiv.style.backgroundColor = 'yellow';
+          debugDiv.style.color = 'black';
+          debugDiv.style.padding = '10px';
+          debugDiv.style.margin = '10px 0';
+          debugDiv.style.border = '2px dashed purple';
+          debugDiv.innerHTML = `
+            <h3 style="color: black;">Audit Marker: Custom Card ${msg.id}</h3>
+            <p>Content type: ${msg.content_type}</p>
+            <p>Items: ${msg.content_attributes?.items?.length || 0}</p>
+          `;
+          msgElement.appendChild(debugDiv);
+        } else {
+          console.log(`  ❌ Couldn't find message element in DOM`);
+        }
+      });
+      
+      console.log('=== AUDIT COMPLETE ===');
+      this.$forceUpdate(); // Force component to re-render
+    },
+    
     isLabelSuggestionDismissed() {
       return LocalStorage.getFlag(
         LOCAL_STORAGE_KEYS.DISMISSED_LABEL_SUGGESTIONS,
@@ -607,6 +670,18 @@ export default {
 
 <template>
   <div class="flex flex-col justify-between flex-grow h-full min-w-0 m-0">
+    <!-- DIAGNOSTIC TOOLBAR - For debugging only -->
+    <div class="diagnostic-toolbar" style="background-color: #ffd700; padding: 10px; margin: 5px; border-radius: 4px;">
+      <h4 style="color: black; margin: 0 0 8px 0;">Debug Tools</h4>
+      <button 
+        style="background-color: #e91e63; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;" 
+        @click="runContentTypeAudit"
+      >
+        Audit Custom Cards
+      </button>
+      <span style="color: black; font-size: 12px;">Found {{currentChat?.messages?.filter(m => m.content_type === 'custom_cards').length || 0}} custom_cards</span>
+    </div>
+
     <Banner
       v-if="!currentChat.can_reply"
       color-scheme="alert"

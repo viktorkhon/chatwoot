@@ -92,7 +92,15 @@ class ActionCableConnector extends BaseActionCableConnector {
     const {
       conversation: { last_activity_at: lastActivityAt },
       conversation_id: conversationId,
+      content_type: contentType,
+      id: messageId
     } = data;
+    
+    console.log(`[ActionCable] Message created: ID=${messageId}, Content Type=${contentType}`);
+    if (contentType === 'custom_cards') {
+      console.log(`[ActionCable] Custom Cards message received: ID=${messageId}`, JSON.stringify(data.content_attributes));
+    }
+    
     DashboardAudioNotificationHelper.onNewMessage(data);
     this.app.$store.dispatch('addMessage', data);
     this.app.$store.dispatch('updateConversationLastActivity', {

@@ -78,6 +78,13 @@ export default {
     if (this.contentType === 'custom_cards') {
       console.log(`[AgentMessageBubble] Custom card message content attributes:`, this.messageContentAttributes);
       console.log(`[AgentMessageBubble] Custom card items:`, this.messageContentAttributes.items);
+      
+      if (!this.messageContentAttributes.items || this.messageContentAttributes.items.length === 0) {
+        console.warn('[AgentMessageBubble] No items found in custom cards. This is likely why they are not displaying.');
+      } else {
+        console.log('[AgentMessageBubble] Items found in custom cards:', this.messageContentAttributes.items.length);
+        console.log('[AgentMessageBubble] First item details:', this.messageContentAttributes.items[0]);
+      }
     }
   },
   methods: {
@@ -108,7 +115,7 @@ export default {
   <div class="chat-bubble-wrap">
     <div
       v-if="
-        !isCards && !isOptions && !isForm && !isArticle && !isCards && !isCSAT && !isCustomCards
+        !isCards && !isOptions && !isForm && !isArticle && !isCSAT && !isCustomCards
       "
       class="chat-bubble agent bg-n-background dark:bg-n-solid-3 text-n-slate-12"
     >
@@ -161,27 +168,28 @@ export default {
       :message-content-attributes="messageContentAttributes.submitted_values"
       :message-id="messageId"
     />
-    <div v-if="isCustomCards" class="custom-cards-container">
+    <div v-if="contentType === 'custom_cards'" class="custom-cards-container">
       <div class="debug-info p-2 mb-2 bg-green-100 border border-green-400 text-green-800" style="display: block !important;">
         Debug: AgentMessageBubble rendering CustomChatCards - #items: {{messageContentAttributes.items?.length}}
       </div>
-      <CustomChatCard
-        v-for="item in messageContentAttributes.items"
-        :key="item.title"
-        :media-url="item.image_url || item.media_url"
-        :image-url="item.image_url || item.media_url"
-        :title="item.title"
-        :description="item.description"
-        :price="item.price"
-        :reason="item.reason"
-        :actions="item.actions"
-        :custom-fields="item.custom_fields"
-        :supports-markdown="item.supports_markdown"
-      />
-      <p class="debug-placeholder" style="display:none;">Custom cards visible</p>
-    </div>
-    <div v-else-if="contentType === 'custom_cards'" class="text-red-500 p-2">
-      Custom cards should appear here but condition failed. Check console logs.
+      <div v-if="messageContentAttributes.items && messageContentAttributes.items.length > 0">
+        <CustomChatCard
+          v-for="item in messageContentAttributes.items"
+          :key="item.title"
+          :media-url="item.image_url || item.media_url"
+          :image-url="item.image_url || item.media_url"
+          :title="item.title"
+          :description="item.description"
+          :price="item.price"
+          :reason="item.reason"
+          :actions="item.actions"
+          :custom-fields="item.custom_fields"
+          :supports-markdown="item.supports_markdown"
+        />
+      </div>
+      <div v-else class="text-red-500 p-2">
+        No items found in custom cards data. Check console logs.
+      </div>
     </div>
   </div>
 </template>

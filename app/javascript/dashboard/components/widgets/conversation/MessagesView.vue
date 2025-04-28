@@ -119,6 +119,7 @@ export default {
       isProgrammaticScroll: false,
       messageSentSinceOpened: false,
       labelSuggestions: [],
+      unReadMessageIds: [],
     };
   },
 
@@ -354,6 +355,9 @@ export default {
       this.fetchAllAttachmentsFromCurrentChat();
       this.fetchSuggestions();
       this.messageSentSinceOpened = false;
+      
+      // Update unReadMessageIds when the currentChat changes
+      this.updateUnreadMessageIds();
     },
   },
 
@@ -369,9 +373,14 @@ export default {
   },
 
   mounted() {
-    this.addScrollListener();
+    this.$nextTick(() => {
+      this.addScrollListener();
+    });
     this.fetchAllAttachmentsFromCurrentChat();
     this.fetchSuggestions();
+    
+    // Initialize unReadMessageIds
+    this.updateUnreadMessageIds();
     
     // Log any existing custom_cards messages
     const allMessages = this.currentChat?.messages || [];
@@ -385,7 +394,10 @@ export default {
 
   unmounted() {
     this.removeBusListeners();
-    this.removeScrollListener();
+    // Only try to remove event listener if conversationPanel exists
+    if (this.conversationPanel) {
+      this.removeScrollListener();
+    }
   },
 
   methods: {
@@ -455,14 +467,27 @@ export default {
       this.makeMessagesRead();
     },
     addScrollListener() {
+      // Ensure this.$el exists and is a DOM element
+      if (!this.$el || typeof this.$el.querySelector !== 'function') {
+        console.warn('[MessagesView] $el not ready for querySelector');
+        return;
+      }
+      
       this.conversationPanel = this.$el.querySelector('.conversation-panel');
+      if (!this.conversationPanel) {
+        console.warn('[MessagesView] Conversation panel not found');
+        return;
+      }
+      
       this.setScrollParams();
       this.conversationPanel.addEventListener('scroll', this.handleScroll);
       this.$nextTick(() => this.scrollToBottom());
       this.isLoadingPrevious = false;
     },
     removeScrollListener() {
-      this.conversationPanel.removeEventListener('scroll', this.handleScroll);
+      if (this.conversationPanel) {
+        this.conversationPanel.removeEventListener('scroll', this.handleScroll);
+      }
     },
     scrollToBottom() {
       this.isProgrammaticScroll = true;
@@ -562,6 +587,18 @@ export default {
         }
         return false;
       });
+    },
+    updateUnreadMessageIds() {
+      if (!this.currentChat || !this.currentChat.messages) {
+        this.unReadMessageIds = [];
+        return;
+      }
+      
+      const messages = this.currentChat.messages || [];
+      this.unReadMessageIds = getUnreadMessages(
+        messages,
+        this.currentChat.agent_last_seen_at
+      ).map(message => message.id);
     },
   },
 };

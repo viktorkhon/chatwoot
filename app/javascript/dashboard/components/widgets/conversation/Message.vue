@@ -200,7 +200,9 @@ export default {
       };
     },
     contentAttributes() {
-      return this.data.content_attributes || {};
+      const attrs = this.data.content_attributes || {};
+      console.log(`[Message.vue] Message ID ${this.data.id}: Computed contentAttributes:`, JSON.parse(JSON.stringify(attrs)));
+      return attrs;
     },
     externalError() {
       return this.contentAttributes.external_error || '';
@@ -221,9 +223,8 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      const {
-        data: { content_type: contentType },
-      } = this;
+      const { data: { content_type: contentType } } = this;
+      console.log(`[Message.vue] Message ID ${this.data.id}: Computed contentType: ${contentType}`);
       return contentType;
     },
     twitterProfileLink() {
@@ -365,10 +366,14 @@ export default {
       return this.contentType === 'form';
     },
     isCustomCardType() {
-      return this.contentType === 'custom_cards';
+      const isType = this.contentType === 'custom_cards';
+      console.log(`[Message.vue] Message ID ${this.data.id}: Computed isCustomCardType: ${isType}`);
+      return isType;
     },
     customCardItems() {
-      return this.contentAttributes.items || [];
+      const items = this.contentAttributes.items || [];
+      console.log(`[Message.vue] Message ID ${this.data.id}: Computed customCardItems:`, JSON.parse(JSON.stringify(items)));
+      return items;
     },
   },
   watch: {
@@ -377,6 +382,7 @@ export default {
     },
   },
   mounted() {
+    console.log(`[Message.vue] Mounted for Message ID ${this.data.id}. Raw data prop:`, JSON.parse(JSON.stringify(this.data)));
     this.hasMediaLoadError = false;
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();

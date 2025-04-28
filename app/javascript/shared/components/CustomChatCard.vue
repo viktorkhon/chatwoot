@@ -1,26 +1,26 @@
 <template>
-  <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-800 max-w-56 rounded-lg overflow-hidden custom-chat-card-debug">
+  <div class="custom-chat-card chat-bubble agent bg-white dark:bg-slate-800 max-w-56 rounded-lg overflow-hidden custom-chat-card-debug" style="display: block !important; visibility: visible !important; opacity: 1 !important; z-index: 9999 !important;">
     <div class="debug-info p-2 mb-2 bg-green-100 border border-green-400 text-green-800" style="display: block !important;">
       Debug: CustomChatCard for "{{title}}"
     </div>
-    <div class="debug-info p-2 mb-2 bg-blue-100 border border-blue-400 text-blue-800">
+    <div class="debug-info p-2 mb-2 bg-blue-100 border border-blue-400 text-blue-800" style="display: block !important;">
       Media URL: {{mediaUrl || imageUrl}}
     </div>
-    <img v-if="mediaUrl || imageUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl || imageUrl" />
-    <div class="custom-chat-card-body">
-      <h4 class="custom-chat-card-title" v-html="renderMarkdown(title, supportsMarkdown)"></h4>
+    <img v-if="mediaUrl || imageUrl" class="w-full object-contain max-h-[150px] rounded-[5px]" :src="mediaUrl || imageUrl" style="max-width: 100% !important;" />
+    <div class="custom-chat-card-body" style="padding: 10px !important;">
+      <h4 class="custom-chat-card-title" v-html="renderMarkdown(title, supportsMarkdown)" style="color: black !important; font-weight: bold !important;"></h4>
       
-      <div v-if="description" class="custom-chat-card-section">
-        <h5 class="custom-chat-card-section-title">Product Description</h5>
-        <p class="custom-chat-card-description" v-html="renderMarkdown(description, supportsMarkdown)"></p>
+      <div v-if="description" class="custom-chat-card-section" style="background-color: #f8f9fa !important; margin: 8px 0 !important; padding: 8px !important;">
+        <h5 class="custom-chat-card-section-title" style="color: #333 !important;">Product Description</h5>
+        <p class="custom-chat-card-description" v-html="renderMarkdown(description, supportsMarkdown)" style="color: #333 !important;"></p>
       </div>
       
-      <div v-if="reason" class="custom-chat-card-section">
-        <h5 class="custom-chat-card-section-title">Reason for Suggestion</h5>
-        <p class="custom-chat-card-reason" v-html="renderMarkdown(reason, supportsMarkdown)"></p>
+      <div v-if="reason" class="custom-chat-card-section" style="background-color: #f8f9fa !important; margin: 8px 0 !important; padding: 8px !important;">
+        <h5 class="custom-chat-card-section-title" style="color: #333 !important;">Reason for Suggestion</h5>
+        <p class="custom-chat-card-reason" v-html="renderMarkdown(reason, supportsMarkdown)" style="color: #333 !important;"></p>
       </div>
       
-      <p v-if="price" class="custom-chat-card-price" v-html="renderMarkdown(price, supportsMarkdown)"></p>
+      <p v-if="price" class="custom-chat-card-price" v-html="renderMarkdown(price, supportsMarkdown)" style="color: #333 !important; font-weight: bold !important;"></p>
       
       <div v-if="customFields" class="custom-chat-card-fields">
         <div v-for="(field, index) in customFields" :key="index" class="custom-chat-card-field">

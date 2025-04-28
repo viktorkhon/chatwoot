@@ -25,6 +25,34 @@ export const hasMessageFailedWithExternalError = pendingMessage => {
   return status === MESSAGE_STATUS.FAILED && externalError !== '';
 };
 
+export const processMessageForFormat = (message = {}) => {
+  const formattedMessage = { ...message };
+  
+  // Ensure proper handling of custom_cards messages for reactivity
+  if (message.content_type === 'custom_cards' && message.content_attributes?.items) {
+    formattedMessage.content_attributes = {
+      ...message.content_attributes,
+      items: [...message.content_attributes.items]
+    };
+  }
+  
+  if (formattedMessage.attachments && formattedMessage.attachments.length) {
+    const attachments = formattedMessage.attachments.map(attachment => {
+      const { thumb_url, data_url, file_type, account_id, extension } = attachment;
+      return {
+        thumb_url,
+        data_url,
+        file_type,
+        account_id,
+        extension,
+        message_id: attachment.message_id || message.id,
+      };
+    });
+    formattedMessage.attachments = attachments;
+  }
+  return formattedMessage;
+};
+
 // actions
 const actions = {
   getConversation: async ({ commit }, conversationId) => {
@@ -83,13 +111,17 @@ const actions = {
       const {
         data: { meta, payload },
       } = await MessageApi.getPreviousMessages(data);
+      
+      // Process all messages for proper formatting, especially custom_cards
+      const processedMessages = payload.map(message => processMessageForFormat(message));
+      
       commit(`conversationMetadata/${types.SET_CONVERSATION_METADATA}`, {
         id: data.conversationId,
         data: meta,
       });
       commit(types.SET_PREVIOUS_CONVERSATIONS, {
         id: data.conversationId,
-        data: payload,
+        data: processedMessages,
       });
       if (!payload.length) {
         commit(types.SET_ALL_MESSAGES_LOADED);
@@ -300,18 +332,19 @@ const actions = {
   },
 
   addMessage({ commit }, message) {
-    commit(types.ADD_MESSAGE, message);
+    const formattedMessage = processMessageForFormat(message);
+    commit(types.ADD_MESSAGE, formattedMessage);
     if (message.message_type === MESSAGE_TYPE.INCOMING) {
       commit(types.SET_CONVERSATION_CAN_REPLY, {
         conversationId: message.conversation_id,
         canReply: true,
       });
-      commit(types.ADD_CONVERSATION_ATTACHMENTS, message);
+      commit(types.ADD_CONVERSATION_ATTACHMENTS, formattedMessage);
     }
   },
 
-  updateMessage({ commit }, message) {
-    commit(types.ADD_MESSAGE, message);
+  updateMessage: ({ commit }, message) => {
+    commit(types.ADD_MESSAGE, processMessageForFormat(message));
   },
 
   deleteMessage: async function deleteLabels(
@@ -493,6 +526,29 @@ const actions = {
     try {
       const response = await ConversationApi.getInboxAssistant(conversationId);
       commit(types.SET_INBOX_CAPTAIN_ASSISTANT, response.data);
+    } catch (error) {
+      // Handle error
+    }
+  },
+
+  getAllMessages: async ({ commit }, conversationId) => {
+    try {
+      const {
+        data: { meta, payload },
+      } = await MessageApi.getMessages({ conversationId });
+      
+      // Process all messages for proper formatting, especially custom_cards
+      const processedMessages = payload.map(message => processMessageForFormat(message));
+      
+      commit(`conversationMetadata/${types.SET_CONVERSATION_METADATA}`, {
+        id: conversationId,
+        data: meta,
+      });
+      commit(types.SET_ALL_MESSAGES, {
+        id: conversationId,
+        data: processedMessages,
+      });
+      commit(types.CLEAR_ALL_MESSAGES_LOADED);
     } catch (error) {
       // Handle error
     }

@@ -68,4 +68,60 @@ export const getCustomCardActionValue = action => {
   return action.value || '';
 };
 
-// Removed global fix function as reactivity is handled in Vuex actions now 
+// Make this helper available globally for debugging
+if (typeof window !== 'undefined') {
+  window.fixAllCustomCardMessages = function() {
+    console.log('Running fixAllCustomCardMessages...');
+    try {
+      // Get all messages from Vuex store
+      const store = window?.__NUXT__?.state?.conversations;
+      if (!store) {
+        console.log('Store not found');
+        return 'Store not found';
+      }
+      
+      // Find all conversation messages
+      let fixedCount = 0;
+      let foundCustomCards = 0;
+      
+      // 1. Check for messages directly in the DOM
+      const messageElements = document.querySelectorAll('li[id^="message"]');
+      console.log(`Found ${messageElements.length} message elements in DOM`);
+      
+      // 2. Find messages in the Vuex store
+      const allConversations = Object.values(store?.conversations || {});
+      console.log(`Found ${allConversations.length} conversations in store`);
+      
+      // Force a refresh of all messages by temporarily modifying and restoring their content
+      allConversations.forEach(conversation => {
+        const messages = conversation?.messages || [];
+        messages.forEach(message => {
+          if (message.content_type === 'custom_cards') {
+            foundCustomCards++;
+            // Force Vue to update by changing content_attributes reference
+            if (message.content_attributes) {
+              const originalItems = message.content_attributes.items;
+              if (originalItems) {
+                message.content_attributes = {
+                  ...message.content_attributes,
+                  items: [...originalItems]
+                };
+                fixedCount++;
+              }
+            }
+          }
+        });
+      });
+      
+      // 3. Try to force UI refresh
+      if (window.$nuxt) {
+        window.$nuxt.$forceUpdate();
+      }
+      
+      return `Fixed ${fixedCount} custom card messages (found ${foundCustomCards} total)`;
+    } catch (error) {
+      console.error('Error in fixAllCustomCardMessages:', error);
+      return `Error: ${error.message}`;
+    }
+  };
+} 

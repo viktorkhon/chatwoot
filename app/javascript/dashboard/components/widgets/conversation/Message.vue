@@ -365,13 +365,17 @@ export default {
       return this.contentType === CONTENT_TYPES.FORM;
     },
     isCustomCardType() {
-      // Use the CONTENT_TYPES constant for checking
-      const isType = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      // Keep logging for debugging if needed, but simplified
-      if (isType) {
-        console.log(`[Message.vue] Message ID ${this.data.id}: Detected custom_cards type. Attributes:`, this.data.content_attributes);
+      // Check both ways: using constant and direct string comparison
+      const isTypeByConstant = this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
+      const isTypeByString = this.contentType === 'custom_cards';
+      console.log(`[Message.vue] Message ID ${this.data.id}: Content type: "${this.contentType}", isCustomCardType: ${isTypeByString || isTypeByConstant}`);
+      
+      // Log the actual content_attributes to help debugging
+      if (isTypeByString || isTypeByConstant) {
+        console.log('[Message.vue] Custom card content_attributes:', this.data.content_attributes);
       }
-      return isType;
+      
+      return isTypeByString || isTypeByConstant;
     },
     customCardItems() {
       return this.contentAttributes.items || [];

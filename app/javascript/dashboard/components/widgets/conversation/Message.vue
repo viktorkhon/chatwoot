@@ -512,7 +512,30 @@ export default {
           :message-type="data.message_type"
           :parent-has-attachments="hasAttachments"
         />
-        <div v-if="isUnsupported">
+
+        <!-- Start of Content Type Checks -->
+        <div v-if="isCardType"> <!-- Check for Cards -->
+          <ChatCard
+            v-for="item in cardItems"
+            :key="item.title"
+            :media-url="item.media_url"
+            :title="item.title"
+            :description="item.description"
+            :actions="item.actions"
+          />
+        </div>
+        <ChatForm v-else-if="isFormType"> <!-- Check for Forms -->
+          <ChatForm
+            :items="formItems"
+            :button-label="contentAttributes.button_label"
+            :submitted-values="contentAttributes.submitted_values"
+            @submit="onFormSubmit"
+          />
+        </ChatForm>
+        <div v-else-if="isCustomCardType"> <!-- Check for Custom Cards -->
+          <CustomCard :items="customCardItems" />
+        </div>
+        <div v-else-if="isUnsupported"> <!-- Check for Unsupported -->
           <template v-if="isAFacebookInbox && isInstagram">
             {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE_INSTAGRAM') }}
           </template>
@@ -523,37 +546,23 @@ export default {
             {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
           </template>
         </div>
-        <BubbleText
-          v-else-if="data.content && !isCardType && !isFormType && !isCustomCardType"
-          :message="message"
-          :is-email="isEmailContentType"
-          :display-quoted-button="displayQuotedButton"
-        />
-        <div v-else-if="isCardType">
-          <ChatCard
-            v-for="item in cardItems"
-            :key="item.title"
-            :media-url="item.media_url"
-            :title="item.title"
-            :description="item.description"
-            :actions="item.actions"
+        <BubbleText v-else-if="data.content"> <!-- Check for Text -->
+          <BubbleText
+            :message="message"
+            :is-email="isEmailContentType"
+            :display-quoted-button="displayQuotedButton"
           />
-        </div>
-        <ChatForm
-          v-else-if="isFormType"
-          :items="formItems"
-          :button-label="contentAttributes.button_label"
-          :submitted-values="contentAttributes.submitted_values"
-          @submit="onFormSubmit"
-        />
-        <div v-else-if="isCustomCardType">
-          <CustomCard :items="customCardItems" />
-        </div>
-        <BubbleIntegration
-          :message-id="data.id"
-          :content-attributes="contentAttributes"
-          :inbox-id="data.inbox_id"
-        />
+        </BubbleText>
+        <BubbleIntegration v-else-if="isAnIntegrationMessage"> <!-- Check for Integration -->
+           <BubbleIntegration
+             :message-id="data.id"
+             :content-attributes="contentAttributes"
+             :inbox-id="data.inbox_id"
+           />
+        </BubbleIntegration>
+        <!-- End of Content Type Checks -->
+
+        <!-- Attachments (can be independent or after content) -->
         <span
           v-if="isPending && hasAttachments"
           class="chat-bubble has-attachment agent"
@@ -586,6 +595,8 @@ export default {
             <BubbleFile v-else :url="attachment.data_url" />
           </div>
         </div>
+
+        <!-- Bubble Actions always at the end -->
         <BubbleActions
           :id="data.id"
           :sender="data.sender"

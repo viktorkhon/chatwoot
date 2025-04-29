@@ -120,6 +120,7 @@ export default {
       messageSentSinceOpened: false,
       labelSuggestions: [],
       unReadMessageIds: [],
+      messagesKey: 0,
     };
   },
 
@@ -354,20 +355,54 @@ export default {
   },
 
   watch: {
-    currentChat(newChat, oldChat) {
-      if (newChat.id === oldChat.id) {
-        return;
+    currentChat: {
+      immediate: true,
+      deep: true,
+      handler(newChat, oldChat) {
+        if (newChat.id !== (oldChat?.id || null)) {
+          this.fetchAllAttachmentsFromCurrentChat();
+          this.fetchSuggestions();
+          this.messageSentSinceOpened = false;
+          
+          // Update unReadMessageIds when the currentChat changes
+          this.updateUnreadMessageIds();
+          
+          // EMERGENCY DEBUG: Check for custom cards in new messages
+          this.inspectCustomCardMessages();
+        } else if (newChat.messages?.length !== oldChat?.messages?.length) {
+          console.log(`[MessagesView] Messages array changed from ${oldChat?.messages?.length || 0} to ${newChat.messages?.length || 0} messages`);
+          this.updateUnreadMessageIds();
+          this.$nextTick(() => {
+            this.inspectCustomCardMessages();
+            this.scrollToBottom();
+          });
+        }
       }
-      this.fetchAllAttachmentsFromCurrentChat();
-      this.fetchSuggestions();
-      this.messageSentSinceOpened = false;
-      
-      // Update unReadMessageIds when the currentChat changes
-      this.updateUnreadMessageIds();
-      
-      // EMERGENCY DEBUG: Check for custom cards in new messages
-      this.inspectCustomCardMessages();
     },
+    'currentChat.messages': {
+      deep: true,
+      handler(newMessages, oldMessages) {
+        if (!newMessages || !oldMessages) return;
+        
+        if (newMessages.length !== oldMessages.length) {
+          console.log(`[MessagesView] Messages array changed: ${oldMessages.length} → ${newMessages.length}`);
+          
+          // Check specifically for new custom_cards messages
+          const newCustomCards = newMessages.filter(
+            msg => !oldMessages.some(oldMsg => oldMsg.id === msg.id) && 
+                  (msg.content_type === 'custom_cards' || 
+                  (msg.content_attributes?.items && msg.content_attributes.items.length))
+          );
+          
+          if (newCustomCards.length > 0) {
+            console.log(`[MessagesView] New custom_cards messages detected:`, 
+              newCustomCards.map(m => ({id: m.id, type: m.content_type})));
+            this.updateUnreadMessageIds();
+            this.$forceUpdate(); // Force component update to ensure reactivity
+          }
+        }
+      }
+    }
   },
 
   created() {
@@ -655,15 +690,48 @@ export default {
     },
     updateUnreadMessageIds() {
       if (!this.currentChat || !this.currentChat.messages) {
+        console.warn('[MessagesView] updateUnreadMessageIds called with no messages');
         this.unReadMessageIds = [];
         return;
       }
       
       const messages = this.currentChat.messages || [];
-      this.unReadMessageIds = getUnreadMessages(
-        messages,
-        this.currentChat.agent_last_seen_at
-      ).map(message => message.id);
+      console.log(`[MessagesView] Updating unread message IDs. Total messages: ${messages.length}`);
+      
+      // Only update unread IDs if there are messages
+      if (messages.length > 0) {
+        const unreadMessages = getUnreadMessages(
+          messages,
+          this.currentChat.agent_last_seen_at
+        );
+        
+        this.unReadMessageIds = unreadMessages.map(message => message.id);
+        
+        console.log(`[MessagesView] Set ${this.unReadMessageIds.length} unread message IDs:`, 
+          this.unReadMessageIds);
+          
+        // Immediately log the impact on readMessages and unReadMessages computed properties  
+        this.$nextTick(() => {
+          console.log(`[MessagesView] After update: readMessages=${this.readMessages.length}, unReadMessages=${this.unReadMessages.length}`);
+          
+          // Detect any custom_cards messages in unReadMessages
+          const customCards = this.unReadMessages.filter(msg => 
+            msg.content_type === 'custom_cards' || 
+            (msg.content_attributes?.items && msg.content_attributes.items.length > 0)
+          );
+          
+          if (customCards.length > 0) {
+            console.log(`[MessagesView] Found ${customCards.length} custom_cards in unReadMessages:`,
+              customCards.map(m => ({id: m.id, type: m.content_type})));
+          }
+          
+          // Force rerender to ensure message components are updated
+          this.$forceUpdate();
+        });
+      } else {
+        this.unReadMessageIds = [];
+        console.warn('[MessagesView] No messages found in currentChat.messages');
+      }
     },
     // Add emergency debugging method
     inspectCustomCardMessages() {
@@ -702,6 +770,9 @@ export default {
           console.warn(`%c[EMERGENCY FIX] Message ${msg.id} has items but wrong content_type: ${msg.content_type}`, 
               'background: #ff9800; color: black; padding: 2px 5px;');
           
+          // Force it to be custom_cards if it has items
+          msg.content_type = 'custom_cards';
+          
           // Add DOM debugging directly in the UI next to the card
           this.$nextTick(() => {
             const msgElement = document.getElementById(`message${msg.id}`);
@@ -715,6 +786,24 @@ export default {
             }
           });
         }
+      });
+      
+      // Force rerender after inspecting/fixing
+      this.forceMessageListRerender();
+    },
+    logRenderedMessage(message, type) {
+      console.log(`[MessagesView] Rendering message ID ${message.id} (Type: ${message.content_type}) in ${type} loop`);
+      return null; // :set expects a value, return null
+    },
+    forceMessageListRerender() {
+      console.log('[MessagesView] Forcing message list rerender');
+      this.messagesKey++;
+      this.$forceUpdate();
+      
+      // Request animation frame to ensure DOM is updated
+      window.requestAnimationFrame(() => {
+        const customCardMessages = document.querySelectorAll('[id^="message"]');
+        console.log(`[MessagesView] After force rerender, found ${customCardMessages.length} message elements in DOM`);
       });
     },
   },
@@ -804,7 +893,8 @@ export default {
       </transition>
       <Message
         v-for="message in readMessages"
-        :key="message.id"
+        :key="`${message.id}-${messagesKey}`"
+        :set="logRenderedMessage(message, 'read')"
         class="message--read ph-no-capture"
         data-clarity-mask="True"
         :data="message"
@@ -829,7 +919,8 @@ export default {
       </li>
       <Message
         v-for="message in unReadMessages"
-        :key="message.id"
+        :key="`${message.id}-${messagesKey}`"
+        :set="logRenderedMessage(message, 'unread')"
         class="message--unread ph-no-capture"
         data-clarity-mask="True"
         :data="message"

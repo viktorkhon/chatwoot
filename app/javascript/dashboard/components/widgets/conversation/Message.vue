@@ -16,7 +16,7 @@ import InstagramStory from './bubble/InstagramStory.vue';
 import InstagramStoryReply from './bubble/InstagramStoryReply.vue';
 import Spinner from 'shared/components/Spinner.vue';
 import { CONTENT_TYPES } from 'shared/constants/contentType';
-import { MESSAGE_TYPE, MESSAGE_STATUS, CUSTOM_CARD_TYPES } from 'shared/constants/messages';
+import { MESSAGE_TYPE, MESSAGE_STATUS } from 'shared/constants/messages';
 import { generateBotMessageContent } from './helpers/botMessageContentHelper';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { ACCOUNT_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
@@ -434,7 +434,6 @@ export default {
       // Simplified logic: if it has items, treat it as a custom card regardless of content_type
       // This matches how the template now renders cards
       const result = hasItems || 
-                     contentType === CUSTOM_CARD_TYPES.CARD || 
                      contentType === 'custom_cards';
       
       console.log(`[Message ${this.data.id}] isCustomCardType check:`, {

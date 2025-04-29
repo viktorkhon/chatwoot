@@ -492,9 +492,6 @@ export default {
       - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
     `);
     
-    // Ensure content_type is correct for this message
-    this.ensureCorrectContentType();
-    
     // Check if this is a custom_cards message that might need fixing
     if (this.customCardItems.length > 0 && this.data.content_type !== 'custom_cards') {
       console.warn(`[Message ${this.data.id}] WARNING: Message has items but content_type isn't 'custom_cards'. Current type: ${this.data.content_type}`);
@@ -512,45 +509,12 @@ export default {
       - shouldRenderMessage: ${this.shouldRenderMessage}
       - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
       - DOM element visible:`, document.getElementById(`message${this.data.id}`));
-    
-    // Ensure content_type is correct on updates too
-    this.ensureCorrectContentType();
   },
   unmounted() {
     emitter.off(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     clearTimeout(this.higlightTimeout);
   },
   methods: {
-    ensureCorrectContentType() {
-      // If the message has items but no content_type, fix it
-      if (this.customCardItems.length > 0 && this.data.content_type !== 'custom_cards') {
-        console.warn(`[Message ${this.data.id}] FIXING: Message has items but wrong content_type. Changing from "${this.data.content_type}" to "custom_cards"`);
-        this.data.content_type = 'custom_cards';
-        
-        // Force refresh to ensure the UI updates
-        this.$nextTick(() => {
-          this.forceRefresh();
-        });
-      }
-    },
-    forceRefresh() {
-      console.log(`[Message] Force refreshing message ID ${this.data.id}:
-        - Before refresh contentType: ${this.contentType}
-        - isCustomCardType: ${this.isCustomCardType}
-        - customCardItems: ${this.customCardItems.length}
-      `);
-      
-      this.refreshKey += 1;
-      this.$forceUpdate();
-      
-      // Log the current state after refresh
-      this.$nextTick(() => {
-        console.log(`[Message] After refresh for message ID ${this.data.id}:
-          - isCustomCardType: ${this.isCustomCardType}
-          - customCardItems: ${this.customCardItems.length}
-          - DOM element:`, document.getElementById(`message${this.data.id}`));
-      });
-    },
     debugLog() {
       console.log('--- COMPREHENSIVE DEBUG LOG ---');
       console.log(`Message ID: ${this.data.id}`);

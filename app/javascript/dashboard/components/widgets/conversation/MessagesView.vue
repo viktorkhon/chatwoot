@@ -12,6 +12,7 @@ import Message from './Message.vue';
 import NextMessageList from 'next/message/MessageList.vue';
 import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
+import CustomCard from '../conversation/bubble/CustomCard.vue';
 
 // stores and apis
 import { mapGetters } from 'vuex';
@@ -48,6 +49,7 @@ export default {
     Banner,
     ConversationLabelSuggestion,
     NextButton,
+    CustomCard,
   },
   mixins: [inboxMixin],
   props: {
@@ -122,6 +124,7 @@ export default {
       unReadMessageIds: [],
       messagesKey: 0,
       renderingInProgress: false,
+      conversationFullyLoaded: false,
     };
   },
 
@@ -361,15 +364,23 @@ export default {
       deep: true,
       handler(newChat, oldChat) {
         if (newChat.id !== (oldChat?.id || null)) {
+          console.log(`[MessagesView] Conversation changed to ID ${newChat.id}`);
+          
+          // Reset flags
+          this.conversationFullyLoaded = false;
+          this.messageSentSinceOpened = false;
+          
+          // Fetch data
           this.fetchAllAttachmentsFromCurrentChat();
           this.fetchSuggestions();
-          this.messageSentSinceOpened = false;
           
           // Update unReadMessageIds when the currentChat changes
           this.updateUnreadMessageIds();
           
-          // EMERGENCY DEBUG: Check for custom cards in new messages
-          this.inspectCustomCardMessages();
+          // Schedule a comprehensive message scan after a short delay to ensure all messages are loaded
+          setTimeout(() => {
+            this.performComprehensiveMessageScan();
+          }, 500);
         } else if (newChat.messages?.length !== oldChat?.messages?.length) {
           console.log(`[MessagesView] Messages array changed from ${oldChat?.messages?.length || 0} to ${newChat.messages?.length || 0} messages`);
           this.updateUnreadMessageIds();
@@ -664,20 +675,74 @@ export default {
       ) {
         this.isLoadingPrevious = true;
         try {
+          const oldMessageCount = this.currentChat.messages.length;
+          
           await this.$store.dispatch('fetchPreviousMessages', {
             conversationId: this.currentChat.id,
             before: this.currentChat.messages[0].id,
           });
+          
+          const newMessageCount = this.currentChat.messages.length;
           const heightDifference =
             this.conversationPanel.scrollHeight - this.heightBeforeLoad;
           this.conversationPanel.scrollTop =
             this.scrollTopBeforeLoad + heightDifference;
           this.setScrollParams();
+          
+          // Check if we loaded new messages and scan them for custom cards
+          if (newMessageCount > oldMessageCount) {
+            console.log(`[MessagesView] Loaded ${newMessageCount - oldMessageCount} older messages`);
+            this.scanNewlyLoadedMessages(oldMessageCount);
+          }
         } catch (error) {
-          // Ignore Error
+          console.error('[MessagesView] Error loading previous messages:', error);
         } finally {
           this.isLoadingPrevious = false;
         }
+      }
+    },
+
+    scanNewlyLoadedMessages(oldMessageCount) {
+      if (!this.currentChat || !this.currentChat.messages) return;
+      
+      // Get only the newly loaded messages (which would be at the beginning of the array)
+      const newMessages = this.currentChat.messages.slice(0, this.currentChat.messages.length - oldMessageCount);
+      console.log(`[MessagesView] Scanning ${newMessages.length} newly loaded messages for custom cards`);
+      
+      // Find custom card messages among the new ones
+      const newCustomCardMessages = newMessages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes && msg.content_attributes.items && msg.content_attributes.items.length)
+      );
+      
+      if (newCustomCardMessages.length > 0) {
+        console.log(`[MessagesView] Found ${newCustomCardMessages.length} custom card messages in newly loaded history`);
+        
+        // Fix any messages with incorrect content_type
+        newCustomCardMessages.forEach(msg => {
+          if (msg.content_attributes?.items?.length && msg.content_type !== 'custom_cards') {
+            console.log(`[MessagesView] Fixing content_type for older message ${msg.id}`);
+            msg.content_type = 'custom_cards';
+          }
+        });
+        
+        // Force rerender to ensure the new custom cards are displayed
+        this.safeForceRerender();
+        
+        // Verify visibility after a short delay
+        setTimeout(() => {
+          // Check if the DOM elements for these messages exist
+          const missingMessages = newCustomCardMessages.filter(msg => 
+            !document.getElementById(`message${msg.id}`)
+          );
+          
+          if (missingMessages.length > 0) {
+            console.warn(`[MessagesView] ⚠️ Some older custom card messages are not visible in DOM:`, 
+              missingMessages.map(m => m.id)
+            );
+            this.safeForceRerender();
+          }
+        }, 1000);
       }
     },
 
@@ -867,6 +932,385 @@ export default {
         }, 100); // Small delay to ensure things are settled
       });
     },
+    // Modify the emergencyRenderCustomCards method
+    emergencyRenderCustomCards() {
+      console.log('[MessagesView] 🚨 EMERGENCY: Direct custom card rendering triggered');
+      
+      // Find all custom card messages
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('[MessagesView] No messages found for emergency rendering');
+        return;
+      }
+      
+      const customCardMessages = this.currentChat.messages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes?.items && msg.content_attributes.items.length)
+      );
+      
+      if (customCardMessages.length === 0) {
+        console.log('[MessagesView] No custom card messages found for emergency rendering');
+        return;
+      }
+      
+      console.log(`[MessagesView] Found ${customCardMessages.length} custom card messages for emergency rendering`);
+      
+      // Create emergency container if it doesn't exist
+      let emergencyContainer = document.getElementById('emergency-custom-cards');
+      if (!emergencyContainer) {
+        emergencyContainer = document.createElement('div');
+        emergencyContainer.id = 'emergency-custom-cards';
+        emergencyContainer.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 350px; max-height: 500px; overflow-y: auto; background: white; padding: 10px; border: 3px solid #E91E63; z-index: 9999; box-shadow: 0 0 20px rgba(0,0,0,0.3); border-radius: 8px;';
+        
+        const header = document.createElement('h2');
+        header.textContent = 'Emergency Custom Cards';
+        header.style.cssText = 'margin: 0 0 10px 0; color: #E91E63; border-bottom: 1px solid #ccc; padding-bottom: 8px;';
+        emergencyContainer.appendChild(header);
+        
+        document.body.appendChild(emergencyContainer);
+      } else {
+        // Clear existing cards
+        while (emergencyContainer.children.length > 1) { // Keep the header
+          emergencyContainer.removeChild(emergencyContainer.lastChild);
+        }
+      }
+      
+      // Store reference to component instance for event handlers
+      const self = this;
+      
+      // Add each custom card message
+      customCardMessages.forEach(msg => {
+        const msgId = msg.id;
+        const items = msg.content_attributes?.items || [];
+        
+        // Create card container
+        const cardContainer = document.createElement('div');
+        cardContainer.style.cssText = 'margin-bottom: 15px; padding: 8px; border: 1px solid #ccc; border-radius: 5px; position: relative;';
+        
+        // Add message info
+        const infoContainer = document.createElement('div');
+        infoContainer.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
+        
+        const info = document.createElement('div');
+        info.textContent = `ID: ${msgId} | Items: ${items.length}`;
+        info.style.cssText = 'font-size: 12px; color: #666;';
+        infoContainer.appendChild(info);
+        
+        // Add analyze button
+        const analyzeBtn = document.createElement('button');
+        analyzeBtn.textContent = 'Analyze';
+        analyzeBtn.style.cssText = 'background: #2196F3; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer;';
+        analyzeBtn.onclick = function() {
+          self.analyzeCustomCardItems(msgId);
+        };
+        infoContainer.appendChild(analyzeBtn);
+        
+        cardContainer.appendChild(infoContainer);
+        
+        // Show content type warning if needed
+        if (msg.content_type !== 'custom_cards') {
+          const warning = document.createElement('div');
+          warning.textContent = `⚠️ Wrong content_type: ${msg.content_type}`;
+          warning.style.cssText = 'font-size: 11px; color: white; background: #FF5722; padding: 3px 5px; border-radius: 3px; margin-bottom: 8px;';
+          cardContainer.appendChild(warning);
+        }
+        
+        // If no items, show error
+        if (!items.length) {
+          const error = document.createElement('div');
+          error.textContent = 'No items found for this message';
+          error.style.cssText = 'font-size: 12px; color: #D32F2F; padding: 8px; background: #FFEBEE; border-radius: 4px;';
+          cardContainer.appendChild(error);
+          emergencyContainer.appendChild(cardContainer);
+          return; // Skip further processing
+        }
+        
+        // Check if items is actually an array
+        if (!Array.isArray(items)) {
+          const error = document.createElement('div');
+          error.textContent = `CRITICAL: items is not an array (${typeof items})`;
+          error.style.cssText = 'font-size: 12px; color: #D32F2F; padding: 8px; background: #FFEBEE; border-radius: 4px;';
+          cardContainer.appendChild(error);
+          
+          // Add a dump button to see the raw value
+          const dumpBtn = document.createElement('button');
+          dumpBtn.textContent = 'Dump Raw Value';
+          dumpBtn.style.cssText = 'background: #E91E63; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; margin-top: 5px;';
+          dumpBtn.onclick = function() {
+            console.log('Raw items value:', items);
+            alert('Raw value dumped to console. Check Developer Tools.');
+          };
+          cardContainer.appendChild(dumpBtn);
+          
+          emergencyContainer.appendChild(cardContainer);
+          return; // Skip further processing
+        }
+        
+        // Add each item
+        items.forEach((item, index) => {
+          if (typeof item !== 'object' || item === null) {
+            const error = document.createElement('div');
+            error.textContent = `Item ${index} is not an object: ${typeof item}`;
+            error.style.cssText = 'font-size: 12px; color: #D32F2F; padding: 8px; background: #FFEBEE; border-radius: 4px; margin-bottom: 8px;';
+            cardContainer.appendChild(error);
+            return;
+          }
+          
+          const itemEl = document.createElement('div');
+          itemEl.style.cssText = 'margin-bottom: 8px; padding: 8px; background: #f5f5f5; border-radius: 4px;';
+          
+          if (item.title) {
+            const title = document.createElement('h3');
+            title.textContent = item.title;
+            title.style.cssText = 'margin: 0 0 5px 0; font-size: 14px; color: #333;';
+            itemEl.appendChild(title);
+          }
+          
+          if (item.image_url) {
+            const img = document.createElement('img');
+            img.src = item.image_url;
+            img.alt = item.title || 'Image';
+            img.style.cssText = 'width: 100%; height: auto; margin-bottom: 5px; border-radius: 3px;';
+            img.onerror = function() {
+              this.style.display = 'none';
+              const error = document.createElement('div');
+              error.textContent = '❌ Image failed to load';
+              error.style.cssText = 'font-size: 11px; color: #D32F2F; padding: 3px; background: #FFEBEE; border-radius: 3px; margin-bottom: 5px;';
+              itemEl.insertBefore(error, this.nextSibling);
+            };
+            itemEl.appendChild(img);
+          }
+          
+          if (item.description) {
+            const desc = document.createElement('p');
+            desc.textContent = item.description;
+            desc.style.cssText = 'margin: 0 0 5px 0; font-size: 12px; color: #666;';
+            itemEl.appendChild(desc);
+          }
+          
+          if (item.actions && Array.isArray(item.actions) && item.actions.length > 0) {
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;';
+            
+            item.actions.forEach(action => {
+              const actionBtn = document.createElement('button');
+              actionBtn.textContent = action.text || 'Action';
+              actionBtn.style.cssText = action.type === 'link' ? 
+                'padding: 3px 8px; font-size: 11px; background: #E3F2FD; color: #0D47A1; border: none; border-radius: 3px; cursor: pointer;' : 
+                'padding: 3px 8px; font-size: 11px; background: #E8F5E9; color: #1B5E20; border: none; border-radius: 3px; cursor: pointer;';
+              
+              if (action.type === 'link' && action.uri) {
+                actionBtn.onclick = function() {
+                  window.open(action.uri, '_blank');
+                };
+              }
+              
+              actions.appendChild(actionBtn);
+            });
+            
+            itemEl.appendChild(actions);
+          }
+          
+          cardContainer.appendChild(itemEl);
+        });
+        
+        emergencyContainer.appendChild(cardContainer);
+      });
+      
+      console.log('[MessagesView] Emergency custom cards rendering complete');
+    },
+    analyzeCustomCardItems(messageId) {
+      console.log(`[MessagesView] 🔍 Analyzing custom card items for message ${messageId}`);
+      
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('No messages found');
+        return;
+      }
+      
+      // Find the message by ID
+      const message = this.currentChat.messages.find(m => m.id === messageId);
+      if (!message) {
+        console.log(`Message with ID ${messageId} not found`);
+        return;
+      }
+      
+      console.log('Message data:', message);
+      
+      // Check content_type
+      console.log(`Content type: ${message.content_type}`);
+      if (message.content_type !== 'custom_cards') {
+        console.log(`⚠️ WARNING: Content type is not 'custom_cards'`);
+      }
+      
+      // Check for items in content_attributes
+      const contentAttributes = message.content_attributes || {};
+      console.log('Content attributes:', contentAttributes);
+      
+      // Check direct properties
+      const hasDirectItems = 'items' in contentAttributes;
+      console.log(`Has direct 'items' property: ${hasDirectItems}`);
+      
+      // Check if items is an array
+      const items = contentAttributes.items;
+      const isItemsArray = Array.isArray(items);
+      console.log(`Items is an array: ${isItemsArray}`);
+      
+      if (!isItemsArray) {
+        console.log(`⚠️ CRITICAL: Items is not an array or is undefined`);
+        console.log(`Items type: ${typeof items}`);
+        console.log(`Items value:`, items);
+        
+        if (typeof items === 'string') {
+          console.log(`Attempting to parse items string as JSON`);
+          try {
+            const parsedItems = JSON.parse(items);
+            console.log(`Parsed items:`, parsedItems);
+            console.log(`Is parsed items an array: ${Array.isArray(parsedItems)}`);
+          } catch (err) {
+            console.log(`Failed to parse items string as JSON:`, err);
+          }
+        }
+        
+        return;
+      }
+      
+      // Check items length
+      console.log(`Items length: ${items.length}`);
+      
+      if (items.length === 0) {
+        console.log(`⚠️ WARNING: Items array is empty`);
+        return;
+      }
+      
+      // Analyze each item
+      items.forEach((item, index) => {
+        console.log(`\nItem ${index + 1}:`);
+        console.log(`Type: ${typeof item}`);
+        
+        if (typeof item !== 'object' || item === null) {
+          console.log(`⚠️ CRITICAL: Item is not an object`);
+          console.log(`Item value:`, item);
+          return;
+        }
+        
+        // Check required properties
+        const requiredProps = ['title', 'description', 'actions'];
+        const missingProps = requiredProps.filter(prop => !(prop in item));
+        
+        if (missingProps.length > 0) {
+          console.log(`⚠️ WARNING: Missing required properties: ${missingProps.join(', ')}`);
+        }
+        
+        // Log all properties
+        Object.keys(item).forEach(key => {
+          console.log(`${key}: ${typeof item[key]} = ${JSON.stringify(item[key])}`);
+        });
+        
+        // Check actions if present
+        if (Array.isArray(item.actions)) {
+          console.log(`Actions length: ${item.actions.length}`);
+          
+          item.actions.forEach((action, actionIndex) => {
+            console.log(`  Action ${actionIndex + 1}:`);
+            console.log(`  Type: ${action.type}`);
+            console.log(`  Text: ${action.text}`);
+            
+            if (action.type === 'link' && !action.uri) {
+              console.log(`  ⚠️ WARNING: Link action missing uri`);
+            } else if (action.type === 'postback' && !action.payload) {
+              console.log(`  ⚠️ WARNING: Postback action missing payload`);
+            }
+          });
+        }
+      });
+      
+      console.log('[MessagesView] Analysis complete');
+    },
+    performComprehensiveMessageScan() {
+      console.log('[MessagesView] 🔍 Performing comprehensive message scan');
+      
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('[MessagesView] No messages to scan');
+        return;
+      }
+      
+      const allMessages = this.currentChat.messages;
+      console.log(`[MessagesView] Scanning ${allMessages.length} total messages`);
+      
+      // Find all custom card messages
+      const customCardMessages = allMessages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes && msg.content_attributes.items && msg.content_attributes.items.length)
+      );
+      
+      console.log(`[MessagesView] Found ${customCardMessages.length} custom card messages during comprehensive scan`);
+      
+      // Fix any messages with incorrect content_type
+      let fixedCount = 0;
+      customCardMessages.forEach(msg => {
+        if (msg.content_attributes?.items?.length && msg.content_type !== 'custom_cards') {
+          console.log(`[MessagesView] Fixing content_type for message ${msg.id}`);
+          msg.content_type = 'custom_cards';
+          fixedCount++;
+        }
+      });
+      
+      if (fixedCount > 0) {
+        console.log(`[MessagesView] Fixed content_type for ${fixedCount} messages`);
+      }
+      
+      // Force rerender
+      if (customCardMessages.length > 0) {
+        console.log('[MessagesView] Forcing rerender after comprehensive scan');
+        this.safeForceRerender();
+        
+        // After a delay, verify all messages are visible
+        setTimeout(() => {
+          this.verifyCustomCardVisibility(customCardMessages);
+        }, 1000);
+      }
+      
+      this.conversationFullyLoaded = true;
+      console.log('[MessagesView] Comprehensive scan complete');
+    },
+    verifyCustomCardVisibility(customCardMessages) {
+      console.log('[MessagesView] 🔍 Verifying custom card visibility');
+      
+      // Check how many custom card elements are actually in the DOM
+      const customCardElements = document.querySelectorAll('.custom-card-container');
+      console.log(`[MessagesView] Found ${customCardElements.length} custom card elements in DOM`);
+      
+      if (customCardElements.length < customCardMessages.length) {
+        console.warn(`[MessagesView] ⚠️ Missing custom cards! Expected ${customCardMessages.length} but found ${customCardElements.length}`);
+        
+        // Create a map of visible message IDs
+        const visibleMessageIds = new Set();
+        document.querySelectorAll('[id^="message"]').forEach(el => {
+          const id = el.id.replace('message', '');
+          visibleMessageIds.add(id);
+        });
+        
+        // Find which messages are missing
+        const missingMessages = customCardMessages.filter(msg => 
+          !visibleMessageIds.has(String(msg.id))
+        );
+        
+        console.log('[MessagesView] Missing custom card messages:', missingMessages.map(m => m.id));
+        
+        // Emergency fix - try one more rerender
+        this.safeForceRerender();
+        
+        // If after retrying we still have missing cards, trigger emergency rendering
+        setTimeout(() => {
+          const updatedCardElements = document.querySelectorAll('.custom-card-container');
+          if (updatedCardElements.length < customCardMessages.length) {
+            console.warn('[MessagesView] 🚨 Still missing custom cards after rerender, activating emergency rendering');
+            this.emergencyRenderCustomCards();
+          }
+        }, 1000);
+      } else {
+        console.log('[MessagesView] ✅ All custom cards are visible in DOM');
+      }
+    },
   },
 };
 </script>
@@ -888,7 +1332,19 @@ export default {
       >
         Force Rerender
       </button>
-      <span style="color: black; font-size: 12px;">Found {{currentChat?.messages?.filter(m => m.content_type === 'custom_cards').length || 0}} custom_cards</span>
+      <button 
+        style="background-color: #ff5722; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;" 
+        @click="emergencyRenderCustomCards"
+      >
+        EMERGENCY VIEW
+      </button>
+      <button 
+        style="background-color: #2196F3; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;" 
+        @click="performComprehensiveMessageScan"
+      >
+        EMERGENCY SCAN
+      </button>
+      <span style="color: black; font-size: 12px;">Found {{currentChat?.messages?.filter(m => m.content_type === 'custom_cards' || (m.content_attributes?.items && m.content_attributes.items.length)).length || 0}} custom_cards</span>
     </div>
 
     <Banner

@@ -420,10 +420,14 @@ export default {
       return isType;
     },
     isCustomCardType() {
+      // Add direct console.log to track when this is called
+      console.log(`[Message ${this.data.id}] isCustomCardType() called`);
+      
       // Check both content_type and the presence of items
       const hasCustomCardContentType = this.contentType === 'custom_cards' || this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
       const hasItems = !!(this.data.content_attributes?.items && this.data.content_attributes.items.length > 0);
       
+      // CRITICAL FIX: Always consider a message with items as a custom card regardless of content_type
       const result = hasCustomCardContentType || hasItems;
       
       console.log(`[Message ${this.data.id}] isCustomCardType = ${result}:
@@ -432,6 +436,11 @@ export default {
         - has items: ${hasItems}
         - items length: ${this.data.content_attributes?.items?.length || 0}
         - itemsData:`, this.data.content_attributes?.items);
+      
+      // If this is a custom card, log it prominently 
+      if (result) {
+        console.log(`%c[Message ${this.data.id}] CUSTOM CARD DETECTED!`, 'background: #4CAF50; color: white; padding: 2px 5px;');
+      }
       
       return result;
     },
@@ -710,11 +719,25 @@ export default {
           @submit="onFormSubmit"
         />
         
-        <div v-else-if="isCustomCardType" class="custom-card-container">
+        <!-- EMERGENCY FIX: Force custom card rendering for any message that has items -->
+        <div v-if="customCardItems.length > 0" class="custom-card-container" style="border: 2px solid #ff9800; padding: 4px; border-radius: 4px;">
           <div style="font-size: 10px; color: #666; margin-bottom: 4px;">
             {{ refreshKey > 0 ? `(Refreshed ${refreshKey} times)` : '' }}
+            <span style="color: #E91E63; font-weight: bold;">FIXED RENDERER</span>
           </div>
-          <CustomCard :key="`card-${refreshKey}-${data.id}`" :items="customCardItems" />
+          <CustomCard 
+            :key="`emergency-${data.id}-${refreshKey}-${Math.random()}`" 
+            :items="customCardItems"
+          />
+        </div>
+        
+        <!-- Original rendering logic (keeping as fallback) -->
+        <div v-else-if="isCustomCardType && customCardItems.length === 0" class="custom-card-container">
+          <div style="font-size: 10px; color: #666; margin-bottom: 4px;">
+            {{ refreshKey > 0 ? `(Refreshed ${refreshKey} times)` : '' }}
+            <span style="color: #999;">(Empty card - items: {{customCardItems.length}})</span>
+          </div>
+          <!-- No CustomCard component if no items -->
         </div>
         
         <BubbleIntegration

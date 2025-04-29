@@ -47,58 +47,97 @@ export default {
     },
   },
   data() {
+    console.log('[CustomCard] Initializing data()');
     return {
       imageErrors: {},
+      initTime: new Date().toISOString(),
     };
   },
   computed: {
     hasValidItems() {
-      return this.items && Array.isArray(this.items) && this.items.length > 0;
+      const result = this.items && Array.isArray(this.items) && this.items.length > 0;
+      console.log(`[CustomCard] hasValidItems = ${result}, items length: ${this.items?.length || 0}`);
+      return result;
     },
     safeItems() {
-      if (!this.hasValidItems) return [];
+      if (!this.hasValidItems) {
+        console.log('[CustomCard] No valid items, returning empty array');
+        return [];
+      }
+      
+      console.log('[CustomCard] Processing items:', JSON.stringify(this.items.slice(0, 1)));
       
       // Map items to ensure all expected properties exist
-      return this.items.map(item => ({
-        title: item.title || 'No Title',
-        description: item.description || '',
-        image_url: item.image_url || '',
-        reason: item.reason || '',
-        price: item.price || '',
-        actions: Array.isArray(item.actions) ? item.actions : [],
-        supports_markdown: !!item.supports_markdown,
-        custom_fields: item.custom_fields || {},
-      }));
+      return this.items.map((item, index) => {
+        const safeItem = {
+          title: item.title || 'No Title',
+          description: item.description || '',
+          image_url: item.image_url || '',
+          reason: item.reason || '',
+          price: item.price || '',
+          actions: Array.isArray(item.actions) ? item.actions : [],
+          supports_markdown: !!item.supports_markdown,
+          custom_fields: item.custom_fields || {},
+        };
+        
+        console.log(`[CustomCard] Processed item ${index}:`, safeItem.title);
+        return safeItem;
+      });
     },
   },
+  beforeCreate() {
+    console.log('[CustomCard] BEFORE_CREATE hook called');
+  },
   created() {
-    console.log('[CustomCard] Component CREATED with', {
+    console.log('[CustomCard] CREATED hook called with', {
       itemsLength: this.items?.length || 0,
-      hasValidItems: this.hasValidItems,
-      firstItem: this.items?.[0]
+      hasValidItems: this.items && Array.isArray(this.items) && this.items.length > 0,
+      firstItem: this.items?.[0],
+      initTime: this.initTime,
     });
+    
+    // Do a direct console.log of the first item structure
+    if (this.items?.[0]) {
+      console.log('[CustomCard] First item structure:', JSON.stringify(this.items[0]));
+    } else {
+      console.warn('[CustomCard] No items available in created hook');
+    }
   },
   mounted() {
-    console.log('[CustomCard] Component MOUNTED with', {
+    console.log('[CustomCard] MOUNTED hook called with', {
       itemsLength: this.items?.length || 0,
-      hasValidItems: this.hasValidItems
+      hasValidItems: this.hasValidItems,
+      elementInDOM: !!this.$el && document.body.contains(this.$el),
+      initTime: this.initTime,
     });
     
     // Check if the component is actually in the DOM
     if (!this.$el || !document.body.contains(this.$el)) {
       console.warn('[CustomCard] Component mounted but not in DOM!');
+      // Try to add to DOM as an emergency fallback
+      const emergencyContainer = document.createElement('div');
+      emergencyContainer.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: white; padding: 10px; border: 2px solid red; z-index: 9999;';
+      emergencyContainer.innerHTML = `<h3>Emergency CustomCard</h3><p>Items: ${this.items?.length || 0}</p>`;
+      document.body.appendChild(emergencyContainer);
     } else {
       console.log('[CustomCard] Confirmed component is in DOM');
+      // Highlight the element in the DOM
+      this.$el.style.outline = '3px dashed #E91E63';
+      setTimeout(() => {
+        this.$el.style.outline = '';
+      }, 3000);
     }
   },
   updated() {
-    console.log('[CustomCard] Component UPDATED with', {
+    console.log('[CustomCard] UPDATED hook called with', {
       itemsLength: this.items?.length || 0,
-      hasValidItems: this.hasValidItems
+      hasValidItems: this.hasValidItems,
+      initTime: this.initTime,
+      timeNow: new Date().toISOString(),
     });
   },
   beforeUnmount() {
-    console.log('[CustomCard] Component about to UNMOUNT');
+    console.log('[CustomCard] About to UNMOUNT, existed for', new Date() - new Date(this.initTime), 'ms');
   },
   methods: {
     handleAction(action, item) {

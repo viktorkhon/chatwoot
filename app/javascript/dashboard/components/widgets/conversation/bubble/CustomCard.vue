@@ -1,23 +1,10 @@
 <template>
-  <div class="card-container custom-card-debug">
-    <div class="debug-info p-2 mb-2 bg-yellow-100 border border-yellow-400 text-yellow-800 hidden" style="display: block !important;">
-      Debug: Custom Card component with {{items.length}} items
+  <div class="card-container">
+    <div v-if="!hasValidItems" class="empty-state">
+      <p>No items to display</p>
     </div>
     
-    <!-- Empty state handler -->
-    <div v-if="!hasValidItems" class="empty-state" style="border: 2px solid orange; padding: 12px; margin: 8px 0; text-align: center;">
-      <p style="color: black; font-weight: bold;">No valid card items to display</p>
-      <div style="color: gray; font-size: 12px;">Raw items: {{JSON.stringify(items)}}</div>
-    </div>
-    
-    <!-- Basic hardcoded version for testing -->
-    <div style="border: 4px dashed green; padding: 16px; background: white; margin: 8px 0;">
-      <h2 style="color: black; font-size: 18px; font-weight: bold;">THIS IS A HARDCODED TEST CARD</h2>
-      <p style="color: black;">If you can see this, the CustomCard component is being rendered.</p>
-    </div>
-    
-    <!-- Dynamic version -->
-    <div v-for="(item, index) in safeItems" :key="index" class="card custom-card-item-debug">
+    <div v-for="(item, index) in safeItems" :key="index" class="card">
       <div v-if="item.image_url" class="card-media">
         <img :src="item.image_url" :alt="item.title" class="card-image" @error="handleImageError($event, index)" />
       </div>
@@ -84,37 +71,49 @@ export default {
       }));
     },
   },
+  created() {
+    console.log('[CustomCard] Component CREATED with', {
+      itemsLength: this.items?.length || 0,
+      hasValidItems: this.hasValidItems,
+      firstItem: this.items?.[0]
+    });
+  },
   mounted() {
-    console.log(`[CustomCard] Dashboard component mounted with ${this.items.length} items`);
-    console.log(`[CustomCard] Items:`, this.items);
+    console.log('[CustomCard] Component MOUNTED with', {
+      itemsLength: this.items?.length || 0,
+      hasValidItems: this.hasValidItems
+    });
     
-    if (!this.hasValidItems) {
-      console.warn('[CustomCard] No valid items provided to CustomCard component');
+    // Check if the component is actually in the DOM
+    if (!this.$el || !document.body.contains(this.$el)) {
+      console.warn('[CustomCard] Component mounted but not in DOM!');
+    } else {
+      console.log('[CustomCard] Confirmed component is in DOM');
     }
+  },
+  updated() {
+    console.log('[CustomCard] Component UPDATED with', {
+      itemsLength: this.items?.length || 0,
+      hasValidItems: this.hasValidItems
+    });
+  },
+  beforeUnmount() {
+    console.log('[CustomCard] Component about to UNMOUNT');
   },
   methods: {
     handleAction(action, item) {
-      console.log(`[CustomCard] Action clicked: ${action.text}`, action);
+      console.log('[CustomCard] Action clicked:', action.text);
       
       if (action.type === 'link') {
         window.open(action.uri, '_blank', 'noopener,noreferrer');
       } else if (action.type === 'postback') {
-        // Enhanced payload with item info for better context
-        const enhancedPayload = {
-          ...action.payload,
-          itemTitle: item.title,
-          actionText: action.text,
-        };
-        
-        console.log(`[CustomCard] Emitting card action:`, enhancedPayload);
-        emitter.emit(BUS_EVENTS.CARD_ACTION, enhancedPayload);
+        emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
       }
     },
     renderMarkdown,
     handleImageError(event, index) {
       console.warn(`[CustomCard] Image failed to load for item ${index}`);
       this.imageErrors[index] = true;
-      // Hide the broken image
       event.target.style.display = 'none';
     },
   },
@@ -125,6 +124,7 @@ export default {
 .card-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .card {
@@ -134,19 +134,17 @@ export default {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   max-width: 20rem;
   margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
 }
 
 .empty-state {
-  background-color: #fff9db;
+  background-color: #f9fafb;
   border-radius: 0.5rem;
   padding: 1rem;
   text-align: center;
   margin-bottom: 1rem;
-}
-
-.separator {
-  border-top: 1px solid #e5e7eb;
-  margin: 0.75rem 0;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
 }
 
 .card-media {
@@ -239,17 +237,5 @@ export default {
 
 .card-action-button.is-postback:hover {
   background-color: #bbf7d0;
-}
-
-/* Dark mode could be added with media queries or class-based toggles */
-
-.custom-card-debug {
-  border: 2px solid red !important;
-  padding: 4px !important;
-  margin: 8px 0 !important;
-}
-
-.custom-card-item-debug {
-  border: 2px solid blue !important;
 }
 </style> 

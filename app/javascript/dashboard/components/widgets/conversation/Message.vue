@@ -115,17 +115,6 @@ export default {
       return getDayDifferenceFromNow(new Date(), this.data?.created_at) >= 1;
     },
     shouldRenderMessage() {
-      // Direct check for custom_cards with highest priority
-      const isCustomCardMessage = 
-        this.data.content_type === 'custom_cards' || 
-        this.contentAttributes?.content_type === 'custom_cards' ||
-        this.data.content_attributes?.content_type === 'custom_cards';
-      
-      if (isCustomCardMessage) {
-        console.log(`[Message] shouldRenderMessage: Forcing true for custom_cards message ID ${this.data.id}`);
-        return true;
-      }
-      
       const result = (
         this.hasAttachments ||
         this.data.content ||
@@ -136,7 +125,6 @@ export default {
         this.isFormType ||
         this.isCustomCardType
       );
-      console.log(`[Message.vue] Message ID ${this.data.id}: shouldRenderMessage = ${result}. Content type: ${this.contentType}`);
       return result;
     },
     emailMessageContent() {
@@ -237,31 +225,13 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      // Special case priority for custom_cards
-      if (
-        this.data.content_type === 'custom_cards' || 
-        this.contentAttributes?.content_type === 'custom_cards' ||
-        this.data.content_attributes?.content_type === 'custom_cards'
-      ) {
-        console.log(`[Message] contentType: Prioritizing custom_cards for message ID ${this.data.id}`);
-        return 'custom_cards';
-      }
-      
-      // Regular flow for other content types
+      // Regular flow for all content types
       const directContentType = this.data.content_type;
       const attributesContentType = this.contentAttributes?.content_type;
       const otherAttributesContentType = this.data.content_attributes?.content_type;
       
       // Determine the final content type to use
       const contentType = directContentType || attributesContentType || otherAttributesContentType;
-      
-      // Detailed debugging of content_type detection
-      console.log(`[Message] contentType detection for ID ${this.data.id}:`);
-      console.log(`  - data.content_type: ${directContentType}`);
-      console.log(`  - contentAttributes.content_type: ${attributesContentType}`);
-      console.log(`  - data.content_attributes.content_type: ${otherAttributesContentType}`);
-      console.log(`  - Final contentType used: ${contentType}`);
-      
       return contentType;
     },
     twitterProfileLink() {
@@ -395,7 +365,6 @@ export default {
     },
     isCardType() {
       const isType = this.contentType === CONTENT_TYPES.CARDS;
-      console.log(`[Message.vue] Message ID ${this.data.id}: isCardType check. Result: ${isType}, ContentType: ${this.contentType}`);
       return isType;
     },
     cardItems() {
@@ -403,32 +372,10 @@ export default {
     },
     isFormType() {
       const isType = this.contentType === CONTENT_TYPES.FORM;
-      console.log(`[Message.vue] Message ID ${this.data.id}: isFormType check. Result: ${isType}, ContentType: ${this.contentType}`);
       return isType;
     },
     isCustomCardType() {
-      // Direct check with multiple potential locations to be safe
-      const directCheck = this.data.content_type === 'custom_cards';
-      const attributesCheck = this.contentAttributes?.content_type === 'custom_cards';
-      const otherAttributesCheck = this.data.content_attributes?.content_type === 'custom_cards';
-      const computedCheck = this.contentType === 'custom_cards';
-      
-      const result = directCheck || attributesCheck || otherAttributesCheck || computedCheck;
-      
-      console.log(`[Message] isCustomCardType comprehensive check for ID ${this.data.id}:`);
-      console.log(`  - Direct check (data.content_type): ${directCheck}`);
-      console.log(`  - Attributes check (contentAttributes.content_type): ${attributesCheck}`);
-      console.log(`  - Other attributes check (data.content_attributes.content_type): ${otherAttributesCheck}`);
-      console.log(`  - Computed check (contentType === 'custom_cards'): ${computedCheck}`);
-      console.log(`  - Final result: ${result}`);
-      
-      if (result) {
-        console.log(`[Message] Custom card data structure for ID ${this.data.id}:`, this.data);
-        console.log(`[Message] Content attributes:`, this.contentAttributes);
-        console.log(`[Message] Items:`, this.customCardItems);
-      }
-      
-      return result;
+      return this.contentType === 'custom_cards';
     },
     customCardItems() {
       // First check if we have direct items in content_attributes
@@ -439,9 +386,7 @@ export default {
         items = this.data.content_attributes?.items;
       }
       
-      const result = items || [];
-      console.log(`[Message] customCardItems for message ID ${this.data.id}: found ${result.length} items`);
-      return result;
+      return items || [];
     },
   },
   watch: {
@@ -452,15 +397,6 @@ export default {
   mounted() {
     this.hasMediaLoadError = false;
     console.log(`[Message.vue] Message ID ${this.data.id} MOUNTED. Content type: ${this.contentType}`);
-    
-    // Additional debugging for custom_cards
-    if (this.contentType === 'custom_cards' || this.isCustomCardType) {
-      console.log(
-        `[Message.vue] Custom card message detected: ID=${this.data.id}, isCustomCardType=${this.isCustomCardType}`,
-        JSON.stringify(this.contentAttributes)
-      );
-      console.log(`[Message.vue] Custom card items:`, this.customCardItems);
-    }
     
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
@@ -598,67 +534,6 @@ export default {
     class="group/context-menu"
     :class="[alignBubble]"
   >
-    <!-- UNCONDITIONAL DEBUG ELEMENT - Should appear for ALL messages -->
-    <div class="unconditional-debug" style="border: 4px solid purple; padding: 8px; margin: 5px 0; background-color: white;">
-      <p style="color: black;">Message ID: {{data.id}} | Content Type: {{contentType || data.content_type}}</p>
-      <template v-if="contentType === 'custom_cards' || data.content_type === 'custom_cards'">
-        <p style="color: red; font-weight: bold;">CUSTOM CARD DETECTED!</p>
-        <p style="color: blue;">isCustomCardType = {{isCustomCardType}}</p>
-        <p style="color: green;">Has items: {{!!contentAttributes.items}} | Items length: {{contentAttributes.items?.length || 0}}</p>
-        <hr style="border: 1px solid black; margin: 5px 0;">
-        <button @click="forceRefresh" style="background: black; color: white; padding: 5px; margin: 5px;">
-          Force Re-render
-        </button>
-      </template>
-    </div>
-    
-    <!-- CUSTOM CARD COMPONENT RENDERING -->
-    <div v-if="isCustomCardType" style="border: 8px solid green !important; padding: 10px !important; margin: 10px 0 !important; position: relative;">
-      <div style="background-color: #f3f4f6; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
-        <p style="color: black !important; font-weight: bold !important;">
-          Custom Card Items ({{customCardItems.length}} items)
-        </p>
-        <button
-          @click="() => console.log('Custom card debug button clicked', customCardItems)"
-          style="padding: 8px !important; background-color: red !important; color: white !important; display: block !important; margin: 8px !important;"
-        >
-          Click if you can see this (Debug)
-        </button>
-      </div>
-      
-      <!-- The actual CustomCard component -->
-      <CustomCard 
-        :items="customCardItems" 
-        :key="`card-${data.id}-${refreshKey}`"
-      />
-    </div>
-    
-    <!-- DIRECT HTML RENDER OF CUSTOM CARDS (No component) -->
-    <div v-if="isCustomCardType && contentAttributes.items" 
-      style="border: 6px dotted green !important; padding: 10px !important; background-color: white !important; margin: 15px 0 !important;">
-      <h3 style="color: black !important; font-size: 16px !important; font-weight: bold !important;">DIRECT HTML RENDER - NO COMPONENT</h3>
-      
-      <div v-for="(item, index) in customCardItems" :key="index"
-        style="border: 2px solid teal !important; padding: 8px !important; margin: 10px 0 !important; background-color: #f0f0f0 !important;">
-        <h4 style="color: black !important; font-weight: bold !important;">{{item.title}}</h4>
-        <p style="color: #333 !important;">{{item.description}}</p>
-        <div v-if="item.image_url" style="margin: 8px 0 !important;">
-          <img :src="item.image_url" style="max-width: 200px !important; border: 1px solid gray !important;" />
-        </div>
-        <p v-if="item.price" style="color: green !important; font-weight: bold !important;">{{item.price}}</p>
-        
-        <div v-if="item.actions && item.actions.length" style="margin-top: 8px !important;">
-          <button 
-            v-for="(action, actionIndex) in item.actions" 
-            :key="actionIndex"
-            style="background-color: blue !important; color: white !important; padding: 5px 10px !important; margin: 5px !important; border-radius: 4px !important;"
-          >
-            {{action.text}}
-          </button>
-        </div>
-      </div>
-    </div>
-    
     <div :class="wrapClass">
       <div
         v-if="isFailed && !hasOneDayPassed && !isAnEmailInbox"
@@ -688,8 +563,8 @@ export default {
           :parent-has-attachments="hasAttachments"
         />
 
-        <!-- Start of Content Type Checks -->
-        <div v-if="isCardType"> <!-- Check for Cards -->
+        <!-- Content type specific rendering -->
+        <div v-if="isCardType" class="card-container">
           <ChatCard
             v-for="item in cardItems"
             :key="item.title"
@@ -699,58 +574,37 @@ export default {
             :actions="item.actions"
           />
         </div>
+        
         <ChatForm
           v-else-if="isFormType"
-          :items="formItems"
+          :items="contentAttributes.items"
           :button-label="contentAttributes.button_label"
           :submitted-values="contentAttributes.submitted_values"
           @submit="onFormSubmit"
         />
-        <div v-else-if="isCustomCardType" style="border: 6px solid blue !important; padding: 10px !important; background-color: white !important; color: black !important; display: block !important; width: 100% !important; margin: 15px 0 !important; z-index: 9999 !important; position: relative !important;">
-          <div class="debug-info p-2 mb-2 bg-purple-100 border border-purple-400 text-purple-800" style="display: block !important;">
-            Debug: Message Component rendering CustomCard with {{customCardItems.length}} items
-          </div>
-          <!-- Add a test button to verify interaction is possible -->
-          <button 
-            class="p-2 mb-2 bg-red-500 text-white rounded"
-            @click="() => console.log('Debug button clicked in custom card container')"
-            style="padding: 8px !important; background-color: red !important; color: white !important; display: block !important; margin: 8px !important;"
-          >
-            Click if you can see this (Debug)
-          </button>
+        
+        <div v-else-if="isCustomCardType" class="custom-card-container">
           <CustomCard :items="customCardItems" />
         </div>
         
-        <!-- DIRECT HTML RENDER OF CUSTOM CARDS (No component) -->
-        <div v-if="data.content_type === 'custom_cards' && contentAttributes.items" 
-          style="border: 6px dotted green !important; padding: 10px !important; background-color: white !important; margin: 15px 0 !important;">
-          <h3 style="color: black !important; font-size: 16px !important; font-weight: bold !important;">DIRECT HTML RENDER - NO COMPONENT</h3>
-          
-          <div v-for="(item, index) in contentAttributes.items" :key="index"
-            style="border: 2px solid teal !important; padding: 8px !important; margin: 10px 0 !important; background-color: #f0f0f0 !important;">
-            <h4 style="color: black !important; font-weight: bold !important;">{{item.title}}</h4>
-            <p style="color: #333 !important;">{{item.description}}</p>
-            <div v-if="item.image_url" style="margin: 8px 0 !important;">
-              <img :src="item.image_url" style="max-width: 200px !important; border: 1px solid gray !important;" />
-            </div>
-            <p v-if="item.price" style="color: green !important; font-weight: bold !important;">{{item.price}}</p>
-            
-            <div v-if="item.actions && item.actions.length" style="margin-top: 8px !important;">
-              <button 
-                v-for="(action, actionIndex) in item.actions" 
-                :key="actionIndex"
-                style="background-color: blue !important; color: white !important; padding: 5px 10px !important; margin: 5px !important; border-radius: 4px !important;"
-              >
-                {{action.text}}
-              </button>
-            </div>
-          </div>
-        </div>
         <BubbleIntegration
+          v-else-if="isAnIntegrationMessage"
           :message-id="data.id"
           :content-attributes="contentAttributes"
           :inbox-id="data.inbox_id"
         />
+        
+        <div v-else>
+          <BubbleText
+            v-if="hasText"
+            :message="message"
+            :email-content="emailMessageContent"
+            :is-email="isEmailContentType"
+            :display-quoted-button="displayQuotedButton"
+            :message-style-class="bubbleClass"
+          />
+        </div>
+        
         <span
           v-if="isPending && hasAttachments"
           class="chat-bubble has-attachment agent"
@@ -1040,5 +894,9 @@ li.right {
       @apply text-woot-75 dark:text-woot-75;
     }
   }
+}
+
+.card-container, .custom-card-container {
+  @apply w-full mb-2;
 }
 </style>

@@ -16,7 +16,7 @@ import InstagramStory from './bubble/InstagramStory.vue';
 import InstagramStoryReply from './bubble/InstagramStoryReply.vue';
 import Spinner from 'shared/components/Spinner.vue';
 import { CONTENT_TYPES } from 'shared/constants/contentType';
-import { MESSAGE_TYPE, MESSAGE_STATUS } from 'shared/constants/messages';
+import { MESSAGE_TYPE, MESSAGE_STATUS, CUSTOM_CARD_TYPES } from 'shared/constants/messages';
 import { generateBotMessageContent } from './helpers/botMessageContentHelper';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { ACCOUNT_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
@@ -259,21 +259,26 @@ export default {
       const attributesContentType = this.contentAttributes?.content_type;
       const otherAttributesContentType = this.data.content_attributes?.content_type;
       
+      // Check if message has items - critical for custom cards
+      const hasItems = Boolean(
+        this.contentAttributes?.items?.length || 
+        this.data.content_attributes?.items?.length
+      );
+      
       // Log all possible content_type sources
       console.log(`[Message ${this.data.id}] Content type sources:
         - Direct content_type: ${directContentType}
         - From contentAttributes.content_type: ${attributesContentType}
         - From data.content_attributes.content_type: ${otherAttributesContentType}
-        - Has items: ${!!(this.data.content_attributes?.items && this.data.content_attributes.items.length > 0)}
+        - Has items: ${hasItems}
       `);
       
       // Determine the final content type to use
-      // If message has items but no content_type, treat it as custom_cards
       let contentType = directContentType || attributesContentType || otherAttributesContentType;
       
-      // If we have items but no content_type, set it to custom_cards
-      if (!contentType && this.data.content_attributes?.items && this.data.content_attributes.items.length > 0) {
-        console.log(`[Message ${this.data.id}] Setting contentType to 'custom_cards' because message has items but no content_type`);
+      // If message has items, prioritize setting content type to custom_cards
+      if (hasItems && contentType !== 'custom_cards') {
+        console.log(`[Message ${this.data.id}] Overriding content_type to 'custom_cards' because message has items`);
         contentType = 'custom_cards';
       }
       
@@ -420,54 +425,43 @@ export default {
       return isType;
     },
     isCustomCardType() {
-      // Add direct console.log to track when this is called
-      console.log(`[Message ${this.data.id}] isCustomCardType() called`);
+      const contentType = this.contentType;
+      const hasItems = Boolean(
+        this.contentAttributes?.items?.length || 
+        this.data.content_attributes?.items?.length
+      );
       
-      // Check both content_type and the presence of items
-      const hasCustomCardContentType = this.contentType === 'custom_cards' || this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
-      const hasItems = !!(this.data.content_attributes?.items && this.data.content_attributes.items.length > 0);
+      // Simplified logic: if it has items, treat it as a custom card regardless of content_type
+      // This matches how the template now renders cards
+      const result = hasItems || 
+                     contentType === CUSTOM_CARD_TYPES.CARD || 
+                     contentType === 'custom_cards';
       
-      // CRITICAL FIX: Always consider a message with items as a custom card regardless of content_type
-      const result = hasCustomCardContentType || hasItems;
-      
-      console.log(`[Message ${this.data.id}] isCustomCardType = ${result}:
-        - contentType: ${this.contentType}
-        - hasCustomCardContentType: ${hasCustomCardContentType}
-        - has items: ${hasItems}
-        - items length: ${this.data.content_attributes?.items?.length || 0}
-        - itemsData:`, this.data.content_attributes?.items);
-      
-      // If this is a custom card, log it prominently 
-      if (result) {
-        console.log(`%c[Message ${this.data.id}] CUSTOM CARD DETECTED!`, 'background: #4CAF50; color: white; padding: 2px 5px;');
-      }
-      
+      console.log(`[Message ${this.data.id}] isCustomCardType check:`, {
+        contentType,
+        hasItems,
+        result
+      });
       return result;
     },
     customCardItems() {
-      // First check if we have direct items in content_attributes
-      let items = this.contentAttributes?.items;
+      console.log('[Message] Getting customCardItems:', {
+        id: this.data.id,
+        contentAttributes: this.contentAttributes,
+        dataContentAttributes: this.data.content_attributes,
+        hasItemsInContentAttributes: !!this.contentAttributes?.items?.length,
+        hasItemsInDataContentAttributes: !!this.data.content_attributes?.items?.length
+      });
       
-      // If items aren't found in the usual place, check other possible locations
-      if (!items || !items.length) {
-        items = this.data.content_attributes?.items;
-      }
-      
-      // Ensure items is an array
-      if (items && !Array.isArray(items)) {
-        console.warn(`[Message ${this.data.id}] Items is not an array, converting to array:`, items);
-        items = [items];
-      }
-      
-      // Ensure we always return an array, even if empty
+      // Try to get items from either source
+      const items = this.contentAttributes?.items || 
+                   this.data.content_attributes?.items || 
+                   [];
+                   
+      // Ensure we always return an array, even if the items are somehow corrupted
       const safeItems = Array.isArray(items) ? items : [];
       
-      console.log(`[Message ${this.data.id}] customCardItems found ${safeItems.length} items:
-        - contentAttributes.items: ${!!this.contentAttributes?.items}
-        - data.content_attributes.items: ${!!this.data.content_attributes?.items}
-        - final items count: ${safeItems.length}
-      `);
-      
+      console.log(`[Message ${this.data.id}] customCardItems returning ${safeItems.length} items`);
       return safeItems;
     },
   },
@@ -556,6 +550,14 @@ export default {
       
       // Force re-render
       this.forceRefresh();
+    },
+    forceRefresh() {
+      this.refreshKey++;
+      console.log(`[Message ${this.data.id}] Forcing refresh (key: ${this.refreshKey})`);
+      this.$nextTick(() => {
+        console.log(`[Message ${this.data.id}] After nextTick - custom card elements:`, 
+          document.querySelectorAll('.custom-card-container').length);
+      });
     },
     isAttachmentImageVideoAudio(fileType) {
       return ['image', 'audio', 'video', 'story_mention', 'ig_reel'].includes(
@@ -719,25 +721,12 @@ export default {
           @submit="onFormSubmit"
         />
         
-        <!-- EMERGENCY FIX: Force custom card rendering for any message that has items -->
-        <div v-if="customCardItems.length > 0" class="custom-card-container" style="border: 2px solid #ff9800; padding: 4px; border-radius: 4px;">
-          <div style="font-size: 10px; color: #666; margin-bottom: 4px;">
-            {{ refreshKey > 0 ? `(Refreshed ${refreshKey} times)` : '' }}
-            <span style="color: #E91E63; font-weight: bold;">FIXED RENDERER</span>
-          </div>
+        <!-- CustomCard rendering - simplified condition -->
+        <div v-if="customCardItems.length > 0" class="custom-card-container">
           <CustomCard 
-            :key="`emergency-${data.id}-${refreshKey}-${Math.random()}`" 
+            :key="`card-${data.id}-${refreshKey}`" 
             :items="customCardItems"
           />
-        </div>
-        
-        <!-- Original rendering logic (keeping as fallback) -->
-        <div v-else-if="isCustomCardType && customCardItems.length === 0" class="custom-card-container">
-          <div style="font-size: 10px; color: #666; margin-bottom: 4px;">
-            {{ refreshKey > 0 ? `(Refreshed ${refreshKey} times)` : '' }}
-            <span style="color: #999;">(Empty card - items: {{customCardItems.length}})</span>
-          </div>
-          <!-- No CustomCard component if no items -->
         </div>
         
         <BubbleIntegration

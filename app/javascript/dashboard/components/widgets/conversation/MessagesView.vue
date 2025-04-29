@@ -356,6 +356,60 @@ export default {
 
       return { incoming, outgoing };
     },
+    // Enhance the customCardOnlyMessages computed property with detailed logging
+    customCardOnlyMessages() {
+      console.log('[MessagesView] Computing customCardOnlyMessages');
+      
+      const { messages = [] } = this.currentChat || {};
+      if (!messages.length) {
+        console.log('[MessagesView] No messages in currentChat');
+        return [];
+      }
+      
+      // Find messages that are custom cards
+      const potentialCustomCards = messages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes && msg.content_attributes.items && msg.content_attributes.items.length)
+      );
+      
+      console.log(`[MessagesView] Found ${potentialCustomCards.length} potential custom card messages`);
+      
+      // Check which ones are already in read/unread lists
+      const readMessageIds = new Set(this.readMessages.map(m => m.id));
+      const unreadMessageIds = new Set(this.unReadMessages.map(m => m.id));
+      
+      console.log(`[MessagesView] Read messages count: ${readMessageIds.size}`);
+      console.log(`[MessagesView] Unread messages count: ${unreadMessageIds.size}`);
+      
+      // Debug the agent_last_seen_at value that affects read/unread calculations
+      console.log(`[MessagesView] agent_last_seen_at: ${this.currentChat.agent_last_seen_at}`);
+      
+      const missedCustomCards = potentialCustomCards.filter(msg => {
+        const isInReadMessages = readMessageIds.has(msg.id);
+        const isInUnreadMessages = unreadMessageIds.has(msg.id);
+        
+        // If the message is already included in either list, skip it
+        if (isInReadMessages || isInUnreadMessages) {
+          console.log(`[MessagesView] Message ${msg.id} is already handled (Read: ${isInReadMessages}, Unread: ${isInUnreadMessages})`);
+          return false;
+        }
+        
+        // This message is somehow missed by the normal filtering
+        console.log(`[MessagesView] 🔴 MISSED CUSTOM CARD: Message ${msg.id} is not in read or unread lists`);
+        console.log(`- Message created_at: ${msg.created_at}`);
+        console.log(`- Message content_type: ${msg.content_type}`);
+        console.log(`- Has items: ${!!(msg.content_attributes && msg.content_attributes.items)}`);
+        console.log(`- Items count: ${msg.content_attributes?.items?.length || 0}`);
+        
+        return true;
+      });
+      
+      if (missedCustomCards.length > 0) {
+        console.log(`[MessagesView] ⚠️ Found ${missedCustomCards.length} custom card messages missed by normal filtering`);
+      }
+      
+      return missedCustomCards;
+    },
   },
 
   watch: {
@@ -1233,6 +1287,9 @@ export default {
         return;
       }
       
+      // First, debug the conversation message filtering
+      this.debugConversationMessages();
+      
       const allMessages = this.currentChat.messages;
       console.log(`[MessagesView] Scanning ${allMessages.length} total messages`);
       
@@ -1311,6 +1368,161 @@ export default {
         console.log('[MessagesView] ✅ All custom cards are visible in DOM');
       }
     },
+    // Add a debugging method to analyze the underlying read/unread filtering
+    debugConversationMessages() {
+      console.log('[MessagesView] 🔍 Debugging conversation message filtering');
+      
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.error('[MessagesView] No messages to debug');
+        return;
+      }
+      
+      const allMessages = this.currentChat.messages;
+      const agentLastSeen = this.currentChat.agent_last_seen_at;
+      const currentTime = new Date().toISOString();
+      
+      console.log(`[MessagesView] Total messages: ${allMessages.length}`);
+      console.log(`[MessagesView] agent_last_seen_at: ${agentLastSeen || 'null'}`);
+      console.log(`[MessagesView] Current time: ${currentTime}`);
+      console.log(`[MessagesView] Read messages (computed): ${this.readMessages.length}`);
+      console.log(`[MessagesView] Unread messages (computed): ${this.unReadMessages.length}`);
+      console.log(`[MessagesView] Custom card only messages: ${this.customCardOnlyMessages.length}`);
+      
+      // Analyze each message's classification
+      allMessages.forEach(msg => {
+        const isInReadMessages = this.readMessages.some(m => m.id === msg.id);
+        const isInUnreadMessages = this.unReadMessages.some(m => m.id === msg.id);
+        const isInCustomCardOnly = this.customCardOnlyMessages.some(m => m.id === msg.id);
+        
+        // If the message is missed by all filters, log it
+        if (!isInReadMessages && !isInUnreadMessages && !isInCustomCardOnly) {
+          console.log(`[MessagesView] 🔴 COMPLETELY MISSED MESSAGE: ${msg.id}`);
+          console.log(`- Message created_at: ${msg.created_at}`);
+          console.log(`- Message content_type: ${msg.content_type}`);
+          console.log(`- Message sender: ${msg.sender_type}:${msg.sender_id}`);
+          console.log(`- Message content: ${msg.content?.substring(0, 50) || '[empty]'}${msg.content?.length > 50 ? '...' : ''}`);
+          console.log(`- Has attachments: ${!!(msg.attachments && msg.attachments.length)}`);
+          console.log(`- Has items: ${!!(msg.content_attributes && msg.content_attributes.items)}`);
+          
+          // Try to determine why it's missed
+          if (msg.private) {
+            console.log('- Reason: Message is private');
+          } else if (!msg.content && !(msg.attachments && msg.attachments.length) && 
+                    !(msg.content_attributes && msg.content_attributes.items)) {
+            console.log('- Reason: Message has no content, attachments, or items');
+          }
+        }
+      });
+      
+      // Check if our emergency recovery is finding all custom cards
+      const allCustomCards = allMessages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes && msg.content_attributes.items && msg.content_attributes.items.length)
+      );
+      
+      console.log(`[MessagesView] Total custom card messages: ${allCustomCards.length}`);
+      console.log(`[MessagesView] Custom cards in read messages: ${this.readMessages.filter(m => 
+        m.content_type === 'custom_cards' || 
+        (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)
+      ).length}`);
+      console.log(`[MessagesView] Custom cards in unread messages: ${this.unReadMessages.filter(m => 
+        m.content_type === 'custom_cards' || 
+        (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)
+      ).length}`);
+      console.log(`[MessagesView] Custom cards in customCardOnlyMessages: ${this.customCardOnlyMessages.length}`);
+      
+      // Verify our total count matches
+      const totalAccountedFor = 
+        this.readMessages.filter(m => m.content_type === 'custom_cards' || 
+          (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)).length + 
+        this.unReadMessages.filter(m => m.content_type === 'custom_cards' || 
+          (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)).length + 
+        this.customCardOnlyMessages.length;
+      
+      if (totalAccountedFor !== allCustomCards.length) {
+        console.error(`[MessagesView] ❌ MISSING CUSTOM CARDS! Total: ${allCustomCards.length}, Accounted for: ${totalAccountedFor}`);
+        
+        // Find which ones are missing
+        const accountedForIds = new Set([
+          ...this.readMessages.filter(m => m.content_type === 'custom_cards' || 
+            (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)).map(m => m.id),
+          ...this.unReadMessages.filter(m => m.content_type === 'custom_cards' || 
+            (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)).map(m => m.id),
+          ...this.customCardOnlyMessages.map(m => m.id)
+        ]);
+        
+        const missingCards = allCustomCards.filter(m => !accountedForIds.has(m.id));
+        console.log(`[MessagesView] Missing ${missingCards.length} custom cards:`, missingCards.map(m => m.id));
+      } else {
+        console.log(`[MessagesView] ✅ All custom cards accounted for`);
+      }
+    },
+    // Add the missing runContentTypeAudit method
+    runContentTypeAudit() {
+      console.log('=== STARTING CONTENT TYPE AUDIT ===');
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('No messages to audit');
+        return;
+      }
+
+      const messages = this.currentChat.messages;
+      console.log(`Auditing ${messages.length} messages in conversation ${this.currentChat.id}`);
+      
+      // Find custom_cards messages
+      const customCardMessages = messages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        msg.content_attributes?.items?.length > 0
+      );
+      
+      console.log(`Found ${customCardMessages.length} custom_cards messages`);
+      
+      // Create a direct rendering of cards in the DOM
+      this.emergencyRenderCustomCards();
+      
+      // Try checking the DOM for CustomCard components
+      const customCardComponents = document.querySelectorAll('.custom-card-container');
+      console.log(`Found ${customCardComponents.length} CustomCard components in DOM`);
+      
+      // Iterate through the custom card messages to check their DOM presence
+      customCardMessages.forEach(msg => {
+        console.log(`Custom card message ID ${msg.id}:`);
+        console.log(`  content_type: ${msg.content_type}`);
+        console.log(`  has items: ${!!msg.content_attributes?.items}`);
+        console.log(`  items length: ${msg.content_attributes?.items?.length || 0}`);
+        
+        // Force content_type to custom_cards if it has items
+        if (msg.content_attributes?.items && msg.content_type !== 'custom_cards') {
+          console.log(`  ⚠️ Fixing content_type to 'custom_cards'`);
+          msg.content_type = 'custom_cards';
+        }
+        
+        // Check if this message has a DOM representation
+        const msgElement = document.getElementById(`message${msg.id}`);
+        if (msgElement) {
+          console.log(`  ✅ Found message element in DOM`);
+          
+          // Check for custom card container inside this message
+          const cardContainer = msgElement.querySelector('.custom-card-container');
+          if (cardContainer) {
+            console.log(`  ✅ Found custom card container in message element`);
+          } else {
+            console.log(`  ❌ No custom card container in message element`);
+            
+            // Check if there's a message-content element
+            const messageContent = msgElement.querySelector('.message-content');
+            if (messageContent) {
+              console.log(`  ✅ Found message-content element`);
+              console.log(`  Message content HTML:`, messageContent.innerHTML.substring(0, 100) + '...');
+            }
+          }
+        } else {
+          console.log(`  ❌ Couldn't find message element in DOM`);
+        }
+      });
+      
+      console.log('=== AUDIT COMPLETE ===');
+      this.safeForceRerender();
+    },
   },
 };
 </script>
@@ -1343,6 +1555,12 @@ export default {
         @click="performComprehensiveMessageScan"
       >
         EMERGENCY SCAN
+      </button>
+      <button 
+        style="background-color: #607D8B; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;" 
+        @click="debugConversationMessages"
+      >
+        DEBUG FILTER
       </button>
       <span style="color: black; font-size: 12px;">Found {{currentChat?.messages?.filter(m => m.content_type === 'custom_cards' || (m.content_attributes?.items && m.content_attributes.items.length)).length || 0}} custom_cards</span>
     </div>
@@ -1416,16 +1634,18 @@ export default {
       </transition>
       
       <!-- Emergency rendering of any missed custom cards -->
-      <template v-if="currentChat && currentChat.messages">
+      <template v-if="currentChat && currentChat.messages && customCardOnlyMessages.length > 0">
+        <div 
+          style="background-color: #FFF3CD; color: #856404; padding: 8px; margin: 8px 0; border-radius: 4px; border-left: 4px solid #856404; font-size: 12px;"
+        >
+          Recovered {{customCardOnlyMessages.length}} custom card messages that were missed by normal filtering
+        </div>
+        
         <Message
-          v-for="message in currentChat.messages.filter(m => 
-            (m.content_type === 'custom_cards' || 
-             (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)) &&
-            !readMessages.some(rm => rm.id === m.id) && 
-            !unReadMessages.some(um => um.id === m.id)
-          )"
-          :key="`emergency-${message.id}-${messagesKey}`"
-          class="message--emergency ph-no-capture"
+          v-for="message in customCardOnlyMessages"
+          :key="`recovered-${message.id}-${messagesKey}`"
+          :set="logRenderedMessage(message, 'recovered')"
+          class="message--recovered ph-no-capture"
           data-clarity-mask="True"
           :data="message"
           :is-a-tweet="isATweet"

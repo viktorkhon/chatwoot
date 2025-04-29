@@ -177,10 +177,10 @@ export default {
       );
       
       if (customCardMessages.length > 0) {
-        console.log(
+        /* console.log(
           `[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat:`, 
           customCardMessages.map(msg => `ID: ${msg.id}`)
-        );
+        ); */
       }
       
       return messages;
@@ -201,10 +201,10 @@ export default {
       );
       
       if (customCardMessages.length > 0) {
-        console.log(
+        /* console.log(
           `[MessagesView] Found ${customCardMessages.length} custom_cards messages in readMessages:`, 
           customCardMessages.map(msg => `ID: ${msg.id}`)
-        );
+        ); */ 
       }
       
       return readMessages;
@@ -225,10 +225,10 @@ export default {
       );
       
       if (customCardMessages.length > 0) {
-        console.log(
+         /* console.log(
           `[MessagesView] Found ${customCardMessages.length} custom_cards messages in unReadMessages:`, 
           customCardMessages.map(msg => `ID: ${msg.id}`)
-        );
+        ); */
       }
       
       return unreadMessages;
@@ -382,14 +382,14 @@ export default {
     // Debug custom_cards messages
     if (this.currentChat && this.currentChat.messages) {
       const customCardMessages = this.currentChat.messages.filter(message => message.content_type === 'custom_cards');
-      console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat: `, 
+      /*console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat: `, 
         customCardMessages.map(msg => `ID: ${msg.id}`));
         
       // Check for items in each message
       customCardMessages.forEach(msg => {
         console.log(`[MessagesView] Custom card message ID ${msg.id} content attributes:`, msg.content_attributes);
         console.log(`[MessagesView] Items in message ID ${msg.id}:`, msg.content_attributes?.items || 'No items');
-      });
+      }); */
     }
   },
 
@@ -443,6 +443,7 @@ export default {
     },
     
     // Add diagnostic function here
+    /*
     runContentTypeAudit() {
       console.log('=== STARTING CONTENT TYPE AUDIT ===');
       if (!this.currentChat || !this.currentChat.messages) {
@@ -503,6 +504,7 @@ export default {
       console.log('=== AUDIT COMPLETE ===');
       this.$forceUpdate(); // Force component to re-render
     },
+    */
     
     isLabelSuggestionDismissed() {
       return LocalStorage.getFlag(

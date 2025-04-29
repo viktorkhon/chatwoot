@@ -375,7 +375,9 @@ export default {
       return isType;
     },
     isCustomCardType() {
-      return this.contentType === 'custom_cards';
+      const result = this.contentType === 'custom_cards';
+      console.log(`[Message ${this.data.id}] Computed isCustomCardType evaluated to: ${result} (contentType: ${this.contentType})`);
+      return result;
     },
     customCardItems() {
       // First check if we have direct items in content_attributes
@@ -564,7 +566,10 @@ export default {
         />
 
         <!-- Content type specific rendering -->
+        {{ console.log(`[Message ${data.id}] Starting content type checks... isCardType: ${isCardType}, isFormType: ${isFormType}, isCustomCardType: ${isCustomCardType}, isAnIntegrationMessage: ${isAnIntegrationMessage}`) }}
+        
         <div v-if="isCardType" class="card-container">
+          {{ console.log(`[Message ${data.id}] Rendering ChatCard`) }}
           <ChatCard
             v-for="item in cardItems"
             :key="item.title"
@@ -584,7 +589,9 @@ export default {
         />
         
         <div v-else-if="isCustomCardType" class="custom-card-container">
+          {{ console.log(`[Message ${data.id}] ENTERING CUSTOM CARD BLOCK! Rendering CustomCard...`) }}
           <CustomCard :items="customCardItems" />
+          {{ console.log(`[Message ${data.id}] FINISHED Rendering CustomCard block.`) }}
         </div>
         
         <BubbleIntegration
@@ -595,6 +602,7 @@ export default {
         />
         
         <div v-else>
+          {{ console.log(`[Message ${data.id}] Rendering default BubbleText or Attachments`) }}
           <BubbleText
             v-if="hasText"
             :message="message"

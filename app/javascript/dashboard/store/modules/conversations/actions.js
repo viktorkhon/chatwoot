@@ -32,13 +32,13 @@ export const processMessageForFormat = (message = {}) => {
   
   // Special handling for custom_cards
   if (message.content_type === 'custom_cards' || message.content_type === CONTENT_TYPES.CUSTOM_CARDS) {
-    console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
+    // console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
     
     // Ensure content_type is properly set
     formattedMessage.content_type = 'custom_cards';
     
     if (message.content_attributes?.items) {
-      console.log('[ActionHelper] Creating new items array reference for reactivity.');
+      // console.log('[ActionHelper] Creating new items array reference for reactivity.');
       // Create a completely new object for reactivity
       formattedMessage = {
         ...formattedMessage,
@@ -51,10 +51,10 @@ export const processMessageForFormat = (message = {}) => {
       };
       
       // Log for debugging
-      console.log('[ActionHelper] Formatted message:', formattedMessage);
-      console.log('[ActionHelper] Items count:', formattedMessage.content_attributes.items.length);
+      // console.log('[ActionHelper] Formatted message:', formattedMessage);
+      // console.log('[ActionHelper] Items count:', formattedMessage.content_attributes.items.length);
     } else {
-      console.log(`[ActionHelper] Message ID: ${message.id} is custom_cards but has no items.`);
+      // console.log(`[ActionHelper] Message ID: ${message.id} is custom_cards but has no items.`);
     }
   }
   
@@ -359,8 +359,8 @@ const actions = {
     
     // Debug custom_cards messages
     if (formattedMessage.content_type === 'custom_cards') {
-      console.log('🔴 [STORE] Custom card message detected in addMessage action:', formattedMessage);
-      console.log('🔴 [STORE] Custom card items:', formattedMessage.content_attributes?.items);
+      // console.log('🔴 [STORE] Custom card message detected in addMessage action:', formattedMessage);
+      // console.log('🔴 [STORE] Custom card items:', formattedMessage.content_attributes?.items);
       
       // Force some DOM manipulation to add a visible element for custom cards
       setTimeout(() => {
@@ -369,7 +369,7 @@ const actions = {
           const msgElement = document.getElementById(`message${msgId}`);
           
           if (msgElement) {
-            console.log('🔴 [STORE] Found message element in DOM, adding debug overlay');
+            // console.log('🔴 [STORE] Found message element in DOM, adding debug overlay');
             
             // Create debug element
             const debugDiv = document.createElement('div');
@@ -388,10 +388,10 @@ const actions = {
             // Insert at beginning of message element
             msgElement.insertBefore(debugDiv, msgElement.firstChild);
           } else {
-            console.log('🔴 [STORE] Could not find message element in DOM');
+            // console.log('🔴 [STORE] Could not find message element in DOM');
           }
         } catch (e) {
-          console.error('🔴 [STORE] Error in DOM manipulation:', e);
+          // console.error('🔴 [STORE] Error in DOM manipulation:', e);
         }
       }, 1000); // Wait for the DOM to update
     }

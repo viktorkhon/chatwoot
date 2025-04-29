@@ -71,168 +71,117 @@ export default {
 
 <style lang="scss" scoped>
 .card-container {
-  @apply flex flex-col;
+  display: flex;
+  flex-direction: column;
 }
 
 .card {
-  @apply bg-white dark:bg-slate-800 rounded-lg overflow-hidden shadow-sm max-w-[20rem];
+  background-color: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  max-width: 20rem;
+  margin-bottom: 1rem;
 }
 
 .separator {
-  @apply border-t border-slate-200 dark:border-slate-700 my-3;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.75rem 0;
 }
 
 .card-media {
-  @apply relative;
+  position: relative;
 }
 
 .card-image {
-  @apply w-full h-48 object-cover;
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
 }
 
 .card-content {
-  @apply p-4;
+  padding: 1rem;
 }
 
 .card-title {
-  @apply text-base font-semibold text-slate-900 dark:text-slate-100 mb-2;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
 }
 
 .card-reason {
-  @apply bg-slate-50 dark:bg-slate-700 p-3 rounded-md mb-3;
+  background-color: #f9fafb;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.75rem;
 }
 
 .card-reason-title {
-  @apply text-sm font-medium text-slate-700 dark:text-slate-200 mb-1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
 }
 
 .card-reason-content {
-  @apply text-sm text-slate-600 dark:text-slate-300;
+  font-size: 0.875rem;
+  color: #4b5563;
 }
 
 .card-description {
-  @apply text-sm text-slate-600 dark:text-slate-300 mb-4;
-
-  :deep(p) {
-    @apply mb-2;
-  }
-
-  :deep(strong) {
-    @apply font-semibold;
-  }
-
-  :deep(em) {
-    @apply italic;
-  }
-
-  :deep(ul), :deep(ol) {
-    @apply pl-4 mb-2;
-  }
-
-  :deep(li) {
-    @apply mb-1;
-  }
-
-  :deep(a) {
-    @apply text-woot-500 dark:text-woot-400 hover:underline;
-  }
-
-  :deep(h1) {
-    @apply text-2xl font-bold mb-2;
-  }
-
-  :deep(h2) {
-    @apply text-xl font-bold mb-2;
-  }
-
-  :deep(h3) {
-    @apply text-lg font-bold mb-2;
-  }
-
-  :deep(blockquote) {
-    @apply border-l-4 border-slate-300 dark:border-slate-600 pl-4 italic;
-  }
-
-  :deep(code) {
-    @apply bg-slate-100 dark:bg-slate-700 px-1 rounded;
-  }
-
-  :deep(pre) {
-    @apply bg-slate-100 dark:bg-slate-700 p-2 rounded overflow-x-auto;
-  }
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-bottom: 1rem;
 }
 
 .card-price {
-  @apply text-base font-semibold text-slate-900 dark:text-slate-100 text-center mb-3;
-
-  :deep(p) {
-    @apply mb-2;
-  }
-
-  :deep(strong) {
-    @apply font-semibold;
-  }
-
-  :deep(em) {
-    @apply italic;
-  }
-
-  :deep(ul), :deep(ol) {
-    @apply pl-4 mb-2;
-  }
-
-  :deep(li) {
-    @apply mb-1;
-  }
-
-  :deep(a) {
-    @apply text-woot-500 dark:text-woot-400 hover:underline;
-  }
-
-  :deep(h1) {
-    @apply text-2xl font-bold mb-2;
-  }
-
-  :deep(h2) {
-    @apply text-xl font-bold mb-2;
-  }
-
-  :deep(h3) {
-    @apply text-lg font-bold mb-2;
-  }
-
-  :deep(blockquote) {
-    @apply border-l-4 border-slate-300 dark:border-slate-600 pl-4 italic;
-  }
-
-  :deep(code) {
-    @apply bg-slate-100 dark:bg-slate-700 px-1 rounded;
-  }
-
-  :deep(pre) {
-    @apply bg-slate-100 dark:bg-slate-700 p-2 rounded overflow-x-auto;
-  }
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 0.75rem;
 }
 
 .card-actions {
-  @apply flex flex-wrap gap-2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .card-action-button {
-  @apply px-3 py-1.5 text-sm rounded-md transition-colors duration-200;
-  @apply bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600;
-  @apply text-slate-700 dark:text-slate-200;
-
-  &.is-link {
-    @apply bg-woot-100 hover:bg-woot-200 dark:bg-woot-900 dark:hover:bg-woot-800;
-    @apply text-woot-700 dark:text-woot-200;
-  }
-
-  &.is-postback {
-    @apply bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800;
-    @apply text-green-700 dark:text-green-200;
-  }
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  transition-property: background-color;
+  transition-duration: 200ms;
+  background-color: #f3f4f6;
+  color: #374151;
 }
+
+.card-action-button:hover {
+  background-color: #e5e7eb;
+}
+
+.card-action-button.is-link {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.card-action-button.is-link:hover {
+  background-color: #bae6fd;
+}
+
+.card-action-button.is-postback {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.card-action-button.is-postback:hover {
+  background-color: #bbf7d0;
+}
+
+/* Dark mode could be added with media queries or class-based toggles */
 
 .custom-card-debug {
   border: 2px solid red !important;

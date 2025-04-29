@@ -19,7 +19,7 @@ import contacts from './modules/contacts';
 import conversationLabels from './modules/conversationLabels';
 import conversationMetadata from './modules/conversationMetadata';
 import conversationPage from './modules/conversationPage';
-import conversations from './modules/conversations';
+import conversations from './modules/conversations/index';
 import conversationSearch from './modules/conversationSearch';
 import conversationStats from './modules/conversationStats';
 import conversationTypingStatus from './modules/conversationTypingStatus';

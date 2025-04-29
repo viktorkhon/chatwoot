@@ -40,3 +40,13 @@ const emergencyDebugMessage = message => {
 // },
 
 // Look for a mutation that adds messages and modify it to use our interceptor 
+
+// The following is a placeholder default export to keep the module structure intact
+// This ensures the import in store/index.js works correctly
+
+export default {
+  state: {},
+  getters: {},
+  actions: {},
+  mutations: {}
+}; 

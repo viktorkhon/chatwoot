@@ -183,10 +183,25 @@ export const mutations = {
   [types.ADD_MESSAGE]({ allConversations, selectedChatId }, message) {
     const { conversation_id: conversationId, content_type: contentType, id: messageId } = message;
     
+    // EMERGENCY FIX: Check if message has items but wrong content_type
+    if (message.content_attributes && message.content_attributes.items && 
+        message.content_attributes.items.length && contentType !== 'custom_cards') {
+      console.warn(`%c[EMERGENCY FIX] Message ${messageId} has items but wrong content_type: ${contentType}. Fixing to 'custom_cards'`, 
+                   'background:#ff9800;color:black;padding:3px 6px;border-radius:3px;');
+      
+      // Clone and fix the message
+      message = { ...message, content_type: 'custom_cards' };
+      
+      console.log('%c[EMERGENCY FIX] Message fixed:', 'color:#4caf50;font-weight:bold;', message);
+    }
+    
     // Debug logging for custom_cards messages
-    if (contentType === 'custom_cards') {
-      // console.log(`[Vuex Mutation] Adding custom_cards message ID=${messageId} to conversation ${conversationId}`);
-      // console.log(`[Vuex Mutation] Message items:`, message.content_attributes?.items);
+    if (message.content_type === 'custom_cards') {
+      console.log(`%c[Vuex Mutation] Custom cards message ${messageId}:`, 
+                 'background:#2196f3;color:white;padding:3px 6px;border-radius:3px;', {
+        id: messageId,
+        itemsCount: message.content_attributes?.items?.length || 0
+      });
     }
     
     const [chat] = getSelectedChatConversation({
@@ -195,20 +210,20 @@ export const mutations = {
     });
     
     if (!chat) {
-      // console.warn(`[Vuex Mutation] Chat not found for message ID=${messageId}, conversation ${conversationId}`);
+      console.warn(`[Vuex Mutation] Chat not found for message ID=${messageId}, conversation ${conversationId}`);
       return;
     }
 
     const pendingMessageIndex = findPendingMessageIndex(chat, message);
     if (pendingMessageIndex !== -1) {
       chat.messages[pendingMessageIndex] = message;
-      if (contentType === 'custom_cards') {
+      if (message.content_type === 'custom_cards') {
         console.log(`[Vuex Mutation] Updated pending custom_cards message at index ${pendingMessageIndex}`);
       }
     } else {
       chat.messages.push(message);
-      if (contentType === 'custom_cards') {
-        // console.log(`[Vuex Mutation] Added new custom_cards message. Total messages: ${chat.messages.length}`);
+      if (message.content_type === 'custom_cards') {
+        console.log(`[Vuex Mutation] Added new custom_cards message. Total messages: ${chat.messages.length}`);
       }
       chat.timestamp = message.created_at;
       const { conversation: { unread_count: unreadCount = 0 } = {} } = message;

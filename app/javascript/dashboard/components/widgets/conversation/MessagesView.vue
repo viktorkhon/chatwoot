@@ -171,16 +171,22 @@ export default {
     getMessages() {
       const { messages = [] } = this.currentChat || {};
       
-      // Check for custom_cards messages
+      // EMERGENCY DEBUG: Log all messages with custom_cards content type
       const customCardMessages = messages.filter(
-        message => message.content_type === 'custom_cards'
+        message => message.content_type === 'custom_cards' || (message.content_attributes && message.content_attributes.items && message.content_attributes.items.length)
       );
       
       if (customCardMessages.length > 0) {
-        /* console.log(
-          `[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat:`, 
-          customCardMessages.map(msg => `ID: ${msg.id}`)
-        ); */
+        console.log(
+          `%c[EMERGENCY] Found ${customCardMessages.length} custom_cards messages:`, 
+          'background: red; color: white; padding: 2px 5px; border-radius: 3px;',
+          customCardMessages.map(msg => ({
+            id: msg.id,
+            content_type: msg.content_type,
+            has_items: !!msg.content_attributes?.items?.length,
+            items_count: msg.content_attributes?.items?.length || 0
+          }))
+        );
       }
       
       return messages;
@@ -358,6 +364,9 @@ export default {
       
       // Update unReadMessageIds when the currentChat changes
       this.updateUnreadMessageIds();
+      
+      // EMERGENCY DEBUG: Check for custom cards in new messages
+      this.inspectCustomCardMessages();
     },
   },
 
@@ -379,18 +388,8 @@ export default {
     this.fetchAllAttachmentsFromCurrentChat();
     this.fetchSuggestions();
     
-    // Debug custom_cards messages
-    if (this.currentChat && this.currentChat.messages) {
-      const customCardMessages = this.currentChat.messages.filter(message => message.content_type === 'custom_cards');
-      /*console.log(`[MessagesView] Found ${customCardMessages.length} custom_cards messages in current chat: `, 
-        customCardMessages.map(msg => `ID: ${msg.id}`));
-        
-      // Check for items in each message
-      customCardMessages.forEach(msg => {
-        console.log(`[MessagesView] Custom card message ID ${msg.id} content attributes:`, msg.content_attributes);
-        console.log(`[MessagesView] Items in message ID ${msg.id}:`, msg.content_attributes?.items || 'No items');
-      }); */
-    }
+    // Call our new debug method on mounted
+    this.inspectCustomCardMessages();
   },
 
   unmounted() {
@@ -665,6 +664,58 @@ export default {
         messages,
         this.currentChat.agent_last_seen_at
       ).map(message => message.id);
+    },
+    // Add emergency debugging method
+    inspectCustomCardMessages() {
+      console.log('%c[EMERGENCY DEBUG] Inspecting messages for custom cards', 'background: #ff5722; color: white; padding: 2px 5px;');
+      
+      if (!this.currentChat || !this.currentChat.messages) {
+        console.log('[EMERGENCY DEBUG] No messages found in currentChat');
+        return;
+      }
+      
+      const allMessages = this.currentChat.messages;
+      console.log(`[EMERGENCY DEBUG] Total messages in conversation: ${allMessages.length}`);
+      
+      // Find all messages with custom cards
+      const customCardMessages = allMessages.filter(msg => 
+        msg.content_type === 'custom_cards' || 
+        (msg.content_attributes && msg.content_attributes.items && msg.content_attributes.items.length)
+      );
+      
+      if (customCardMessages.length === 0) {
+        console.log('[EMERGENCY DEBUG] No custom card messages found');
+        return;
+      }
+      
+      console.log(`%c[EMERGENCY DEBUG] Found ${customCardMessages.length} custom card messages:`, 'background: #4caf50; color: white; padding: 2px 5px;');
+      
+      // Log details about each custom card message
+      customCardMessages.forEach(msg => {
+        console.log(`%c[EMERGENCY DEBUG] Message ID: ${msg.id}`, 'font-weight: bold; color: #e91e63;');
+        console.log('Content type:', msg.content_type);
+        console.log('Has items:', !!msg.content_attributes?.items);
+        console.log('Items count:', msg.content_attributes?.items?.length || 0);
+        
+        // Fix content_type if needed
+        if (msg.content_attributes?.items?.length && msg.content_type !== 'custom_cards') {
+          console.warn(`%c[EMERGENCY FIX] Message ${msg.id} has items but wrong content_type: ${msg.content_type}`, 
+              'background: #ff9800; color: black; padding: 2px 5px;');
+          
+          // Add DOM debugging directly in the UI next to the card
+          this.$nextTick(() => {
+            const msgElement = document.getElementById(`message${msg.id}`);
+            if (msgElement) {
+              const debugDiv = document.createElement('div');
+              debugDiv.style.cssText = 'background: #ff9800; color: black; padding: 5px; margin: 5px 0; border-radius: 4px; font-size: 12px;';
+              debugDiv.innerHTML = `EMERGENCY DEBUG: CUSTOM CARD FROM STORE HANDLER<br>Message ID: ${msg.id}<br>Content Type: ${msg.content_type}<br>Items: ${msg.content_attributes?.items?.length || 0}`;
+              msgElement.prepend(debugDiv);
+            } else {
+              console.warn(`[EMERGENCY DEBUG] Could not find DOM element for message ${msg.id}`);
+            }
+          });
+        }
+      });
     },
   },
 };

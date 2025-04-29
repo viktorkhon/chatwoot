@@ -176,7 +176,7 @@ export default {
       :message-content-attributes="messageContentAttributes.submitted_values"
       :message-id="messageId"
     />
-    <div v-if="contentType === 'custom_cards'" class="custom-cards-container" style="border: 4px solid red !important; padding: 8px !important; margin: 12px 0 !important;">
+    <div v-if="content_type === 'custom_cards'" class="custom-cards-container" style="border: 4px solid red !important; padding: 8px !important; margin: 12px 0 !important;">
       <div class="debug-info p-2 mb-2 bg-red-100 border border-red-400 text-red-800" style="display: block !important;">
         Debug: AgentMessageBubble rendering CustomChatCards - #items: {{messageContentAttributes.items?.length}}
       </div>

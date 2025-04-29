@@ -264,10 +264,19 @@ export default {
         - Direct content_type: ${directContentType}
         - From contentAttributes.content_type: ${attributesContentType}
         - From data.content_attributes.content_type: ${otherAttributesContentType}
+        - Has items: ${!!(this.data.content_attributes?.items && this.data.content_attributes.items.length > 0)}
       `);
       
       // Determine the final content type to use
-      const contentType = directContentType || attributesContentType || otherAttributesContentType;
+      // If message has items but no content_type, treat it as custom_cards
+      let contentType = directContentType || attributesContentType || otherAttributesContentType;
+      
+      // If we have items but no content_type, set it to custom_cards
+      if (!contentType && this.data.content_attributes?.items && this.data.content_attributes.items.length > 0) {
+        console.log(`[Message ${this.data.id}] Setting contentType to 'custom_cards' because message has items but no content_type`);
+        contentType = 'custom_cards';
+      }
+      
       return contentType;
     },
     twitterProfileLink() {
@@ -411,12 +420,19 @@ export default {
       return isType;
     },
     isCustomCardType() {
-      const result = this.contentType === 'custom_cards';
+      // Check both content_type and the presence of items
+      const hasCustomCardContentType = this.contentType === 'custom_cards' || this.contentType === CONTENT_TYPES.CUSTOM_CARDS;
+      const hasItems = !!(this.data.content_attributes?.items && this.data.content_attributes.items.length > 0);
+      
+      const result = hasCustomCardContentType || hasItems;
+      
       console.log(`[Message ${this.data.id}] isCustomCardType = ${result}:
         - contentType: ${this.contentType}
-        - has items: ${!!this.data.content_attributes?.items}
+        - hasCustomCardContentType: ${hasCustomCardContentType}
+        - has items: ${hasItems}
         - items length: ${this.data.content_attributes?.items?.length || 0}
         - itemsData:`, this.data.content_attributes?.items);
+      
       return result;
     },
     customCardItems() {
@@ -428,12 +444,22 @@ export default {
         items = this.data.content_attributes?.items;
       }
       
-      console.log(`[Message ${this.data.id}] customCardItems found ${items?.length || 0} items:
+      // Ensure items is an array
+      if (items && !Array.isArray(items)) {
+        console.warn(`[Message ${this.data.id}] Items is not an array, converting to array:`, items);
+        items = [items];
+      }
+      
+      // Ensure we always return an array, even if empty
+      const safeItems = Array.isArray(items) ? items : [];
+      
+      console.log(`[Message ${this.data.id}] customCardItems found ${safeItems.length} items:
         - contentAttributes.items: ${!!this.contentAttributes?.items}
         - data.content_attributes.items: ${!!this.data.content_attributes?.items}
+        - final items count: ${safeItems.length}
       `);
       
-      return items || [];
+      return safeItems;
     },
   },
   watch: {
@@ -466,6 +492,9 @@ export default {
       - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
     `);
     
+    // Ensure content_type is correct for this message
+    this.ensureCorrectContentType();
+    
     // Check if this is a custom_cards message that might need fixing
     if (this.customCardItems.length > 0 && this.data.content_type !== 'custom_cards') {
       console.warn(`[Message ${this.data.id}] WARNING: Message has items but content_type isn't 'custom_cards'. Current type: ${this.data.content_type}`);
@@ -483,12 +512,27 @@ export default {
       - shouldRenderMessage: ${this.shouldRenderMessage}
       - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
       - DOM element visible:`, document.getElementById(`message${this.data.id}`));
+    
+    // Ensure content_type is correct on updates too
+    this.ensureCorrectContentType();
   },
   unmounted() {
     emitter.off(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     clearTimeout(this.higlightTimeout);
   },
   methods: {
+    ensureCorrectContentType() {
+      // If the message has items but no content_type, fix it
+      if (this.customCardItems.length > 0 && this.data.content_type !== 'custom_cards') {
+        console.warn(`[Message ${this.data.id}] FIXING: Message has items but wrong content_type. Changing from "${this.data.content_type}" to "custom_cards"`);
+        this.data.content_type = 'custom_cards';
+        
+        // Force refresh to ensure the UI updates
+        this.$nextTick(() => {
+          this.forceRefresh();
+        });
+      }
+    },
     forceRefresh() {
       console.log(`[Message] Force refreshing message ID ${this.data.id}:
         - Before refresh contentType: ${this.contentType}

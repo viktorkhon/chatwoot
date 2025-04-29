@@ -1,5 +1,5 @@
 <script>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 // composable
 import { useConfig } from 'dashboard/composables/useConfig';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
@@ -121,6 +121,7 @@ export default {
       labelSuggestions: [],
       unReadMessageIds: [],
       messagesKey: 0,
+      renderingInProgress: false,
     };
   },
 
@@ -381,24 +382,43 @@ export default {
     },
     'currentChat.messages': {
       deep: true,
+      immediate: true,
       handler(newMessages, oldMessages) {
         if (!newMessages || !oldMessages) return;
         
+        // First check for message array length changes
         if (newMessages.length !== oldMessages.length) {
           console.log(`[MessagesView] Messages array changed: ${oldMessages.length} → ${newMessages.length}`);
           
-          // Check specifically for new custom_cards messages
-          const newCustomCards = newMessages.filter(
-            msg => !oldMessages.some(oldMsg => oldMsg.id === msg.id) && 
-                  (msg.content_type === 'custom_cards' || 
-                  (msg.content_attributes?.items && msg.content_attributes.items.length))
+          // Get only the new messages (that weren't in the old array)
+          const newMsgs = newMessages.filter(
+            msg => !oldMessages.some(oldMsg => oldMsg.id === msg.id)
+          );
+          
+          // Check for custom_cards specifically
+          const newCustomCards = newMsgs.filter(
+            msg => msg.content_type === 'custom_cards' || 
+                  (msg.content_attributes?.items && msg.content_attributes.items.length)
           );
           
           if (newCustomCards.length > 0) {
-            console.log(`[MessagesView] New custom_cards messages detected:`, 
-              newCustomCards.map(m => ({id: m.id, type: m.content_type})));
-            this.updateUnreadMessageIds();
-            this.$forceUpdate(); // Force component update to ensure reactivity
+            console.log(`[MessagesView] 🔥 EMERGENCY: Detected ${newCustomCards.length} new custom_cards messages:`);
+            console.table(newCustomCards.map(m => ({ 
+              id: m.id, 
+              type: m.content_type, 
+              items: m.content_attributes?.items?.length || 0 
+            })));
+            
+            // Manually force content_type if needed
+            newCustomCards.forEach(msg => {
+              if (msg.content_attributes?.items?.length && msg.content_type !== 'custom_cards') {
+                console.log(`[MessagesView] 🛠️ Fixing content_type for message ${msg.id} to 'custom_cards'`);
+                msg.content_type = 'custom_cards';
+              }
+            });
+            
+            // Use safe approach to update
+            this.safeForceRerender();
           }
         }
       }
@@ -772,38 +792,79 @@ export default {
           
           // Force it to be custom_cards if it has items
           msg.content_type = 'custom_cards';
-          
-          // Add DOM debugging directly in the UI next to the card
-          this.$nextTick(() => {
-            const msgElement = document.getElementById(`message${msg.id}`);
-            if (msgElement) {
-              const debugDiv = document.createElement('div');
-              debugDiv.style.cssText = 'background: #ff9800; color: black; padding: 5px; margin: 5px 0; border-radius: 4px; font-size: 12px;';
-              debugDiv.innerHTML = `EMERGENCY DEBUG: CUSTOM CARD FROM STORE HANDLER<br>Message ID: ${msg.id}<br>Content Type: ${msg.content_type}<br>Items: ${msg.content_attributes?.items?.length || 0}`;
-              msgElement.prepend(debugDiv);
-            } else {
-              console.warn(`[EMERGENCY DEBUG] Could not find DOM element for message ${msg.id}`);
-            }
-          });
         }
       });
       
-      // Force rerender after inspecting/fixing
-      this.forceMessageListRerender();
+      // Force rerender after inspecting/fixing - use the safe version
+      this.safeForceRerender();
     },
     logRenderedMessage(message, type) {
       console.log(`[MessagesView] Rendering message ID ${message.id} (Type: ${message.content_type}) in ${type} loop`);
       return null; // :set expects a value, return null
     },
     forceMessageListRerender() {
-      console.log('[MessagesView] Forcing message list rerender');
-      this.messagesKey++;
-      this.$forceUpdate();
+      if (this.renderingInProgress) {
+        console.log('[MessagesView] Rendering already in progress, skipping duplicate request');
+        return;
+      }
       
-      // Request animation frame to ensure DOM is updated
-      window.requestAnimationFrame(() => {
-        const customCardMessages = document.querySelectorAll('[id^="message"]');
-        console.log(`[MessagesView] After force rerender, found ${customCardMessages.length} message elements in DOM`);
+      console.log('[MessagesView] Forcing message list rerender');
+      this.renderingInProgress = true;
+      this.messagesKey++; 
+      
+      // Use nextTick instead of direct forceUpdate
+      nextTick(() => {
+        try {
+          // Try to safely interact with the DOM
+          if (document && document.querySelectorAll) {
+            const messageElements = document.querySelectorAll('[id^="message"]');
+            console.log(`[MessagesView] After rerender tick, found ${messageElements.length} message elements in DOM`);
+          }
+        } catch (err) {
+          console.error('[MessagesView] Error during DOM check:', err);
+        }
+        
+        this.renderingInProgress = false;
+      });
+    },
+    safeForceRerender() {
+      if (this.renderingInProgress) {
+        console.log('[MessagesView] Rendering already in progress, will try again later');
+        setTimeout(() => this.safeForceRerender(), 200); // Try again later
+        return;
+      }
+      
+      console.log('[MessagesView] 🔄 Safely forcing rerender with debounce');
+      this.renderingInProgress = true;
+      
+      // Increment the key to force Vue's virtual DOM to recreate the components
+      this.messagesKey++;
+      
+      // Immediately update unread message IDs
+      this.updateUnreadMessageIds();
+      
+      // Use a proper Vue nextTick + setTimeout for maximum safety
+      nextTick(() => {
+        // First wait for Vue's internal update cycle
+        setTimeout(() => {
+          try {
+            // Track how many message elements are in the DOM
+            const messageElementCount = document.querySelectorAll('[id^="message"]').length;
+            console.log(`[MessagesView] ✓ Safe rerender complete, found ${messageElementCount} message elements`);
+            
+            // Force the component to update if needed
+            this.$forceUpdate();
+            
+            // Ensure scroll to latest messages
+            if (!this.hasUserScrolled) {
+              this.scrollToBottom();
+            }
+          } catch (err) {
+            console.error('[MessagesView] Error during safe rerender:', err);
+          } finally {
+            this.renderingInProgress = false;
+          }
+        }, 100); // Small delay to ensure things are settled
       });
     },
   },
@@ -820,6 +881,12 @@ export default {
         @click="runContentTypeAudit"
       >
         Audit Custom Cards
+      </button>
+      <button 
+        style="background-color: #4caf50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;" 
+        @click="safeForceRerender"
+      >
+        Force Rerender
       </button>
       <span style="color: black; font-size: 12px;">Found {{currentChat?.messages?.filter(m => m.content_type === 'custom_cards').length || 0}} custom_cards</span>
     </div>
@@ -891,9 +958,35 @@ export default {
           <span v-if="shouldShowSpinner" class="spinner message" />
         </li>
       </transition>
+      
+      <!-- Emergency rendering of any missed custom cards -->
+      <template v-if="currentChat && currentChat.messages">
+        <Message
+          v-for="message in currentChat.messages.filter(m => 
+            (m.content_type === 'custom_cards' || 
+             (m.content_attributes && m.content_attributes.items && m.content_attributes.items.length)) &&
+            !readMessages.some(rm => rm.id === m.id) && 
+            !unReadMessages.some(um => um.id === m.id)
+          )"
+          :key="`emergency-${message.id}-${messagesKey}`"
+          class="message--emergency ph-no-capture"
+          data-clarity-mask="True"
+          :data="message"
+          :is-a-tweet="isATweet"
+          :is-a-whatsapp-channel="isAWhatsAppChannel"
+          :is-web-widget-inbox="isAWebWidgetInbox"
+          :is-a-facebook-inbox="isAFacebookInbox"
+          :is-an-email-inbox="isAnEmailChannel"
+          :is-instagram="isInstagramDM"
+          :inbox-supports-reply-to="inboxSupportsReplyTo"
+          :in-reply-to="getInReplyToMessage(message)"
+        />
+      </template>
+      
+      <!-- Normal read messages -->
       <Message
         v-for="message in readMessages"
-        :key="`${message.id}-${messagesKey}`"
+        :key="`read-${message.id}-${messagesKey}`"
         :set="logRenderedMessage(message, 'read')"
         class="message--read ph-no-capture"
         data-clarity-mask="True"
@@ -907,6 +1000,8 @@ export default {
         :inbox-supports-reply-to="inboxSupportsReplyTo"
         :in-reply-to="getInReplyToMessage(message)"
       />
+      
+      <!-- Unread notification toast -->
       <li v-show="unreadMessageCount != 0" class="unread--toast">
         <span>
           {{ unreadMessageCount > 9 ? '9+' : unreadMessageCount }}
@@ -917,9 +1012,11 @@ export default {
           }}
         </span>
       </li>
+      
+      <!-- Normal unread messages -->
       <Message
         v-for="message in unReadMessages"
-        :key="`${message.id}-${messagesKey}`"
+        :key="`unread-${message.id}-${messagesKey}`"
         :set="logRenderedMessage(message, 'unread')"
         class="message--unread ph-no-capture"
         data-clarity-mask="True"
@@ -932,6 +1029,7 @@ export default {
         :inbox-supports-reply-to="inboxSupportsReplyTo"
         :in-reply-to="getInReplyToMessage(message)"
       />
+      
       <ConversationLabelSuggestion
         v-if="shouldShowLabelSuggestions"
         :suggested-labels="labelSuggestions"

@@ -98,6 +98,7 @@ export default {
       showBackgroundHighlight: false,
       highlightedContent: '',
       copyState: false,
+      refreshKey: 0,
     };
   },
   computed: {
@@ -114,10 +115,13 @@ export default {
       return getDayDifferenceFromNow(new Date(), this.data?.created_at) >= 1;
     },
     shouldRenderMessage() {
-      // Direct check for custom_cards to bypass normal checks
-      if (this.data.content_type === 'custom_cards' || 
-          this.contentAttributes?.content_type === 'custom_cards' ||
-          this.data.content_attributes?.content_type === 'custom_cards') {
+      // Direct check for custom_cards with highest priority
+      const isCustomCardMessage = 
+        this.data.content_type === 'custom_cards' || 
+        this.contentAttributes?.content_type === 'custom_cards' ||
+        this.data.content_attributes?.content_type === 'custom_cards';
+      
+      if (isCustomCardMessage) {
         console.log(`[Message] shouldRenderMessage: Forcing true for custom_cards message ID ${this.data.id}`);
         return true;
       }
@@ -233,7 +237,17 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      // Check multiple possible locations for content_type
+      // Special case priority for custom_cards
+      if (
+        this.data.content_type === 'custom_cards' || 
+        this.contentAttributes?.content_type === 'custom_cards' ||
+        this.data.content_attributes?.content_type === 'custom_cards'
+      ) {
+        console.log(`[Message] contentType: Prioritizing custom_cards for message ID ${this.data.id}`);
+        return 'custom_cards';
+      }
+      
+      // Regular flow for other content types
       const directContentType = this.data.content_type;
       const attributesContentType = this.contentAttributes?.content_type;
       const otherAttributesContentType = this.data.content_attributes?.content_type;
@@ -247,12 +261,6 @@ export default {
       console.log(`  - contentAttributes.content_type: ${attributesContentType}`);
       console.log(`  - data.content_attributes.content_type: ${otherAttributesContentType}`);
       console.log(`  - Final contentType used: ${contentType}`);
-      
-      // Added debug for custom_cards specifically
-      if (directContentType === 'custom_cards' || attributesContentType === 'custom_cards' || otherAttributesContentType === 'custom_cards') {
-        console.log(`[Message] CUSTOM_CARDS detected in ID ${this.data.id}!!!`);
-        console.log(`[Message] Full data structure for custom_cards:`, this.data);
-      }
       
       return contentType;
     },
@@ -399,22 +407,41 @@ export default {
       return isType;
     },
     isCustomCardType() {
-      const result = this.contentType === 'custom_cards';
-      console.log(`[Message] isCustomCardType for ID ${this.data.id}: ${result}, contentType: ${this.contentType}`);
+      // Direct check with multiple potential locations to be safe
+      const directCheck = this.data.content_type === 'custom_cards';
+      const attributesCheck = this.contentAttributes?.content_type === 'custom_cards';
+      const otherAttributesCheck = this.data.content_attributes?.content_type === 'custom_cards';
+      const computedCheck = this.contentType === 'custom_cards';
       
-      // Additional debug to check data structure
-      if (this.contentType === 'custom_cards') {
+      const result = directCheck || attributesCheck || otherAttributesCheck || computedCheck;
+      
+      console.log(`[Message] isCustomCardType comprehensive check for ID ${this.data.id}:`);
+      console.log(`  - Direct check (data.content_type): ${directCheck}`);
+      console.log(`  - Attributes check (contentAttributes.content_type): ${attributesCheck}`);
+      console.log(`  - Other attributes check (data.content_attributes.content_type): ${otherAttributesCheck}`);
+      console.log(`  - Computed check (contentType === 'custom_cards'): ${computedCheck}`);
+      console.log(`  - Final result: ${result}`);
+      
+      if (result) {
         console.log(`[Message] Custom card data structure for ID ${this.data.id}:`, this.data);
         console.log(`[Message] Content attributes:`, this.contentAttributes);
-        console.log(`[Message] Content type property actual value:`, this.data.content_type);
+        console.log(`[Message] Items:`, this.customCardItems);
       }
       
       return result;
     },
     customCardItems() {
-      const items = this.contentAttributes.items || [];
-      console.log(`[Message] customCardItems for message ID ${this.data.id}: `, items);
-      return items;
+      // First check if we have direct items in content_attributes
+      let items = this.contentAttributes?.items;
+      
+      // If items aren't found in the usual place, check other possible locations
+      if (!items || !items.length) {
+        items = this.data.content_attributes?.items;
+      }
+      
+      const result = items || [];
+      console.log(`[Message] customCardItems for message ID ${this.data.id}: found ${result.length} items`);
+      return result;
     },
   },
   watch: {
@@ -453,19 +480,31 @@ export default {
     clearTimeout(this.higlightTimeout);
   },
   methods: {
+    forceRefresh() {
+      console.log(`[Message] Force refreshing custom card for message ID ${this.data.id}`);
+      this.refreshKey += 1;
+      this.$forceUpdate();
+      
+      // Log the current state after refresh
+      this.$nextTick(() => {
+        console.log(`[Message] After refresh: isCustomCardType=${this.isCustomCardType}, items=${this.customCardItems.length}`);
+        console.log(`[Message] DOM element:`, document.getElementById(`message${this.data.id}`));
+      });
+    },
     debugLog() {
       console.log('--- EMERGENCY DEBUG LOG ---');
       console.log('Message data:', this.data);
-      console.log('Content type:', this.data.content_type);
+      console.log('Content type:', this.contentType);
+      console.log('Direct content_type:', this.data.content_type);
       console.log('Content attributes:', this.contentAttributes);
-      console.log('Items:', this.contentAttributes.items);
+      console.log('Items:', this.customCardItems);
       console.log('isCustomCardType computed value:', this.isCustomCardType);
       console.log('shouldRenderMessage computed value:', this.shouldRenderMessage);
       console.log('DOM element:', document.getElementById(`message${this.data.id}`));
       console.log('--- END EMERGENCY DEBUG LOG ---');
       
       // Force re-render
-      this.$forceUpdate();
+      this.forceRefresh();
     },
     isAttachmentImageVideoAudio(fileType) {
       return ['image', 'audio', 'video', 'story_mention', 'ig_reel'].includes(
@@ -561,34 +600,62 @@ export default {
   >
     <!-- UNCONDITIONAL DEBUG ELEMENT - Should appear for ALL messages -->
     <div class="unconditional-debug" style="border: 4px solid purple; padding: 8px; margin: 5px 0; background-color: white;">
-      <p style="color: black;">Message ID: {{data.id}} | Content Type: {{data.content_type}}</p>
-      <template v-if="data.content_type === 'custom_cards'">
+      <p style="color: black;">Message ID: {{data.id}} | Content Type: {{contentType || data.content_type}}</p>
+      <template v-if="contentType === 'custom_cards' || data.content_type === 'custom_cards'">
         <p style="color: red; font-weight: bold;">CUSTOM CARD DETECTED!</p>
         <p style="color: blue;">isCustomCardType = {{isCustomCardType}}</p>
         <p style="color: green;">Has items: {{!!contentAttributes.items}} | Items length: {{contentAttributes.items?.length || 0}}</p>
         <hr style="border: 1px solid black; margin: 5px 0;">
-        <button @click="debugLog" style="background: black; color: white; padding: 5px; margin: 5px;">
+        <button @click="forceRefresh" style="background: black; color: white; padding: 5px; margin: 5px;">
           Force Re-render
         </button>
       </template>
     </div>
     
-    <!-- ALWAYS VISIBLE DEBUG ELEMENT -->
-    <div v-if="data.content_type === 'custom_cards'" class="debug-container" style="border: 4px solid red; padding: 8px; background-color: yellow; color: black; margin: 10px 0; z-index: 9999; position: relative;">
-      <h3 style="color: black; font-weight: bold;">EMERGENCY DEBUG: CUSTOM CARD MESSAGE DETECTED</h3>
-      <p>Content type: {{data.content_type}}</p>
-      <p>Message ID: {{data.id}}</p>
-      <p>Items count: {{contentAttributes.items?.length || 0}}</p>
-      <button @click="debugLog" style="background: black; color: white; padding: 5px; border-radius: 4px;">
-        Log Card Data
-      </button>
-      <div v-if="contentAttributes.items && contentAttributes.items.length > 0" style="margin-top: 8px; padding: 8px; background: white; border: 2px solid blue;">
-        <p style="color: black; font-weight: bold;">First Item Title: {{contentAttributes.items[0].title}}</p>
-        <img 
-          v-if="contentAttributes.items[0].image_url" 
-          :src="contentAttributes.items[0].image_url" 
-          style="max-width: 200px; border: 1px solid green;" 
-        />
+    <!-- CUSTOM CARD COMPONENT RENDERING -->
+    <div v-if="isCustomCardType" style="border: 8px solid green !important; padding: 10px !important; margin: 10px 0 !important; position: relative;">
+      <div style="background-color: #f3f4f6; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+        <p style="color: black !important; font-weight: bold !important;">
+          Custom Card Items ({{customCardItems.length}} items)
+        </p>
+        <button
+          @click="() => console.log('Custom card debug button clicked', customCardItems)"
+          style="padding: 8px !important; background-color: red !important; color: white !important; display: block !important; margin: 8px !important;"
+        >
+          Click if you can see this (Debug)
+        </button>
+      </div>
+      
+      <!-- The actual CustomCard component -->
+      <CustomCard 
+        :items="customCardItems" 
+        :key="`card-${data.id}-${refreshKey}`"
+      />
+    </div>
+    
+    <!-- DIRECT HTML RENDER OF CUSTOM CARDS (No component) -->
+    <div v-if="isCustomCardType && contentAttributes.items" 
+      style="border: 6px dotted green !important; padding: 10px !important; background-color: white !important; margin: 15px 0 !important;">
+      <h3 style="color: black !important; font-size: 16px !important; font-weight: bold !important;">DIRECT HTML RENDER - NO COMPONENT</h3>
+      
+      <div v-for="(item, index) in customCardItems" :key="index"
+        style="border: 2px solid teal !important; padding: 8px !important; margin: 10px 0 !important; background-color: #f0f0f0 !important;">
+        <h4 style="color: black !important; font-weight: bold !important;">{{item.title}}</h4>
+        <p style="color: #333 !important;">{{item.description}}</p>
+        <div v-if="item.image_url" style="margin: 8px 0 !important;">
+          <img :src="item.image_url" style="max-width: 200px !important; border: 1px solid gray !important;" />
+        </div>
+        <p v-if="item.price" style="color: green !important; font-weight: bold !important;">{{item.price}}</p>
+        
+        <div v-if="item.actions && item.actions.length" style="margin-top: 8px !important;">
+          <button 
+            v-for="(action, actionIndex) in item.actions" 
+            :key="actionIndex"
+            style="background-color: blue !important; color: white !important; padding: 5px 10px !important; margin: 5px !important; border-radius: 4px !important;"
+          >
+            {{action.text}}
+          </button>
+        </div>
       </div>
     </div>
     

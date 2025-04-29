@@ -4,6 +4,12 @@
       Debug: Custom Card component with {{items.length}} items
     </div>
     
+    <!-- Empty state handler -->
+    <div v-if="!hasValidItems" class="empty-state" style="border: 2px solid orange; padding: 12px; margin: 8px 0; text-align: center;">
+      <p style="color: black; font-weight: bold;">No valid card items to display</p>
+      <div style="color: gray; font-size: 12px;">Raw items: {{JSON.stringify(items)}}</div>
+    </div>
+    
     <!-- Basic hardcoded version for testing -->
     <div style="border: 4px dashed green; padding: 16px; background: white; margin: 8px 0;">
       <h2 style="color: black; font-size: 18px; font-weight: bold;">THIS IS A HARDCODED TEST CARD</h2>
@@ -11,9 +17,9 @@
     </div>
     
     <!-- Dynamic version -->
-    <div v-for="(item, index) in items" :key="index" class="card custom-card-item-debug">
+    <div v-for="(item, index) in safeItems" :key="index" class="card custom-card-item-debug">
       <div v-if="item.image_url" class="card-media">
-        <img :src="item.image_url" :alt="item.title" class="card-image" />
+        <img :src="item.image_url" :alt="item.title" class="card-image" @error="handleImageError($event, index)" />
       </div>
       <div class="card-content">
         <h3 v-if="item.title" class="card-title" v-html="renderMarkdown(item.title, item.supports_markdown)"></h3>
@@ -29,7 +35,7 @@
             :key="actionIndex"
             class="card-action-button"
             :class="{ 'is-link': action.type === 'link', 'is-postback': action.type === 'postback' }"
-            @click="handleAction(action)"
+            @click="handleAction(action, item)"
           >
             {{ action.text }}
           </button>
@@ -50,21 +56,67 @@ export default {
     items: {
       type: Array,
       required: true,
+      default: () => [],
+    },
+  },
+  data() {
+    return {
+      imageErrors: {},
+    };
+  },
+  computed: {
+    hasValidItems() {
+      return this.items && Array.isArray(this.items) && this.items.length > 0;
+    },
+    safeItems() {
+      if (!this.hasValidItems) return [];
+      
+      // Map items to ensure all expected properties exist
+      return this.items.map(item => ({
+        title: item.title || 'No Title',
+        description: item.description || '',
+        image_url: item.image_url || '',
+        reason: item.reason || '',
+        price: item.price || '',
+        actions: Array.isArray(item.actions) ? item.actions : [],
+        supports_markdown: !!item.supports_markdown,
+        custom_fields: item.custom_fields || {},
+      }));
     },
   },
   mounted() {
     console.log(`[CustomCard] Dashboard component mounted with ${this.items.length} items`);
     console.log(`[CustomCard] Items:`, this.items);
+    
+    if (!this.hasValidItems) {
+      console.warn('[CustomCard] No valid items provided to CustomCard component');
+    }
   },
   methods: {
-    handleAction(action) {
+    handleAction(action, item) {
+      console.log(`[CustomCard] Action clicked: ${action.text}`, action);
+      
       if (action.type === 'link') {
         window.open(action.uri, '_blank', 'noopener,noreferrer');
       } else if (action.type === 'postback') {
-        emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
+        // Enhanced payload with item info for better context
+        const enhancedPayload = {
+          ...action.payload,
+          itemTitle: item.title,
+          actionText: action.text,
+        };
+        
+        console.log(`[CustomCard] Emitting card action:`, enhancedPayload);
+        emitter.emit(BUS_EVENTS.CARD_ACTION, enhancedPayload);
       }
     },
     renderMarkdown,
+    handleImageError(event, index) {
+      console.warn(`[CustomCard] Image failed to load for item ${index}`);
+      this.imageErrors[index] = true;
+      // Hide the broken image
+      event.target.style.display = 'none';
+    },
   },
 };
 </script>
@@ -81,6 +133,14 @@ export default {
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   max-width: 20rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state {
+  background-color: #fff9db;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  text-align: center;
   margin-bottom: 1rem;
 }
 

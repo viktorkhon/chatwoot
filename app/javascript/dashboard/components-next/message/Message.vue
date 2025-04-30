@@ -39,6 +39,7 @@ import FormBubble from './bubbles/Form.vue';
 
 import MessageError from './MessageError.vue';
 import ContextMenu from 'dashboard/modules/conversations/components/MessageContextMenu.vue';
+import CustomCard from 'dashboard/components/widgets/conversation/bubble/CustomCard.vue';
 
 /**
  * @typedef {Object} Attachment
@@ -93,6 +94,35 @@ import ContextMenu from 'dashboard/modules/conversations/components/MessageConte
  * @property {number} conversationId - The ID of the conversation to which the message belongs
  * @property {number} inboxId - The ID of the inbox to which the message belongs
  */
+
+ export default {
+  name: 'NextMessage',
+  components: {
+    CustomCard,
+    // … other components (Text, Card, Form, etc.) …
+  },
+  props: {
+    id: [String, Number],
+    content: String,
+    content_type: String,
+    content_attributes: Object,
+    // … any other props you see declared …
+  },
+  computed: {
+    isCustomCards() {
+      console.log('[NextMessage] content_type →', this.content_type);
+      return this.content_type === 'custom_cards';
+    },
+    customItems() {
+      const items = this.content_attributes?.items || [];
+      console.log('[NextMessage] customItems →', items);
+      return items;
+    }
+  },
+  mounted() {
+    console.log('[NextMessage] mounted message id →', this.id);
+  }
+};
 
 // eslint-disable-next-line vue/define-macros-order
 const props = defineProps({
@@ -168,6 +198,7 @@ const variant = computed(() => {
     [MESSAGE_TYPES.ACTIVITY]: MESSAGE_VARIANTS.ACTIVITY,
     [MESSAGE_TYPES.OUTGOING]: MESSAGE_VARIANTS.AGENT,
     [MESSAGE_TYPES.TEMPLATE]: MESSAGE_VARIANTS.TEMPLATE,
+    [MESSAGE_TYPES.CUSTOM_CARDS]: MESSAGE_VARIANTS.CUSTOM_CARDS,
   };
 
   return variants[props.messageType] || MESSAGE_VARIANTS.USER;
@@ -445,6 +476,16 @@ provideMessageContext({
 
 <!-- eslint-disable-next-line vue/no-root-v-if -->
 <template>
+    <div class="message-container">
+    <!-- 1) Custom cards highest priority -->
+    <div v-if="isCustomCards" class="custom-card-container">
+      <CustomCard
+        v-for="(item, i) in customItems"
+        :key="i"
+        :item="item"
+      />
+    </div>
+  </div>
   <div
     v-if="shouldRenderMessage"
     :id="`message${props.id}`"

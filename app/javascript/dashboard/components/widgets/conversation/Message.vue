@@ -30,9 +30,6 @@ import { emitter } from 'shared/helpers/mitt';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import CustomCard from './bubble/CustomCard.vue';
 
-// At the top of Message.vue (inside the <script> block)
-throw new Error('🔥 Message.vue loaded 🔥');
-
 export default {
   components: {
     BubbleActions,
@@ -374,6 +371,7 @@ export default {
       return isCustom;  
     },
     customCardItems() {
+      console.log('[Message.vue] customCardItems →', this.data.content_attributes?.items);
       return this.contentAttributes.items || [];
     },
   },
@@ -524,10 +522,10 @@ export default {
             {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
           </template>
         </div>
-        <div v-else-if="isCustomCardType">
+        <div v-if="isCustomCardType" class="custom-card-container">
           <CustomCard :items="customCardItems" />
         </div>
-         <BubbleText
+        <!-- <BubbleText
             v-else-if="
               data.content &&
               !isCardType &&
@@ -537,7 +535,7 @@ export default {
           :message="message"
           :is-email="isEmailContentType"
           :display-quoted-button="displayQuotedButton"
-        />
+        />   -->
         <div v-else-if="isCardType">
           <ChatCard
             v-for="item in cardItems"

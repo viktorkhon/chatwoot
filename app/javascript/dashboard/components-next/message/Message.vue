@@ -519,7 +519,11 @@ provideMessageContext({
     <!-- This renders *above* the regular message bubble flow -->
     <div v-if="isCustomCards" class="custom-card-container">
       <!-- Use the specialized bubble component for custom cards -->
-      <CustomCardsBubble :content="content" :content-attributes="props.content_attributes || props.contentAttributes" />
+      <CustomCardsBubble 
+        :content="content" 
+        :content-attributes="props.contentAttributes" 
+        :content_attributes="props.content_attributes"
+      />
     </div>
     
     <!-- 2) Regular message container for all other message types or content -->

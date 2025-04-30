@@ -15,17 +15,28 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  // Allow accessing snake_case version directly from Message component
+  content_attributes: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
 // Compute the 'items' array from contentAttributes
 // This isolates the card data needed by the CustomCard component
 const items = computed(() => {
-  // Log the received attributes for debugging
-  console.log('[CustomCards] contentAttributes:', props.contentAttributes);
-  // Safely extract the 'items' array, defaulting to an empty array if it doesn't exist
-  const result = props.contentAttributes?.items || [];
-  // Log the extracted items for debugging
+  // Check both camelCase and snake_case versions
+  const camelCaseItems = props.contentAttributes?.items || [];
+  const snakeCaseItems = props.content_attributes?.items || [];
+  
+  // Use whichever is non-empty
+  const result = camelCaseItems.length ? camelCaseItems : snakeCaseItems;
+  
+  // Log the attributes and items for debugging
+  console.log('[CustomCards] contentAttributes (camelCase):', props.contentAttributes);
+  console.log('[CustomCards] content_attributes (snake_case):', props.content_attributes);
   console.log('[CustomCards] items:', result);
+  
   return result;
 });
 </script>

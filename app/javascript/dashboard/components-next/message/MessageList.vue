@@ -38,7 +38,25 @@ const props = defineProps({
 });
 
 const allMessages = computed(() => {
-  return useCamelCase(props.messages, { deep: true });
+  // First transform all messages to camelCase
+  const camelCasedMessages = useCamelCase(props.messages, { deep: true });
+  
+  // For custom_cards type messages, ensure we preserve the original content_attributes
+  // This is needed because the CustomCardsBubble component expects content_attributes with items
+  return camelCasedMessages.map(message => {
+    if (message.contentType === 'custom_cards' || message.content_type === 'custom_cards') {
+      // Find the original message to get its content_attributes
+      const originalMessage = props.messages.find(m => m.id === message.id);
+      if (originalMessage && originalMessage.content_attributes) {
+        // Keep both versions to ensure compatibility
+        return {
+          ...message,
+          content_attributes: originalMessage.content_attributes
+        };
+      }
+    }
+    return message;
+  });
 });
 
 /**

@@ -188,15 +188,6 @@ export default {
   @apply flex flex-col gap-4;
 }
 
-// Debug info panel
-.debug-info {
-  @apply bg-blue-50 text-blue-800 p-2 mb-4 rounded-md text-xs border border-blue-200;
-  
-  p {
-    @apply mb-1;
-  }
-}
-
 // Empty state styles
 .empty-state {
   @apply p-4 text-center text-slate-500 bg-slate-50 rounded-lg border border-slate-200;
@@ -251,40 +242,39 @@ export default {
 
 // Section title styles
 .card-section-title {
-  @apply text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700;
+  @apply text-sm font-medium text-slate-700 dark:text-slate-300 mb-1;
 }
 
-// Description and reason styles
-.card-description, .card-reason {
-  @apply text-sm text-slate-600 dark:text-slate-300 mb-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-md;
+// Description styles
+.card-description {
+  @apply mb-3;
+}
+
+// Reason styles
+.card-reason {
+  @apply mb-3 text-sm text-slate-600 dark:text-slate-400;
 }
 
 // Price styles
 .card-price {
-  @apply text-base font-semibold text-slate-900 dark:text-slate-100 text-center mb-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-md;
+  @apply mb-3 font-semibold text-emerald-600 dark:text-emerald-400;
 }
 
-// Action button container
+// Action container styles
 .card-actions {
-  @apply flex flex-wrap gap-2 justify-center mt-4;
+  @apply flex flex-wrap gap-2 mt-4;
 }
 
 // Action button styles
 .card-action-button {
-  @apply px-3 py-1.5 text-sm rounded-md transition-colors duration-200;
-  @apply bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600;
-  @apply text-slate-700 dark:text-slate-200;
-
-  // Link button styles
+  @apply px-4 py-2 rounded-md text-sm font-medium;
+  
   &.is-link {
-    @apply bg-woot-100 hover:bg-woot-200 dark:bg-woot-900 dark:hover:bg-woot-800;
-    @apply text-woot-700 dark:text-woot-200;
+    @apply bg-slate-100 text-slate-800 hover:bg-slate-200;
   }
-
-  // Postback button styles
+  
   &.is-postback {
-    @apply bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800;
-    @apply text-green-700 dark:text-green-200;
+    @apply bg-slate-800 text-white hover:bg-slate-700;
   }
 }
 </style> 

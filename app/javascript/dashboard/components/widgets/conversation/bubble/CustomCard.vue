@@ -183,6 +183,16 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@layer utilities {
+  .text-emerald-600 {
+    color: #059669;
+  }
+  
+  .dark .dark\:text-emerald-400 {
+    color: #34d399;
+  }
+}
+
 // Card container styles
 .card-container {
   @apply flex flex-col gap-4;

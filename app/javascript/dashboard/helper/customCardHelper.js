@@ -42,9 +42,11 @@ export const validateCustomCard = card => {
   return requiredFields.every(field => card[field]);
 };
 
-export const renderMarkdown = (text, supportsMarkdown = false) => {
-  if (!text) return '';
-  return supportsMarkdown ? md.render(text) : text;
+export const renderMarkdown = (text, supportsMarkdown = true) => {
+  if (!text || !supportsMarkdown) {
+    return text;
+  }
+  return md.render(text);
 };
 
 export const getCustomCardActionType = action => {
@@ -66,6 +68,4 @@ export const getCustomCardActionValue = action => {
     return '';
   }
   return action.value || '';
-};
-
-// Removed global fix function as reactivity is handled in Vuex actions now 
+}; 

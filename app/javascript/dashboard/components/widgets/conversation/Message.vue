@@ -96,13 +96,7 @@ export default {
       hasMediaLoadError: false,
       contextMenuPosition: {},
       showBackgroundHighlight: false,
-      highlightedContent: '',
-      copyState: false,
-      refreshKey: 0,
     };
-  },
-  created() {
-    console.log(`[Message.vue] Message ID ${this.data.id} CREATED. Content type: ${this.data.content_type}, Content attributes:`, this.data.content_attributes);
   },
   computed: {
     attachments() {
@@ -118,43 +112,16 @@ export default {
       return getDayDifferenceFromNow(new Date(), this.data?.created_at) >= 1;
     },
     shouldRenderMessage() {
-      const hasContent = !!this.data.content;
-      const hasAttachments = this.hasAttachments;
-      const isEmailContentType = this.isEmailContentType;
-      const isUnsupported = this.isUnsupported;
-      const isAnIntegrationMessage = this.isAnIntegrationMessage;
-      const isCardType = this.isCardType;
-      const isFormType = this.isFormType;
-      const isCustomCardType = this.isCustomCardType;
-      
-      const result = (
-        hasAttachments ||
-        hasContent ||
-        isEmailContentType ||
-        isUnsupported ||
-        isAnIntegrationMessage ||
-        isCardType ||
-        isFormType ||
-        isCustomCardType
+      return (
+        this.hasAttachments ||
+        this.data.content ||
+        this.isEmailContentType ||
+        this.isUnsupported ||
+        this.isAnIntegrationMessage ||
+        this.isCardType ||
+        this.isFormType ||
+        this.isCustomCardType
       );
-      
-      console.log(`[Message ${this.data.id}] shouldRenderMessage = ${result}:
-        - hasAttachments: ${hasAttachments}
-        - hasContent: ${hasContent}
-        - isEmailContentType: ${isEmailContentType}
-        - isUnsupported: ${isUnsupported}
-        - isAnIntegrationMessage: ${isAnIntegrationMessage}
-        - isCardType: ${isCardType}
-        - isFormType: ${isFormType}
-        - isCustomCardType: ${isCustomCardType}
-        - content_type (direct): ${this.data.content_type}
-        - content_type (attributes): ${this.data.content_attributes?.content_type}
-        - content_type (computed): ${this.contentType}
-        - has items: ${!!this.data.content_attributes?.items}
-        - items length: ${this.data.content_attributes?.items?.length || 0}
-      `);
-      
-      return result;
     },
     emailMessageContent() {
       const {
@@ -254,34 +221,9 @@ export default {
       return this.contentAttributes.story_url || null;
     },
     contentType() {
-      // Regular flow for all content types
-      const directContentType = this.data.content_type;
-      const attributesContentType = this.contentAttributes?.content_type;
-      const otherAttributesContentType = this.data.content_attributes?.content_type;
-      
-      // Check if message has items - critical for custom cards
-      const hasItems = Boolean(
-        this.contentAttributes?.items?.length || 
-        this.data.content_attributes?.items?.length
-      );
-      
-      // Log all possible content_type sources
-      console.log(`[Message ${this.data.id}] Content type sources:
-        - Direct content_type: ${directContentType}
-        - From contentAttributes.content_type: ${attributesContentType}
-        - From data.content_attributes.content_type: ${otherAttributesContentType}
-        - Has items: ${hasItems}
-      `);
-      
-      // Determine the final content type to use
-      let contentType = directContentType || attributesContentType || otherAttributesContentType;
-      
-      // If message has items, prioritize setting content type to custom_cards
-      if (hasItems && contentType !== 'custom_cards') {
-        console.log(`[Message ${this.data.id}] Overriding content_type to 'custom_cards' because message has items`);
-        contentType = 'custom_cards';
-      }
-      
+      const {
+        data: { content_type: contentType },
+      } = this;
       return contentType;
     },
     twitterProfileLink() {
@@ -414,150 +356,36 @@ export default {
       return this.contentType === CONTENT_TYPES.INCOMING_EMAIL;
     },
     isCardType() {
-      const isType = this.contentType === CONTENT_TYPES.CARDS;
-      return isType;
+      return this.contentType === 'cards';
     },
     cardItems() {
       return this.contentAttributes.items || [];
     },
     isFormType() {
-      const isType = this.contentType === CONTENT_TYPES.FORM;
-      return isType;
+      return this.contentType === 'form';
     },
     isCustomCardType() {
-      const contentType = this.contentType;
-      const hasItems = Boolean(
-        this.contentAttributes?.items?.length || 
-        this.data.content_attributes?.items?.length
-      );
-      
-      // Simplified logic: if it has items, treat it as a custom card regardless of content_type
-      // This matches how the template now renders cards
-      const result = hasItems || 
-                     contentType === 'custom_cards';
-      
-      console.log(`[Message ${this.data.id}] isCustomCardType check:`, {
-        contentType,
-        hasItems,
-        result
-      });
-      return result;
+      return this.contentType === 'custom_cards';
     },
     customCardItems() {
-      console.log('[Message] Getting customCardItems:', {
-        id: this.data.id,
-        contentAttributes: this.contentAttributes,
-        dataContentAttributes: this.data.content_attributes,
-        hasItemsInContentAttributes: !!this.contentAttributes?.items?.length,
-        hasItemsInDataContentAttributes: !!this.data.content_attributes?.items?.length
-      });
-      
-      // Try to get items from either source
-      const items = this.contentAttributes?.items || 
-                   this.data.content_attributes?.items || 
-                   [];
-                   
-      // Ensure we always return an array, even if the items are somehow corrupted
-      const safeItems = Array.isArray(items) ? items : [];
-      
-      console.log(`[Message ${this.data.id}] customCardItems returning ${safeItems.length} items`);
-      return safeItems;
+      return this.contentAttributes.items || [];
     },
   },
   watch: {
-    data(newData, oldData) {
+    data() {
       this.hasMediaLoadError = false;
-      console.log(`[Message ${this.data.id}] data changed:
-        - New content_type: ${newData.content_type}
-        - Old content_type: ${oldData.content_type}
-        - New has items: ${!!newData.content_attributes?.items}
-        - Old has items: ${!!oldData.content_attributes?.items}
-      `);
     },
   },
   mounted() {
     this.hasMediaLoadError = false;
-    
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
-    this.highlightedContent = '';
-    this.copyState = false;
-
-    console.log(`[Message.vue] Message ID ${this.data.id} MOUNTED:
-      - Content type: ${this.contentType}
-      - Direct content_type: ${this.data.content_type}
-      - content_attributes.content_type: ${this.data.content_attributes?.content_type}
-      - hasAttachments: ${this.hasAttachments}
-      - isCustomCardType: ${this.isCustomCardType}
-      - shouldRenderMessage: ${this.shouldRenderMessage}
-      - customCardItems count: ${this.customCardItems.length}
-      - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
-    `);
-    
-    // Check if this is a custom_cards message that might need fixing
-    if (this.customCardItems.length > 0 && this.data.content_type !== 'custom_cards') {
-      console.warn(`[Message ${this.data.id}] WARNING: Message has items but content_type isn't 'custom_cards'. Current type: ${this.data.content_type}`);
-    }
-    
-    if (this.showActions) {
-      bus.$on('execute-message-action', data => {
-        // ... existing code ...
-      });
-    }
-  },
-  updated() {
-    console.log(`[Message.vue] Message ID ${this.data.id} UPDATED:
-      - isCustomCardType: ${this.isCustomCardType}
-      - shouldRenderMessage: ${this.shouldRenderMessage}
-      - DOM element exists: ${!!document.getElementById(`message${this.data.id}`)}
-      - DOM element visible:`, document.getElementById(`message${this.data.id}`));
   },
   unmounted() {
     emitter.off(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     clearTimeout(this.higlightTimeout);
   },
   methods: {
-    debugLog() {
-      console.log('--- COMPREHENSIVE DEBUG LOG ---');
-      console.log(`Message ID: ${this.data.id}`);
-      console.log('Message data:', this.data);
-      console.log('Content type sources:');
-      console.log('- Direct content_type:', this.data.content_type);
-      console.log('- contentAttributes.content_type:', this.contentAttributes?.content_type);
-      console.log('- Computed contentType:', this.contentType);
-      
-      console.log('Content attributes:', this.contentAttributes);
-      console.log('Items from contentAttributes:', this.contentAttributes?.items);
-      console.log('Items from data.content_attributes:', this.data.content_attributes?.items);
-      console.log('customCardItems computed value:', this.customCardItems);
-      
-      console.log('Render conditions:');
-      console.log('- hasContent:', !!this.data.content);
-      console.log('- hasAttachments:', this.hasAttachments);
-      console.log('- isEmailContentType:', this.isEmailContentType);
-      console.log('- isUnsupported:', this.isUnsupported);
-      console.log('- isAnIntegrationMessage:', this.isAnIntegrationMessage);
-      console.log('- isCardType:', this.isCardType);
-      console.log('- isFormType:', this.isFormType);
-      console.log('- isCustomCardType:', this.isCustomCardType);
-      console.log('- shouldRenderMessage:', this.shouldRenderMessage);
-      
-      console.log('DOM status:');
-      console.log('- Element exists:', !!document.getElementById(`message${this.data.id}`));
-      console.log('- Element:', document.getElementById(`message${this.data.id}`));
-      console.log('--- END COMPREHENSIVE DEBUG LOG ---');
-      
-      // Force re-render
-      this.forceRefresh();
-    },
-    forceRefresh() {
-      this.refreshKey++;
-      console.log(`[Message ${this.data.id}] Forcing refresh (key: ${this.refreshKey})`);
-      this.$nextTick(() => {
-        console.log(`[Message ${this.data.id}] After nextTick - custom card elements:`, 
-          document.querySelectorAll('.custom-card-container').length);
-      });
-    },
     isAttachmentImageVideoAudio(fileType) {
       return ['image', 'audio', 'video', 'story_mention', 'ig_reel'].includes(
         fileType
@@ -589,8 +417,7 @@ export default {
       this.showContextMenu = !this.showContextMenu;
     },
     async retrySendMessage() {
-      console.log(`[Message ${this.data.id}] Attempting to retry send message`);
-      this.$store.dispatch('sendMessageWithData', this.data);
+      await this.$store.dispatch('sendMessageWithData', this.data);
     },
     onMediaLoadError() {
       this.hasMediaLoadError = true;
@@ -679,29 +506,24 @@ export default {
           :message-type="data.message_type"
           :parent-has-attachments="hasAttachments"
         />
-
-        <!-- Debug info bar for custom card messages -->
-        <div 
-          v-if="isCustomCardType || customCardItems.length > 0"
-          style="background: #FFC107; color: black; padding: 4px; margin-bottom: 8px; font-size: 11px; border-radius: 4px;"
-        >
-          ID: {{ data.id }} | Type: {{ contentType }} | Items: {{ customCardItems.length }}
-          <button 
-            @click="debugLog"
-            style="background: #E91E63; color: white; padding: 2px 4px; margin-left: 4px; border: none; border-radius: 2px; cursor: pointer;"
-          >
-            Debug
-          </button>
-          <button 
-            @click="forceRefresh"
-            style="background: #4CAF50; color: white; padding: 2px 4px; margin-left: 4px; border: none; border-radius: 2px; cursor: pointer;"
-          >
-            Refresh
-          </button>
+        <div v-if="isUnsupported">
+          <template v-if="isAFacebookInbox && isInstagram">
+            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE_INSTAGRAM') }}
+          </template>
+          <template v-else-if="isAFacebookInbox">
+            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE_FACEBOOK') }}
+          </template>
+          <template v-else>
+            {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
+          </template>
         </div>
-
-        <!-- Content type specific rendering -->
-        <div v-if="isCardType" class="card-container">
+        <BubbleText
+          v-else-if="data.content && !isCardType && !isFormType"
+          :message="message"
+          :is-email="isEmailContentType"
+          :display-quoted-button="displayQuotedButton"
+        />
+        <div v-else-if="isCardType">
           <ChatCard
             v-for="item in cardItems"
             :key="item.title"
@@ -711,41 +533,21 @@ export default {
             :actions="item.actions"
           />
         </div>
-        
         <ChatForm
           v-else-if="isFormType"
-          :items="contentAttributes.items"
+          :items="formItems"
           :button-label="contentAttributes.button_label"
           :submitted-values="contentAttributes.submitted_values"
           @submit="onFormSubmit"
         />
-        
-        <!-- CustomCard rendering - simplified condition -->
-        <div v-if="customCardItems.length > 0" class="custom-card-container">
-          <CustomCard 
-            :key="`card-${data.id}-${refreshKey}`" 
-            :items="customCardItems"
-          />
+        <div v-else-if="isCustomCardType">
+          <CustomCard :items="customCardItems" />
         </div>
-        
         <BubbleIntegration
-          v-else-if="isAnIntegrationMessage"
           :message-id="data.id"
           :content-attributes="contentAttributes"
           :inbox-id="data.inbox_id"
         />
-        
-        <div v-else>
-          <BubbleText
-            v-if="hasText"
-            :message="message"
-            :email-content="emailMessageContent"
-            :is-email="isEmailContentType"
-            :display-quoted-button="displayQuotedButton"
-            :message-style-class="bubbleClass"
-          />
-        </div>
-        
         <span
           v-if="isPending && hasAttachments"
           class="chat-bubble has-attachment agent"
@@ -778,8 +580,6 @@ export default {
             <BubbleFile v-else :url="attachment.data_url" />
           </div>
         </div>
-
-        <!-- Bubble Actions always at the end -->
         <BubbleActions
           :id="data.id"
           :sender="data.sender"
@@ -830,12 +630,6 @@ export default {
         @close="closeContextMenu"
         @reply-to="handleReplyTo"
       />
-    </div>
-  </li>
-  <li v-else :id="`message${data.id}-not-rendered`" style="display:none">
-    <!-- Hidden debug info for messages that didn't render -->
-    <div>
-      ID: {{ data.id }} | Not rendered | Type: {{ contentType }} | Has items: {{ !!customCardItems.length }}
     </div>
   </li>
 </template>
@@ -1041,9 +835,5 @@ li.right {
       @apply text-woot-75 dark:text-woot-75;
     }
   }
-}
-
-.card-container, .custom-card-container {
-  @apply w-full mb-2;
 }
 </style>

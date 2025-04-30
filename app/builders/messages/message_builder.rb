@@ -2,8 +2,6 @@ class Messages::MessageBuilder
   include ::FileTypeHelper
   attr_reader :message
 
-  CUSTOM_CARDS = 'custom_cards'.freeze
-
   def initialize(user, conversation, params)
     @params = params
     @private = params[:private] || false
@@ -145,17 +143,18 @@ class Messages::MessageBuilder
   def process_custom_cards
     return unless @custom_cards
 
-    @message.content_type = CUSTOM_CARDS
+    @message.content_type = 'custom_cards'
     @message.content_attributes = {
       items: @custom_cards.map do |card|
         {
+          id: card[:id],
           title: card[:title],
           description: card[:description],
           price: card[:price],
           image_url: card[:image_url],
           actions: card[:actions] || [],
-          reason: card[:reason],
-          custom_fields: card[:custom_fields],
+          created_at: card[:created_at],
+          updated_at: card[:updated_at],
           supports_markdown: true
         }
       end

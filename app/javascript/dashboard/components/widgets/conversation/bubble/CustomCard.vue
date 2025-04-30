@@ -5,16 +5,21 @@
       <p>No card items to display</p>
     </div>
     
+    <!-- Debug info (will be removed in production) -->
+    <div v-if="isDebugMode" class="debug-info">
+      <p>Card Items: {{ items.length }}</p>
+      <p v-if="items.length > 0">First item has image_url: {{ items[0].image_url ? 'Yes' : 'No' }}</p>
+    </div>
+    
     <!-- Iterate through each card item in the items array -->
     <div v-for="(item, index) in items" :key="index" class="card">
-      <!-- Display card image if available -->
-      <div v-if="item.image_url" class="card-media">
-        <!-- Use onError handler to display fallback if image fails to load -->
+      <!-- Display card image if available - with direct src binding -->
+      <div v-if="getImageUrl(item)" class="card-media">
         <img 
-          :src="item.image_url" 
-          :alt="item.title" 
-          class="card-image" 
-          @error="handleImageError" 
+          :src="getImageUrl(item)" 
+          :alt="item.title || 'Product image'" 
+          class="card-image"
+          @error="handleImageError"
         />
       </div>
       <div class="card-content">
@@ -76,15 +81,79 @@ export default {
       default: () => [],
     },
   },
+  data() {
+    return {
+      // Enable debug mode for troubleshooting - set to false for production
+      isDebugMode: process.env.NODE_ENV !== 'production',
+      loadedImages: 0,
+      errorImages: 0,
+    };
+  },
+  mounted() {
+    // Log items when component mounts for debugging
+    this.logItemsInfo();
+  },
   methods: {
+    /**
+     * Log information about the items for debugging
+     */
+    logItemsInfo() {
+      console.log('[CustomCard] Component mounted with', this.items.length, 'items');
+      
+      // Log first item details if available
+      if (this.items.length > 0) {
+        const item = this.items[0];
+        console.log('[CustomCard] First item details:');
+        console.log('- Title:', item.title);
+        console.log('- Has description:', !!item.description);
+        console.log('- Has reason:', !!item.reason);
+        console.log('- Has price:', !!item.price);
+        console.log('- Image URL:', item.image_url);
+        console.log('- Actions:', item.actions ? item.actions.length : 0);
+      }
+    },
+    
+    /**
+     * Safely extract image URL from item, handling different property names
+     * This ensures compatibility with different data formats and sources.
+     */
+    getImageUrl(item) {
+      // Check for direct image_url property first
+      if (item.image_url) {
+        return item.image_url;
+      }
+      
+      // Check for alternative property names
+      if (item.imageUrl) {
+        return item.imageUrl;
+      }
+      
+      // Check for media_url as fallback (used in some card formats)
+      if (item.media_url) {
+        return item.media_url;
+      }
+      
+      // Check camelCase version
+      if (item.mediaUrl) {
+        return item.mediaUrl;
+      }
+      
+      // No image URL found
+      return null;
+    },
+    
     /**
      * Handle image loading errors by setting a CSS class
      * This allows for styling failed images differently
      */
     handleImageError(e) {
       e.target.classList.add('image-error');
+      this.errorImages++;
       // Log a useful error message for debugging
       console.error(`Failed to load image: ${e.target.src}`);
+      
+      // Set a default placeholder image
+      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNMTAwIDcwQzEwMCA3OC4yODQzIDkzLjI4NDMgODUgODUgODVDNzYuNzE1NyA4NSA3MCA3OC4yODQzIDcwIDcwQzcwIDYxLjcxNTcgNzYuNzE1NyA1NSA4NSA1NUM5My4yODQzIDU1IDEwMCA2MS43MTU3IDEwMCA3MFoiIGZpbGw9IiM5NEE2QjYiLz48cGF0aCBkPSJNMTQwIDE1MkgxMzAuMzc3TDEyMCAxMjBMOTAgMTYwTDYwIDEyMEwzMCAxNjBIMzBWMTY1SDE3MFYxNTJIMTQwWiIgZmlsbD0iIzk0QTZCNiIvPjwvc3ZnPg==';
     },
     
     /**
@@ -119,6 +188,15 @@ export default {
   @apply flex flex-col gap-4;
 }
 
+// Debug info panel
+.debug-info {
+  @apply bg-blue-50 text-blue-800 p-2 mb-4 rounded-md text-xs border border-blue-200;
+  
+  p {
+    @apply mb-1;
+  }
+}
+
 // Empty state styles
 .empty-state {
   @apply p-4 text-center text-slate-500 bg-slate-50 rounded-lg border border-slate-200;
@@ -144,12 +222,16 @@ export default {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 // Image styles with error handling
 .card-image {
-  @apply w-full h-full object-contain;
   max-height: 180px;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
   
   &.image-error {
     @apply opacity-50;

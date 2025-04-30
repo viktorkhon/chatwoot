@@ -165,8 +165,7 @@ class Messages::MessageBuilder
         # Ensure card is a hash with symbolized keys for consistent access
         card_data = card.is_a?(Hash) ? card.deep_symbolize_keys : {}
         {
-          # Core card fields
-          id: card_data[:id],                        # Unique identifier for the card
+          # Core card fields - removed invalid id, created_at and updated_at fields
           title: card_data[:title],                  # Card title (required)
           description: card_data[:description],      # Card description (required)
           price: card_data[:price],                  # Price information (optional)
@@ -175,10 +174,6 @@ class Messages::MessageBuilder
           
           # Actions array - for buttons and interactive elements
           actions: card_data[:actions] || [],        # Array of action objects
-          
-          # Metadata
-          created_at: card_data[:created_at],        # When card was created
-          updated_at: card_data[:updated_at],        # When card was last updated
           
           # Display options
           supports_markdown: card_data.fetch(:supports_markdown, true) # Whether to render markdown (defaults to true)

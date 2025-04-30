@@ -40,7 +40,8 @@ export const getCustomCardsFromMessage = message => {
  * Standardizes the format of custom cards data
  * 
  * This ensures all required fields are present and consistently named
- * across different data sources.
+ * across different data sources. Removes fields that are not permitted by
+ * the backend validation.
  * 
  * @param {Array} customCards - Array of card objects 
  * @returns {Array} - Formatted array of card objects
@@ -50,15 +51,13 @@ export const formatCustomCardData = customCards => {
     return [];
   }
   return customCards.map(card => ({
-    id: card.id,
+    // Include only permitted fields, removing id, created_at, updated_at
     title: card.title,
     description: card.description,
     price: card.price,
     image_url: card.image_url,
     reason: card.reason,
     actions: card.actions || [],
-    created_at: card.created_at,
-    updated_at: card.updated_at,
     supports_markdown: card.supports_markdown || false,
   }));
 };

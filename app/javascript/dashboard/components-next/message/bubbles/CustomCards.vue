@@ -37,6 +37,33 @@ const props = defineProps({
 });
 
 /**
+ * Process and standardize item data to ensure all necessary fields are present
+ * @param {Array} items - Original items array from content attributes
+ * @returns {Array} - Processed items with standardized fields
+ */
+const processItems = (items = []) => {
+  return items.map(item => {
+    // Ensure item is an object
+    const processedItem = typeof item === 'object' ? { ...item } : { title: String(item) };
+    
+    // Normalize image URL field names
+    if (!processedItem.image_url && processedItem.imageUrl) {
+      processedItem.image_url = processedItem.imageUrl;
+    }
+    
+    if (!processedItem.image_url && processedItem.media_url) {
+      processedItem.image_url = processedItem.media_url;
+    }
+    
+    if (!processedItem.image_url && processedItem.mediaUrl) {
+      processedItem.image_url = processedItem.mediaUrl;
+    }
+    
+    return processedItem;
+  });
+};
+
+/**
  * Extract card items from either camelCase or snake_case content attributes.
  * This ensures compatibility regardless of how the data is transformed.
  * 
@@ -48,16 +75,10 @@ const items = computed(() => {
   const snakeCaseItems = props.content_attributes?.items || [];
   
   // Use whichever is non-empty, preferring camelCase if both have items
-  const result = camelCaseItems.length ? camelCaseItems : snakeCaseItems;
+  const sourceItems = camelCaseItems.length ? camelCaseItems : snakeCaseItems;
   
-  // Only log errors when both are missing items or debug info when we have items
-  if (!camelCaseItems.length && !snakeCaseItems.length) {
-    console.warn('[CustomCards] No items found in either contentAttributes or content_attributes');
-  } else if (result.length) {
-    console.info(`[CustomCards] Found ${result.length} items to display`);
-  }
-  
-  return result;
+  // Process the items to ensure they have all required fields in the right format
+  return processItems(sourceItems);
 });
 </script>
 

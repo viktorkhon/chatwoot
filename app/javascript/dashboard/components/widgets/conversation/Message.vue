@@ -1,3 +1,6 @@
+// This file has the same name, but is used for the User Conversation view.
+// The other file is used for the Agent Dashboard Conversation view.
+
 <script>
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import BubbleActions from './bubble/Actions.vue';

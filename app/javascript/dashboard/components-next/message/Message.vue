@@ -1,3 +1,6 @@
+// This file has the same name, but is used specifically to control how messages are displayed
+// on the Agent dashboard view. The other file is used for the User Conversation view.
+
 <script setup>
 import { onMounted, computed, ref, toRefs, defineProps, defineExpose } from 'vue';
 import { useTimeoutFn } from '@vueuse/core';
@@ -148,31 +151,32 @@ const isCustomCards = computed(() => {
   // Check both conventional (snake_case) and camelCase props for content_type
   // This ensures compatibility regardless of how props are passed.
   const type = props.content_type || props.contentType;
-  // Log the determined content type for debugging
-  console.log('[NextMessage] content_type →', type);
+  
   // Compare with the constant to determine if it's a custom cards message
   const isCustomCards = type === CONTENT_TYPES.CUSTOM_CARDS;
-  // Log the result for debugging
-  console.log('[NextMessage] isCustomCards →', isCustomCards);
+  
+  // Only log for troubleshooting if it is a custom card
+  if (isCustomCards) {
+    console.info(`[Message] Found custom_cards message: ${props.id}`);
+  }
+  
   return isCustomCards;
 });
 
 // Extracts the 'items' array from content_attributes for custom card messages
+// This is primarily for debugging purposes
 const customItems = computed(() => {
   // Check both conventional (snake_case) and camelCase props for content_attributes
   const attributes = props.content_attributes || props.contentAttributes || {};
-  // Log the attributes object for debugging
-  console.log('[NextMessage] content_attributes →', attributes);
+  
   // Safely access the 'items' array, defaulting to an empty array if not present
   const items = attributes.items || [];
-  // Log the extracted items array for debugging
-  console.log('[NextMessage] customItems →', items);
-  // Log the count of items for debugging
-  console.log('[NextMessage] customItems count →', items.length);
-  // Log the first item if the array is not empty, useful for detailed debugging
-  if(items.length > 0) {
-    console.log('[NextMessage] First item →', items[0]);
+  
+  // Only log important details for debugging
+  if (isCustomCards.value && items.length === 0) {
+    console.warn(`[Message] Custom card message ${props.id} has no items`);
   }
+  
   return items;
 });
 

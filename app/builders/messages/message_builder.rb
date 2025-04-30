@@ -154,22 +154,34 @@ class Messages::MessageBuilder
     # Now checks @custom_cards_data instead of @custom_cards
     return unless @custom_cards_data
 
-    @message.content_type = 'custom_cards' # Ensure content type is set
+    # Set the message content type to custom_cards
+    # This ensures the frontend knows how to render this message
+    @message.content_type = 'custom_cards'
+    
+    # Create the content_attributes hash with structured items
+    # Each item in items array will represent one card to display
     @message.content_attributes = {
       items: @custom_cards_data.map do |card|
-        # Ensure card is a hash (symbolized keys)
+        # Ensure card is a hash with symbolized keys for consistent access
         card_data = card.is_a?(Hash) ? card.deep_symbolize_keys : {}
         {
-          # Safely access keys
-          id: card_data[:id],
-          title: card_data[:title],
-          description: card_data[:description],
-          price: card_data[:price],
-          image_url: card_data[:image_url],
-          actions: card_data[:actions] || [],
-          created_at: card_data[:created_at],
-          updated_at: card_data[:updated_at],
-          supports_markdown: card_data.fetch(:supports_markdown, true) # Default to true
+          # Core card fields
+          id: card_data[:id],                        # Unique identifier for the card
+          title: card_data[:title],                  # Card title (required)
+          description: card_data[:description],      # Card description (required)
+          price: card_data[:price],                  # Price information (optional)
+          image_url: card_data[:image_url],          # URL to card image (optional)
+          reason: card_data[:reason],                # Reason for suggestion (optional)
+          
+          # Actions array - for buttons and interactive elements
+          actions: card_data[:actions] || [],        # Array of action objects
+          
+          # Metadata
+          created_at: card_data[:created_at],        # When card was created
+          updated_at: card_data[:updated_at],        # When card was last updated
+          
+          # Display options
+          supports_markdown: card_data.fetch(:supports_markdown, true) # Whether to render markdown (defaults to true)
         }
       end
     }

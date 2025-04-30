@@ -92,25 +92,7 @@ class ActionCableConnector extends BaseActionCableConnector {
     const {
       conversation: { last_activity_at: lastActivityAt },
       conversation_id: conversationId,
-      content_type: contentType,
-      id: messageId
     } = data;
-    
-    console.log(`[ActionCable] Message created: ID=${messageId}, Content Type=${contentType}`);
-    
-    // EMERGENCY FIX FOR CUSTOM CARDS: Check if message has items but wrong content_type
-    if (data.content_attributes && data.content_attributes.items && 
-        data.content_attributes.items.length && contentType !== 'custom_cards') {
-      console.warn(`[ActionCable] EMERGENCY FIX: Message ${messageId} has items but wrong content_type: ${contentType}. Changing to 'custom_cards'`);
-      
-      // Fix the message by setting correct content_type
-      data.content_type = 'custom_cards';
-    }
-    
-    if (data.content_type === 'custom_cards') {
-      console.log(`[ActionCable] Custom Cards message received: ID=${messageId}`, JSON.stringify(data.content_attributes));
-    }
-    
     DashboardAudioNotificationHelper.onNewMessage(data);
     this.app.$store.dispatch('addMessage', data);
     this.app.$store.dispatch('updateConversationLastActivity', {

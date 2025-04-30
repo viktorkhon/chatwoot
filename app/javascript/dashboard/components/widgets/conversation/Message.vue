@@ -224,6 +224,7 @@ export default {
       const {
         data: { content_type: contentType },
       } = this;
+      console.log('[Message.vue] content_type:', content_type);
       return contentType;
     },
     twitterProfileLink() {
@@ -517,6 +518,9 @@ export default {
             {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
           </template>
         </div>
+        <div v-else-if="isCustomCardType">
+          <CustomCard :items="customCardItems" />
+        </div>
          <BubbleText
             v-else-if="
               data.content &&
@@ -545,9 +549,6 @@ export default {
           :submitted-values="contentAttributes.submitted_values"
           @submit="onFormSubmit"
         />
-        <div v-else-if="isCustomCardType">
-          <CustomCard :items="customCardItems" />
-        </div>
         <BubbleIntegration
           :message-id="data.id"
           :content-attributes="contentAttributes"

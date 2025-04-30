@@ -9,19 +9,29 @@ class Messages::MessageBuilder
     @user = user
     @message_type = params[:message_type] || 'outgoing'
     @attachments = params[:attachments]
-    @automation_rule = content_attributes&.dig(:automation_rule_id)
-    return unless params.instance_of?(ActionController::Parameters)
 
-    @in_reply_to = content_attributes&.dig(:in_reply_to)
-    @items = content_attributes&.dig(:items)
-    @custom_cards = content_attributes&.dig(:custom_cards)
+    # Extract content attributes once
+    extracted_content_attributes = content_attributes
+
+    # Determine the source of card data based on content_type and presence of keys
+    # Prioritize :custom_cards, but fall back to :items if content_type is custom_cards
+    if @params[:content_type] == 'custom_cards'
+      @custom_cards_data = extracted_content_attributes&.dig(:custom_cards) || extracted_content_attributes&.dig(:items)
+    else
+      @custom_cards_data = extracted_content_attributes&.dig(:custom_cards)
+    end
+
+    @in_reply_to = extracted_content_attributes&.dig(:in_reply_to)
+    # Note: Removed @items and @custom_cards initialization here as @custom_cards_data covers it
+    @automation_rule = extracted_content_attributes&.dig(:automation_rule_id)
   end
 
   def perform
     @message = @conversation.messages.build(message_params)
     process_attachments
     process_emails
-    process_custom_cards if @custom_cards
+    # Use the unified @custom_cards_data variable here
+    process_custom_cards if @custom_cards_data
     @message.save!
     @message
   end
@@ -141,55 +151,54 @@ class Messages::MessageBuilder
   end
 
   def process_custom_cards
-    return unless @custom_cards
+    # Now checks @custom_cards_data instead of @custom_cards
+    return unless @custom_cards_data
 
-    @message.content_type = 'custom_cards'
+    @message.content_type = 'custom_cards' # Ensure content type is set
     @message.content_attributes = {
-      items: @custom_cards.map do |card|
+      items: @custom_cards_data.map do |card|
+        # Ensure card is a hash (symbolized keys)
+        card_data = card.is_a?(Hash) ? card.deep_symbolize_keys : {}
         {
-          id: card[:id],
-          title: card[:title],
-          description: card[:description],
-          price: card[:price],
-          image_url: card[:image_url],
-          actions: card[:actions] || [],
-          created_at: card[:created_at],
-          updated_at: card[:updated_at],
-          supports_markdown: true
+          # Safely access keys
+          id: card_data[:id],
+          title: card_data[:title],
+          description: card_data[:description],
+          price: card_data[:price],
+          image_url: card_data[:image_url],
+          actions: card_data[:actions] || [],
+          created_at: card_data[:created_at],
+          updated_at: card_data[:updated_at],
+          supports_markdown: card_data.fetch(:supports_markdown, true) # Default to true
         }
       end
     }
   end
 
   def message_params
-    main_content_attributes = content_attributes
-    automation_attributes = automation_rule_id[:content_attributes]
+    initial_attributes = content_attributes.slice(:email, :items, :submitted_values, :in_reply_to, :automation_rule_id)
+    
+    # If process_custom_cards will run, it will overwrite content_attributes later.
+    # If not, we might want to retain the initial :items if the content_type wasn't custom_cards initially.
+    # However, the current logic seems fine: let process_custom_cards handle the definitive attributes for that type.
 
-    if automation_attributes.present?
-      main_content_attributes ||= {}
-      main_content_attributes.merge!(automation_attributes)
-    end
-
-    params_hash = {
-      # Added safe navigation
-      account_id: @conversation&.account_id,
-      inbox_id: @conversation&.inbox_id,
+    {
+      account_id: @conversation.account_id,
+      inbox_id: @conversation.inbox_id,
       message_type: message_type,
       content: @params[:content],
       private: @private,
       sender: sender,
+      # Set content_type directly from params; process_custom_cards will override if needed.
       content_type: @params[:content_type],
-      # Core Fix: Assign the processed content_attributes hash
-      content_attributes: main_content_attributes,
+      # Set initial content_attributes; process_custom_cards will override if needed.
+      content_attributes: initial_attributes,
+      source_id: @params[:source_id],
       echo_id: @params[:echo_id],
-      source_id: @params[:source_id]
-    }
-
-    # Merge other helpers that return top-level keys or additional_attributes
-    params_hash.merge!(external_created_at)
-    params_hash.deep_merge!(campaign_id)
-    params_hash.deep_merge!(template_params)
-
-    params_hash
+      additional_attributes: {}, # Placeholder, add specific logic if needed
+      external_created_at: external_created_at.dig(:external_created_at),
+    }.merge(campaign_id)
+     .merge(template_params)
+     .merge(automation_rule_id)
   end
 end

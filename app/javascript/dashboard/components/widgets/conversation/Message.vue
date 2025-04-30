@@ -30,6 +30,9 @@ import { emitter } from 'shared/helpers/mitt';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import CustomCard from './bubble/CustomCard.vue';
 
+// At the top of Message.vue (inside the <script> block)
+throw new Error('🔥 Message.vue loaded 🔥');
+
 export default {
   components: {
     BubbleActions,
@@ -366,7 +369,9 @@ export default {
       return this.contentType === 'form';
     },
     isCustomCardType() {
-      return this.contentType === 'custom_cards';
+      const isCustom = this.contentType === 'custom_cards';
+      console.log('[Message.vue] isCustomCardType:', isCustom);
+      return isCustom;  
     },
     customCardItems() {
       return this.contentAttributes.items || [];
@@ -378,6 +383,7 @@ export default {
     },
   },
   mounted() {
+    console.log('[Message.vue] mounted message id:', this.message && this.message.id);
     this.hasMediaLoadError = false;
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();

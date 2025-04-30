@@ -12,8 +12,6 @@ import {
 import messageReadActions from './actions/messageReadActions';
 import messageTranslateActions from './actions/messageTranslateActions';
 import * as Sentry from '@sentry/vue';
-import { CONVERSATION_EVENTS } from '../../../helper/AnalyticsHelper/events';
-import { CONTENT_TYPES } from 'shared/constants/contentType';
 
 export const hasMessageFailedWithExternalError = pendingMessage => {
   // This helper is used to check if the message has failed with an external error.
@@ -25,55 +23,6 @@ export const hasMessageFailedWithExternalError = pendingMessage => {
   const { content_attributes: contentAttributes, status } = pendingMessage;
   const externalError = contentAttributes?.external_error ?? '';
   return status === MESSAGE_STATUS.FAILED && externalError !== '';
-};
-
-export const processMessageForFormat = (message = {}) => {
-  let formattedMessage = { ...message }; // Use let to allow reassignment
-  
-  // Special handling for custom_cards
-  if (message.content_type === 'custom_cards' || message.content_type === CONTENT_TYPES.CUSTOM_CARDS) {
-    // console.log(`[ActionHelper] Processing custom_cards message ID: ${message.id}`);
-    
-    // Ensure content_type is properly set
-    formattedMessage.content_type = 'custom_cards';
-    
-    if (message.content_attributes?.items) {
-      // console.log('[ActionHelper] Creating new items array reference for reactivity.');
-      // Create a completely new object for reactivity
-      formattedMessage = {
-        ...formattedMessage,
-        content_type: 'custom_cards', // Ensure this is explicitly set
-        content_attributes: {
-          ...formattedMessage.content_attributes,
-          // Ensure deep copy of items array
-          items: message.content_attributes.items.map(item => ({ ...item }))
-        }
-      };
-      
-      // Log for debugging
-      // console.log('[ActionHelper] Formatted message:', formattedMessage);
-      // console.log('[ActionHelper] Items count:', formattedMessage.content_attributes.items.length);
-    } else {
-      // console.log(`[ActionHelper] Message ID: ${message.id} is custom_cards but has no items.`);
-    }
-  }
-  
-  if (formattedMessage.attachments && formattedMessage.attachments.length) {
-    const attachments = formattedMessage.attachments.map(attachment => {
-      const { thumb_url, data_url, file_type, account_id, extension } = attachment;
-      return {
-        thumb_url,
-        data_url,
-        file_type,
-        account_id,
-        extension,
-        message_id: attachment.message_id || message.id,
-      };
-    });
-    formattedMessage.attachments = attachments;
-  }
-  
-  return formattedMessage;
 };
 
 // actions
@@ -134,17 +83,13 @@ const actions = {
       const {
         data: { meta, payload },
       } = await MessageApi.getPreviousMessages(data);
-      
-      // Process all messages for proper formatting, especially custom_cards
-      const processedMessages = payload.map(message => processMessageForFormat(message));
-      
       commit(`conversationMetadata/${types.SET_CONVERSATION_METADATA}`, {
         id: data.conversationId,
         data: meta,
       });
       commit(types.SET_PREVIOUS_CONVERSATIONS, {
         id: data.conversationId,
-        data: processedMessages,
+        data: payload,
       });
       if (!payload.length) {
         commit(types.SET_ALL_MESSAGES_LOADED);
@@ -355,59 +300,18 @@ const actions = {
   },
 
   addMessage({ commit }, message) {
-    const formattedMessage = processMessageForFormat(message);
-    
-    // Debug custom_cards messages
-    if (formattedMessage.content_type === 'custom_cards') {
-      // console.log('🔴 [STORE] Custom card message detected in addMessage action:', formattedMessage);
-      // console.log('🔴 [STORE] Custom card items:', formattedMessage.content_attributes?.items);
-      
-      // Force some DOM manipulation to add a visible element for custom cards
-      setTimeout(() => {
-        try {
-          const msgId = formattedMessage.id;
-          const msgElement = document.getElementById(`message${msgId}`);
-          
-          if (msgElement) {
-            // console.log('🔴 [STORE] Found message element in DOM, adding debug overlay');
-            
-            // Create debug element
-            const debugDiv = document.createElement('div');
-            debugDiv.style.border = '5px solid red';
-            debugDiv.style.background = 'yellow';
-            debugDiv.style.padding = '10px';
-            debugDiv.style.margin = '10px 0';
-            debugDiv.style.zIndex = '9999';
-            debugDiv.style.position = 'relative';
-            debugDiv.innerHTML = `
-              <h3 style="color: black; font-weight: bold;">EMERGENCY DEBUG: CUSTOM CARD FROM STORE HANDLER</h3>
-              <p style="color: black;">Message ID: ${msgId}</p>
-              <p style="color: black;">Items: ${formattedMessage.content_attributes?.items?.length || 0}</p>
-            `;
-            
-            // Insert at beginning of message element
-            msgElement.insertBefore(debugDiv, msgElement.firstChild);
-          } else {
-            // console.log('🔴 [STORE] Could not find message element in DOM');
-          }
-        } catch (e) {
-          // console.error('🔴 [STORE] Error in DOM manipulation:', e);
-        }
-      }, 1000); // Wait for the DOM to update
-    }
-    
-    commit(types.ADD_MESSAGE, formattedMessage);
+    commit(types.ADD_MESSAGE, message);
     if (message.message_type === MESSAGE_TYPE.INCOMING) {
       commit(types.SET_CONVERSATION_CAN_REPLY, {
         conversationId: message.conversation_id,
         canReply: true,
       });
-      commit(types.ADD_CONVERSATION_ATTACHMENTS, formattedMessage);
+      commit(types.ADD_CONVERSATION_ATTACHMENTS, message);
     }
   },
 
-  updateMessage: ({ commit }, message) => {
-    commit(types.ADD_MESSAGE, processMessageForFormat(message));
+  updateMessage({ commit }, message) {
+    commit(types.ADD_MESSAGE, message);
   },
 
   deleteMessage: async function deleteLabels(
@@ -589,29 +493,6 @@ const actions = {
     try {
       const response = await ConversationApi.getInboxAssistant(conversationId);
       commit(types.SET_INBOX_CAPTAIN_ASSISTANT, response.data);
-    } catch (error) {
-      // Handle error
-    }
-  },
-
-  getAllMessages: async ({ commit }, conversationId) => {
-    try {
-      const {
-        data: { meta, payload },
-      } = await MessageApi.getMessages({ conversationId });
-      
-      // Process all messages for proper formatting, especially custom_cards
-      const processedMessages = payload.map(message => processMessageForFormat(message));
-      
-      commit(`conversationMetadata/${types.SET_CONVERSATION_METADATA}`, {
-        id: conversationId,
-        data: meta,
-      });
-      commit(types.SET_ALL_MESSAGES, {
-        id: conversationId,
-        data: processedMessages,
-      });
-      commit(types.CLEAR_ALL_MESSAGES_LOADED);
     } catch (error) {
       // Handle error
     }

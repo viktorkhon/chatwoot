@@ -53,13 +53,6 @@ export default {
       ) {
         return false;
       }
-      
-      // Always display custom cards messages, even if content is empty
-      if (this.contentType === 'custom_cards') {
-        console.log('[AgentMessage] Force displaying custom cards message regardless of content');
-        return true;
-      }
-      
       return this.message.content;
     },
     readableTime() {
@@ -148,12 +141,6 @@ export default {
   mounted() {
     this.hasImageError = false;
     this.hasVideoError = false;
-    console.log(`[AgentMessage] Component mounted for message ID: ${this.message.id}`);
-    console.log(`[AgentMessage] Message type: ${this.messageType}, Content type: ${this.contentType}`);
-    if (this.contentType === 'custom_cards') {
-      console.log(`[AgentMessage] Custom card message detected:`, this.message);
-      console.log(`[AgentMessage] Content attributes:`, this.message.content_attributes);
-    }
   },
   methods: {
     onImageLoadError() {
@@ -176,14 +163,6 @@ export default {
       'has-response': hasRecordedResponse || isASubmittedForm,
     }"
   >
-    <!-- Debug info for custom cards messages -->
-    <div v-if="contentType === 'custom_cards'" style="background: #000; color: yellow; padding: 10px; margin: 10px 0; border: 3px dashed red; font-weight: bold; z-index: 9999; position: relative;">
-      AgentMessage Debug: Custom cards message detected (ID: {{message.id}})
-      <br>shouldDisplayAgentMessage: {{shouldDisplayAgentMessage}}
-      <br>contentType: {{contentType}}
-      <br>items count: {{messageContentAttributes.items?.length || 0}}
-    </div>
-    
     <div v-if="!isASubmittedForm" class="agent-message">
       <div class="avatar-wrap">
         <Thumbnail

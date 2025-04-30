@@ -183,16 +183,6 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@layer utilities {
-  .text-emerald-600 {
-    color: #059669;
-  }
-  
-  .dark .dark\:text-emerald-400 {
-    color: #34d399;
-  }
-}
-
 // Card container styles
 .card-container {
   @apply flex flex-col gap-4;
@@ -267,7 +257,7 @@ export default {
 
 // Price styles
 .card-price {
-  @apply mb-3 font-semibold text-emerald-600 dark:text-emerald-400;
+  @apply mb-3 font-semibold text-teal-600 dark:text-teal-400;
 }
 
 // Action container styles

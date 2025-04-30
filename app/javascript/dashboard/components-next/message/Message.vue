@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, computed, ref, toRefs } from 'vue';
+import { onMounted, computed, ref, toRefs, defineProps, defineExpose } from 'vue';
 import { useTimeoutFn } from '@vueuse/core';
 import { provideMessageContext } from './provider.js';
 import { useTrack } from 'dashboard/composables';
@@ -40,6 +40,13 @@ import FormBubble from './bubbles/Form.vue';
 import MessageError from './MessageError.vue';
 import ContextMenu from 'dashboard/modules/conversations/components/MessageContextMenu.vue';
 import CustomCard from 'dashboard/components/widgets/conversation/bubble/CustomCard.vue';
+
+/**
+ * Expose component name for debugging
+ */
+defineExpose({
+  name: 'NextMessage'
+});
 
 /**
  * @typedef {Object} Attachment
@@ -95,46 +102,16 @@ import CustomCard from 'dashboard/components/widgets/conversation/bubble/CustomC
  * @property {number} inboxId - The ID of the inbox to which the message belongs
  */
 
- export default {
-  name: 'NextMessage',
-  components: {
-    CustomCard,
-    // … other components (Text, Card, Form, etc.) …
-  },
-  props: {
-    id: [String, Number],
-    content: String,
-    content_type: String,
-    content_attributes: Object,
-    // … any other props you see declared …
-  },
-  computed: {
-    isCustomCards() {
-      console.log('[NextMessage] content_type →', this.content_type);
-      return this.content_type === 'custom_cards';
-    },
-    customItems() {
-      const items = this.content_attributes?.items || [];
-      console.log('[NextMessage] customItems →', items);
-      return items;
-    }
-  },
-  mounted() {
-    console.log('[NextMessage] mounted message id →', this.id);
-  }
-};
-
-// eslint-disable-next-line vue/define-macros-order
+// Define a merged props with all properties
 const props = defineProps({
-  id: { type: Number, required: true },
+  // Standard props
+  id: { type: [String, Number], required: true },
   messageType: {
     type: Number,
-    required: true,
     validator: value => Object.values(MESSAGE_TYPES).includes(value),
   },
   status: {
     type: String,
-    required: true,
     validator: value => Object.values(MESSAGE_STATUS).includes(value),
   },
   attachments: { type: Array, default: () => [] },
@@ -145,19 +122,45 @@ const props = defineProps({
     default: 'text',
     validator: value => Object.values(CONTENT_TYPES).includes(value),
   },
-  conversationId: { type: Number, required: true },
-  createdAt: { type: Number, required: true }, // eslint-disable-line vue/no-unused-properties
-  currentUserId: { type: Number, required: true },
+  conversationId: { type: Number },
+  createdAt: { type: Number },
+  currentUserId: { type: Number },
   groupWithNext: { type: Boolean, default: false },
-  inboxId: { type: Number, default: null }, // eslint-disable-line vue/no-unused-properties
+  inboxId: { type: Number, default: null },
   inboxSupportsReplyTo: { type: Object, default: () => ({}) },
-  inReplyTo: { type: Object, default: null }, // eslint-disable-line vue/no-unused-properties
+  inReplyTo: { type: Object, default: null },
   isEmailInbox: { type: Boolean, default: false },
   private: { type: Boolean, default: false },
   sender: { type: Object, default: null },
   senderId: { type: Number, default: null },
   senderType: { type: String, default: null },
-  sourceId: { type: String, default: '' }, // eslint-disable-line vue/no-unused-properties
+  sourceId: { type: String, default: '' },
+  
+  // Alternative snake_case props for backward compatibility
+  content_type: { type: String },
+  content_attributes: { type: Object, default: () => ({}) }
+});
+
+// Helper computed properties for custom cards
+const isCustomCards = computed(() => {
+  // Check both conventional and camelCase props to ensure compatibility
+  const type = props.content_type || props.contentType;
+  console.log('[NextMessage] content_type →', type);
+  const isCustomCards = type === CONTENT_TYPES.CUSTOM_CARDS;
+  console.log('[NextMessage] isCustomCards →', isCustomCards);
+  return isCustomCards;
+});
+
+const customItems = computed(() => {
+  // Check both conventional and camelCase props
+  const attributes = props.content_attributes || props.contentAttributes || {};
+  const items = attributes.items || [];
+  console.log('[NextMessage] customItems →', items);
+  console.log('[NextMessage] customItems count →', items.length);
+  if(items.length > 0) {
+    console.log('[NextMessage] First item →', items[0]);
+  }
+  return items;
 });
 
 const contextMenuPosition = ref({});
@@ -172,6 +175,11 @@ const route = useRoute();
  */
 const variant = computed(() => {
   if (props.private) return MESSAGE_VARIANTS.PRIVATE;
+
+  if (props.contentType === CONTENT_TYPES.CUSTOM_CARDS) {
+    console.log('[NextMessage] Detected custom cards message type');
+    return MESSAGE_VARIANTS.CUSTOM_CARDS;
+  }
 
   if (props.isEmailInbox) {
     const emailInboxTypes = [MESSAGE_TYPES.INCOMING, MESSAGE_TYPES.OUTGOING];
@@ -382,13 +390,15 @@ const shouldRenderMessage = computed(() => {
   const isUnsupported = props.contentAttributes?.isUnsupported;
   const isAnIntegrationMessage =
     props.contentType === CONTENT_TYPES.INTEGRATIONS;
+  const isCustomCardsMessage = props.contentType === CONTENT_TYPES.CUSTOM_CARDS;
 
   return (
     hasAttachments ||
     props.content ||
     isEmailContentType ||
     isUnsupported ||
-    isAnIntegrationMessage
+    isAnIntegrationMessage ||
+    isCustomCardsMessage
   );
 });
 
@@ -464,6 +474,13 @@ const setupHighlightTimer = () => {
 
 onMounted(setupHighlightTimer);
 
+// Log component initialization
+onMounted(() => {
+  console.log('[NextMessage] mounted message id →', props.id);
+  console.log('[NextMessage] content_type →', props.content_type || props.contentType);
+  console.log('[NextMessage] content_attributes →', props.content_attributes || props.contentAttributes);
+});
+
 provideMessageContext({
   ...toRefs(props),
   isPrivate: computed(() => props.private),
@@ -476,82 +493,87 @@ provideMessageContext({
 
 <!-- eslint-disable-next-line vue/no-root-v-if -->
 <template>
-    <div class="message-container">
-    <!-- 1) Custom cards highest priority -->
-    <div v-if="isCustomCards" class="custom-card-container">
-      <CustomCard
-        v-for="(item, i) in customItems"
-        :key="i"
-        :item="item"
-      />
+  <!-- Main container -->
+  <div class="main-message-container">
+    <!-- 1) Custom cards container (highest priority) -->
+    <div v-if="isCustomCards" class="custom-card-container" style="border: 2px solid #10b981; padding: 8px; border-radius: 4px; margin-bottom: 16px;">
+      <!-- Debug info -->
+      <div style="background: #f0f9ff; color: #0369a1; border: 1px solid #0ea5e9; padding: 8px; margin-bottom: 12px; border-radius: 4px;">
+        Debug: Found {{customItems.length}} custom card items for message ID {{id}}
+      </div>
+      
+      <!-- Pass all items at once to the CustomCard component -->
+      <CustomCard :items="customItems" />
     </div>
-  </div>
-  <div
-    v-if="shouldRenderMessage"
-    :id="`message${props.id}`"
-    class="flex w-full message-bubble-container mb-2"
-    :data-message-id="props.id"
-    :class="[
-      flexOrientationClass,
-      {
-        'group-with-next': shouldGroupWithNext,
-        'bg-n-alpha-1': showBackgroundHighlight,
-      },
-    ]"
-  >
-    <div v-if="variant === MESSAGE_VARIANTS.ACTIVITY">
-      <ActivityBubble :content="content" />
-    </div>
+    
+    <!-- 2) Regular message container -->
     <div
-      v-else
+      v-if="shouldRenderMessage"
+      :id="`message${props.id}`"
+      class="flex w-full message-bubble-container mb-2"
+      :data-message-id="props.id"
       :class="[
-        gridClass,
+        flexOrientationClass,
         {
-          'gap-y-2': contentAttributes.externalError,
-          'w-full': variant === MESSAGE_VARIANTS.EMAIL,
+          'group-with-next': shouldGroupWithNext,
+          'bg-n-alpha-1': showBackgroundHighlight,
         },
       ]"
-      class="gap-x-3"
-      :style="{
-        gridTemplateAreas: gridTemplate,
-      }"
     >
-      <div
-        v-if="!shouldGroupWithNext && shouldShowAvatar"
-        v-tooltip.right-end="avatarTooltip"
-        class="[grid-area:avatar] flex items-end"
-      >
-        <Avatar v-bind="avatarInfo" :size="24" />
+      <div v-if="variant === MESSAGE_VARIANTS.ACTIVITY">
+        <ActivityBubble :content="content" />
       </div>
       <div
-        class="[grid-area:bubble] flex"
-        :class="{
-          'ltr:pl-9 rtl:pl-0 justify-end': orientation === ORIENTATION.RIGHT,
-          'min-w-0': variant === MESSAGE_VARIANTS.EMAIL,
+        v-else
+        :class="[
+          gridClass,
+          {
+            'gap-y-2': contentAttributes.externalError,
+            'w-full': variant === MESSAGE_VARIANTS.EMAIL,
+          },
+        ]"
+        class="gap-x-3"
+        :style="{
+          gridTemplateAreas: gridTemplate,
         }"
-        @contextmenu="openContextMenu($event)"
       >
-        <Component :is="componentToRender" />
+        <div
+          v-if="!shouldGroupWithNext && shouldShowAvatar"
+          v-tooltip.right-end="avatarTooltip"
+          class="[grid-area:avatar] flex items-end"
+        >
+          <Avatar v-bind="avatarInfo" :size="24" />
+        </div>
+        <div
+          class="[grid-area:bubble] flex"
+          :class="{
+            'ltr:pl-9 rtl:pl-0 justify-end': orientation === ORIENTATION.RIGHT,
+            'min-w-0': variant === MESSAGE_VARIANTS.EMAIL,
+          }"
+          @contextmenu="openContextMenu($event)"
+        >
+          <Component :is="componentToRender" />
+        </div>
+        <MessageError
+          v-if="contentAttributes.externalError"
+          class="[grid-area:meta]"
+          :class="flexOrientationClass"
+          :error="contentAttributes.externalError"
+        />
       </div>
-      <MessageError
-        v-if="contentAttributes.externalError"
-        class="[grid-area:meta]"
-        :class="flexOrientationClass"
-        :error="contentAttributes.externalError"
-      />
-    </div>
-    <div v-if="shouldShowContextMenu" class="context-menu-wrap">
-      <ContextMenu
-        v-if="isBubble && !isMessageDeleted"
-        :context-menu-position="contextMenuPosition"
-        :is-open="showContextMenu"
-        :enabled-options="contextMenuEnabledOptions"
-        :message="payloadForContextMenu"
-        hide-button
-        @open="openContextMenu"
-        @close="closeContextMenu"
-        @reply-to="handleReplyTo"
-      />
+      <div v-if="shouldShowContextMenu" class="context-menu-wrap">
+        <ContextMenu
+          v-if="isBubble && !isMessageDeleted"
+          :context-menu-position="contextMenuPosition"
+          :is-open="showContextMenu"
+          :enabled-options="contextMenuEnabledOptions"
+          :message="payloadForContextMenu"
+          hide-button
+          @open="openContextMenu"
+          @close="closeContextMenu"
+          @reply-to="handleReplyTo"
+        />
+      </div>
     </div>
   </div>
 </template>

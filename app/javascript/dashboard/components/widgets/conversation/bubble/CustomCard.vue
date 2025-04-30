@@ -1,5 +1,15 @@
 <template>
   <div class="card-container">
+    <!-- Debug info -->
+    <div style="background: #ecfdf5; color: #065f46; border: 1px solid #10b981; padding: 8px; margin-bottom: 12px; border-radius: 4px;">
+      CustomCard Component - {{items.length}} items
+    </div>
+    
+    <!-- Empty state handling -->
+    <div v-if="!items || items.length === 0" style="background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; padding: 8px; margin-bottom: 12px; border-radius: 4px;">
+      No custom card items found
+    </div>
+    
     <div v-for="(item, index) in items" :key="index" class="card">
       <div v-if="item.image_url" class="card-media">
         <img :src="item.image_url" :alt="item.title" class="card-image" />
@@ -36,6 +46,14 @@ export default {
       type: Array,
       required: true,
     },
+  },
+  mounted() {
+    console.log('[CustomCard] Component mounted');
+    console.log('[CustomCard] Items received:', this.items);
+    console.log('[CustomCard] Items count:', this.items.length);
+    if (this.items.length > 0) {
+      console.log('[CustomCard] First item:', this.items[0]);
+    }
   },
   methods: {
     handleAction(action) {

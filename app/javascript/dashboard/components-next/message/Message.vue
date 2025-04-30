@@ -36,6 +36,7 @@ import DyteBubble from './bubbles/Dyte.vue';
 import LocationBubble from './bubbles/Location.vue';
 import CSATBubble from './bubbles/CSAT.vue';
 import FormBubble from './bubbles/Form.vue';
+import CustomCardsBubble from './bubbles/CustomCards.vue';
 
 import MessageError from './MessageError.vue';
 import ContextMenu from 'dashboard/modules/conversations/components/MessageContextMenu.vue';
@@ -142,21 +143,33 @@ const props = defineProps({
 });
 
 // Helper computed properties for custom cards
+// These are used to specifically handle messages of type 'custom_cards'
 const isCustomCards = computed(() => {
-  // Check both conventional and camelCase props to ensure compatibility
+  // Check both conventional (snake_case) and camelCase props for content_type
+  // This ensures compatibility regardless of how props are passed.
   const type = props.content_type || props.contentType;
+  // Log the determined content type for debugging
   console.log('[NextMessage] content_type →', type);
+  // Compare with the constant to determine if it's a custom cards message
   const isCustomCards = type === CONTENT_TYPES.CUSTOM_CARDS;
+  // Log the result for debugging
   console.log('[NextMessage] isCustomCards →', isCustomCards);
   return isCustomCards;
 });
 
+// Extracts the 'items' array from content_attributes for custom card messages
 const customItems = computed(() => {
-  // Check both conventional and camelCase props
+  // Check both conventional (snake_case) and camelCase props for content_attributes
   const attributes = props.content_attributes || props.contentAttributes || {};
+  // Log the attributes object for debugging
+  console.log('[NextMessage] content_attributes →', attributes);
+  // Safely access the 'items' array, defaulting to an empty array if not present
   const items = attributes.items || [];
+  // Log the extracted items array for debugging
   console.log('[NextMessage] customItems →', items);
+  // Log the count of items for debugging
   console.log('[NextMessage] customItems count →', items.length);
+  // Log the first item if the array is not empty, useful for detailed debugging
   if(items.length > 0) {
     console.log('[NextMessage] First item →', items[0]);
   }
@@ -176,7 +189,7 @@ const route = useRoute();
 const variant = computed(() => {
   if (props.private) return MESSAGE_VARIANTS.PRIVATE;
 
-  if (props.contentType === CONTENT_TYPES.CUSTOM_CARDS) {
+  if (isCustomCards.value) {
     console.log('[NextMessage] Detected custom cards message type');
     return MESSAGE_VARIANTS.CUSTOM_CARDS;
   }
@@ -323,6 +336,10 @@ const componentToRender = computed(() => {
     return DyteBubble;
   }
 
+  if (props.contentType === CONTENT_TYPES.CUSTOM_CARDS) {
+    return CustomCardsBubble;
+  }
+
   if (props.contentAttributes.imageType === 'story_mention') {
     return InstagramStoryBubble;
   }
@@ -384,21 +401,24 @@ const contextMenuEnabledOptions = computed(() => {
   };
 });
 
+// Determines if the main message bubble (excluding the dedicated custom cards container) should be rendered.
+// It should render if there are attachments, text content, or if it's a special type like email or integration message.
 const shouldRenderMessage = computed(() => {
   const hasAttachments = !!(props.attachments && props.attachments.length > 0);
   const isEmailContentType = props.contentType === CONTENT_TYPES.INCOMING_EMAIL;
   const isUnsupported = props.contentAttributes?.isUnsupported;
   const isAnIntegrationMessage =
     props.contentType === CONTENT_TYPES.INTEGRATIONS;
-  const isCustomCardsMessage = props.contentType === CONTENT_TYPES.CUSTOM_CARDS;
+  // We don't need to check for isCustomCardsMessage here because:
+  // 1. Custom cards have a dedicated container rendered above this one.
+  // 2. componentToRender handles returning the correct bubble type (CustomCardsBubble) if needed.
 
   return (
     hasAttachments ||
     props.content ||
     isEmailContentType ||
     isUnsupported ||
-    isAnIntegrationMessage ||
-    isCustomCardsMessage
+    isAnIntegrationMessage
   );
 });
 
@@ -493,20 +513,17 @@ provideMessageContext({
 
 <!-- eslint-disable-next-line vue/no-root-v-if -->
 <template>
-  <!-- Main container -->
+  <!-- Main container for the entire message representation -->
   <div class="main-message-container">
-    <!-- 1) Custom cards container (highest priority) -->
-    <div v-if="isCustomCards" class="custom-card-container" style="border: 2px solid #10b981; padding: 8px; border-radius: 4px; margin-bottom: 16px;">
-      <!-- Debug info -->
-      <div style="background: #f0f9ff; color: #0369a1; border: 1px solid #0ea5e9; padding: 8px; margin-bottom: 12px; border-radius: 4px;">
-        Debug: Found {{customItems.length}} custom card items for message ID {{id}}
-      </div>
-      
-      <!-- Pass all items at once to the CustomCard component -->
-      <CustomCard :items="customItems" />
+    <!-- 1) Dedicated container specifically for 'custom_cards' type messages -->
+    <!-- This renders *above* the regular message bubble flow -->
+    <div v-if="isCustomCards" class="custom-card-container">
+      <!-- Use the specialized bubble component for custom cards -->
+      <CustomCardsBubble :content="content" :content-attributes="props.content_attributes || props.contentAttributes" />
     </div>
     
-    <!-- 2) Regular message container -->
+    <!-- 2) Regular message container for all other message types or content -->
+    <!-- This renders only if shouldRenderMessage condition is met -->
     <div
       v-if="shouldRenderMessage"
       :id="`message${props.id}`"
@@ -520,9 +537,11 @@ provideMessageContext({
         },
       ]"
     >
+      <!-- Renders activity messages (e.g., 'Agent assigned conversation') -->
       <div v-if="variant === MESSAGE_VARIANTS.ACTIVITY">
         <ActivityBubble :content="content" />
       </div>
+      <!-- Renders regular bubbles (text, image, file, email, etc.) -->
       <div
         v-else
         :class="[
@@ -537,6 +556,7 @@ provideMessageContext({
           gridTemplateAreas: gridTemplate,
         }"
       >
+        <!-- Avatar shown for incoming messages on the left -->
         <div
           v-if="!shouldGroupWithNext && shouldShowAvatar"
           v-tooltip.right-end="avatarTooltip"
@@ -544,6 +564,7 @@ provideMessageContext({
         >
           <Avatar v-bind="avatarInfo" :size="24" />
         </div>
+        <!-- The actual message bubble component -->
         <div
           class="[grid-area:bubble] flex"
           :class="{
@@ -552,8 +573,10 @@ provideMessageContext({
           }"
           @contextmenu="openContextMenu($event)"
         >
+          <!-- Dynamically renders the correct bubble component based on message type/content -->
           <Component :is="componentToRender" />
         </div>
+        <!-- Displays an error message if sending failed -->
         <MessageError
           v-if="contentAttributes.externalError"
           class="[grid-area:meta]"
@@ -561,6 +584,7 @@ provideMessageContext({
           :error="contentAttributes.externalError"
         />
       </div>
+      <!-- Context menu (copy, delete, etc.) activated on right-click -->
       <div v-if="shouldShowContextMenu" class="context-menu-wrap">
         <ContextMenu
           v-if="isBubble && !isMessageDeleted"

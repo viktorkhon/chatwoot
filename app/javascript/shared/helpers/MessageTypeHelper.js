@@ -25,8 +25,10 @@ export const MESSAGE_MAX_LENGTH = {
   EMAIL: 25000,
 };
 
+// Checks if a message object represents a custom card message.
+// It verifies that the message exists and its content_type is exactly 'custom_cards'.
 export const isCustomCardMessage = message => {
-  return message.content_type === CONTENT_TYPES.CUSTOM_CARDS;
+  return message && message.content_type === 'custom_cards';
 };
 
 export const isOutgoingMessage = message => {

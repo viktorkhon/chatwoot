@@ -15,6 +15,7 @@ export const MESSAGE_VARIANTS = {
   TEMPLATE: 'template',
   EMAIL: 'email',
   UNSUPPORTED: 'unsupported',
+  CUSTOM_CARDS: 'custom_cards',
 };
 
 export const SENDER_TYPES = {

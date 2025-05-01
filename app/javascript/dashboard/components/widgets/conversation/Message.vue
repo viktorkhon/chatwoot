@@ -227,7 +227,7 @@ export default {
       const {
         data: { content_type: contentType },
       } = this;
-      console.log('[Message.vue] content_type:', content_type);
+      // console.log('[Message.vue] content_type:', content_type);
       return contentType;
     },
     twitterProfileLink() {
@@ -370,11 +370,11 @@ export default {
     },
     isCustomCardType() {
       const isCustom = this.contentType === 'custom_cards';
-      console.log('[Message.vue] isCustomCardType:', isCustom);
+      // console.log('[Message.vue] isCustomCardType:', isCustom);
       return isCustom;  
     },
     customCardItems() {
-      console.log('[Message.vue] customCardItems →', this.data.content_attributes?.items);
+      // console.log('[Message.vue] customCardItems →', this.data.content_attributes?.items);
       return this.contentAttributes.items || [];
     },
   },
@@ -384,7 +384,7 @@ export default {
     },
   },
   mounted() {
-    console.log('[Message.vue] mounted message id:', this.message && this.message.id);
+    // console.log('[Message.vue] mounted message id:', this.message && this.message.id);
     this.hasMediaLoadError = false;
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
@@ -472,7 +472,7 @@ export default {
     },
     onFormSubmit(values) {
       // Implement the logic to handle form submission
-      console.log('Form submitted with values:', values);
+      // console.log('Form submitted with values:', values);
     },
   },
 };

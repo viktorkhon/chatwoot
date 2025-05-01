@@ -498,13 +498,6 @@ const setupHighlightTimer = () => {
 
 onMounted(setupHighlightTimer);
 
-// Log component initialization
-onMounted(() => {
-  console.log('[NextMessage] mounted message id →', props.id);
-  console.log('[NextMessage] content_type →', props.content_type || props.contentType);
-  console.log('[NextMessage] content_attributes →', props.content_attributes || props.contentAttributes);
-});
-
 provideMessageContext({
   ...toRefs(props),
   isPrivate: computed(() => props.private),

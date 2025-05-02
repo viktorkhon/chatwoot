@@ -24,6 +24,7 @@ const primaryMenuItems = accountId => [
     featureFlag: FEATURE_FLAGS.CAPTAIN,
     toState: frontendURL(`accounts/${accountId}/captain/documents`),
     toStateName: 'captain',
+    hidden: true,
   },
   {
     icon: 'book-contacts',

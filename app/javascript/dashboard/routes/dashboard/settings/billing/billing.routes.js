@@ -10,7 +10,7 @@ export default {
       meta: {
         permissions: ['administrator'],
         installationTypes: [INSTALLATION_TYPES.CLOUD, INSTALLATION_TYPES.ENTERPRISE, INSTALLATION_TYPES.COMMUNITY],
-        alwaysVisible: true,
+        hidden: true,
       },
       component: SettingsWrapper,
       props: {
@@ -26,7 +26,7 @@ export default {
           meta: {
             installationTypes: [INSTALLATION_TYPES.CLOUD, INSTALLATION_TYPES.ENTERPRISE, INSTALLATION_TYPES.COMMUNITY],
             permissions: ['administrator'],
-            alwaysVisible: true,
+            hidden: true,
           },
         },
       ],

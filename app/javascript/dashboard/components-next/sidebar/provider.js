@@ -38,6 +38,10 @@ export function useSidebarContext() {
     if (!to) return false;
     
     const routeData = router.resolve(to);
+    if (routeData?.meta?.hidden) {
+      return false;
+    }
+
     if (routeData?.meta?.alwaysVisible) {
       return true;
     }

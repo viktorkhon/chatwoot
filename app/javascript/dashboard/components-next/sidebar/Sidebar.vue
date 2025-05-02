@@ -436,7 +436,7 @@ const menuItems = computed(() => {
           to: accountScopedRoute('billing_settings_index'),
         },
       ].filter(item => 
-        !['Settings Custom Roles', 'Settings Sla'].includes(item.name)
+        !['Settings Custom Roles', 'Settings Sla', 'Settings Billing'].includes(item.name)
       ),
     },
   ];

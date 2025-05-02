@@ -141,7 +141,8 @@ class Message < ApplicationRecord
       created_at: created_at.to_i,
       message_type: message_type_before_type_cast,
       conversation_id: conversation.display_id,
-      conversation: conversation_push_event_data
+      conversation: conversation_push_event_data,
+      content_attributes: content_attributes
     )
     data[:echo_id] = echo_id if echo_id.present?
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?

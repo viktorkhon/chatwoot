@@ -108,16 +108,20 @@ const hasActiveChild = computed(() => {
 });
 
 const toggleTrigger = () => {
+  // Set expanded state first
+  setExpandedItem(props.name);
+  
+  // Only navigate to first child if we're now expanded
+  // (i.e., we weren't expanded before and are now)
   if (
-    hasAccessibleChildren.value &&
-    !isExpanded.value &&
+    hasAccessibleChildren.value && 
+    expandedItem.value === props.name &&
     !hasActiveChild.value
   ) {
-    // if not already expanded, navigate to the first child
+    // Navigate to the first child after expansion
     const firstItem = accessibleItems.value[0];
     router.push(firstItem.to);
   }
-  setExpandedItem(props.name);
 };
 
 onMounted(async () => {

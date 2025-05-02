@@ -15,6 +15,7 @@ export const MESSAGE_VARIANTS = {
   TEMPLATE: 'template',
   EMAIL: 'email',
   UNSUPPORTED: 'unsupported',
+  CUSTOM_CARDS: 'custom_cards',
 };
 
 export const SENDER_TYPES = {
@@ -63,6 +64,7 @@ export const CONTENT_TYPES = {
   INPUT_CSAT: 'input_csat',
   INTEGRATIONS: 'integrations',
   STICKER: 'sticker',
+  CUSTOM_CARDS: 'custom_cards',
 };
 
 export const MEDIA_TYPES = [

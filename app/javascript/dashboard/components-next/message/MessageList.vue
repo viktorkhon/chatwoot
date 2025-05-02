@@ -1,3 +1,5 @@
+// This file has the same name, but is used specifically to control how messages are displayed
+// on the Agent dashboard view. The other file is used for the User Conversation view.
 <script setup>
 import { defineProps, computed } from 'vue';
 import Message from './Message.vue';
@@ -38,7 +40,31 @@ const props = defineProps({
 });
 
 const allMessages = computed(() => {
-  return useCamelCase(props.messages, { deep: true });
+  // First transform all messages to camelCase
+  const camelCasedMessages = useCamelCase(props.messages, { deep: true });
+  
+  // For custom_cards type messages, ensure we preserve the original content_attributes
+  // This specialized handling is needed because the CustomCardsBubble component
+  // expects to find the 'items' array in the original content_attributes structure,
+  // but the camelCase transformation may cause the structure to be different.
+  return camelCasedMessages.map(message => {
+    // Check if this is a custom_cards message type (in either case format)
+    if (message.contentType === 'custom_cards' || message.content_type === 'custom_cards') {
+      // Find the original message to get its content_attributes
+      const originalMessage = props.messages.find(m => m.id === message.id);
+      
+      if (originalMessage && originalMessage.content_attributes) {
+        // For custom cards, we need to preserve both formats:
+        // 1. The camelCase version (contentAttributes) for standard Vue props
+        // 2. The snake_case version (content_attributes) for components that expect the original format
+        return {
+          ...message,
+          content_attributes: originalMessage.content_attributes
+        };
+      }
+    }
+    return message;
+  });
 });
 
 /**

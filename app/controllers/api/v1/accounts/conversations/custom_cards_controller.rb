@@ -5,6 +5,13 @@ class Api::V1::Accounts::Conversations::CustomCardsController < Api::V1::Account
     user = Current.user || @resource
     mb = Messages::MessageBuilder.new(user, @conversation, params)
     @message = mb.perform
+    
+    # Broadcast the message creation event via ActionCable - REMOVED as model callback handles it
+    # ConversationChannel.broadcast_to(@conversation, :message_created, @message)
+    
+    # Ensure message is immediately sent (especially important for bot messages)
+    SendReplyJob.perform_now(@message.id) if @message.outgoing?
+    
     render json: { message: @message, status: 'success' }
   rescue StandardError => e
     render_could_not_create_error(e.message)

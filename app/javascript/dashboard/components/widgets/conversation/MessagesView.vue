@@ -36,7 +36,6 @@ import { REPLY_POLICY } from 'shared/constants/links';
 import wootConstants from 'dashboard/constants/globals';
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 import { FEATURE_FLAGS } from '../../../featureFlags';
-import { INBOX_TYPES } from 'dashboard/helper/inbox';
 
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
@@ -210,22 +209,6 @@ export default {
       return contactLastSeenAt;
     },
 
-    // Check there is a instagram inbox exists with the same instagram_id
-    hasDuplicateInstagramInbox() {
-      const instagramId = this.inbox.instagram_id;
-      const { additional_attributes: additionalAttributes = {} } = this.inbox;
-      const instagramInbox =
-        this.$store.getters['inboxes/getInstagramInboxByInstagramId'](
-          instagramId
-        );
-
-      return (
-        this.inbox.channel_type === INBOX_TYPES.FB &&
-        additionalAttributes.type === 'instagram_direct_message' &&
-        instagramInbox
-      );
-    },
-
     replyWindowBannerMessage() {
       if (this.isAWhatsAppChannel) {
         return this.$t('CONVERSATION.TWILIO_WHATSAPP_CAN_REPLY');
@@ -249,7 +232,7 @@ export default {
       return this.$t('CONVERSATION.CANNOT_REPLY');
     },
     replyWindowLink() {
-      if (this.isAFacebookInbox || this.isAnInstagramChannel) {
+      if (this.isAFacebookInbox || this.isAInstagramChannel) {
         return REPLY_POLICY.FACEBOOK;
       }
       if (this.isAWhatsAppCloudChannel) {
@@ -264,7 +247,7 @@ export default {
       if (
         this.isAWhatsAppChannel ||
         this.isAFacebookInbox ||
-        this.isAnInstagramChannel
+        this.isAInstagramChannel
       ) {
         return this.$t('CONVERSATION.24_HOURS_WINDOW');
       }
@@ -519,12 +502,6 @@ export default {
       :banner-message="replyWindowBannerMessage"
       :href-link="replyWindowLink"
       :href-link-text="replyWindowLinkText"
-    />
-    <Banner
-      v-else-if="hasDuplicateInstagramInbox"
-      color-scheme="alert"
-      class="mx-2 mt-2 overflow-hidden rounded-lg"
-      :banner-message="$t('CONVERSATION.OLD_INSTAGRAM_INBOX_REPLY_BANNER')"
     />
     <div class="flex justify-end">
       <NextButton

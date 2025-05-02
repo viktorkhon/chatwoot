@@ -1,3 +1,6 @@
+// This file has the same name, but is used for the User Conversation view.
+// The other file is used for the Agent Dashboard Conversation view.
+
 <script>
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import BubbleActions from './bubble/Actions.vue';
@@ -224,6 +227,7 @@ export default {
       const {
         data: { content_type: contentType },
       } = this;
+      // console.log('[Message.vue] content_type:', content_type);
       return contentType;
     },
     twitterProfileLink() {
@@ -365,9 +369,12 @@ export default {
       return this.contentType === 'form';
     },
     isCustomCardType() {
-      return this.contentType === 'custom_cards';
+      const isCustom = this.contentType === 'custom_cards';
+      // console.log('[Message.vue] isCustomCardType:', isCustom);
+      return isCustom;  
     },
     customCardItems() {
+      // console.log('[Message.vue] customCardItems →', this.data.content_attributes?.items);
       return this.contentAttributes.items || [];
     },
   },
@@ -377,6 +384,7 @@ export default {
     },
   },
   mounted() {
+    // console.log('[Message.vue] mounted message id:', this.message && this.message.id);
     this.hasMediaLoadError = false;
     emitter.on(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL, this.closeContextMenu);
     this.setupHighlightTimer();
@@ -464,7 +472,7 @@ export default {
     },
     onFormSubmit(values) {
       // Implement the logic to handle form submission
-      console.log('Form submitted with values:', values);
+      // console.log('Form submitted with values:', values);
     },
   },
 };
@@ -517,12 +525,20 @@ export default {
             {{ $t('CONVERSATION.UNSUPPORTED_MESSAGE') }}
           </template>
         </div>
-        <BubbleText
-          v-else-if="data.content && !isCardType && !isFormType"
+        <div v-if="isCustomCardType" class="custom-card-container">
+          <CustomCard :items="customCardItems" />
+        </div>
+        <!-- <BubbleText
+            v-else-if="
+              data.content &&
+              !isCardType &&
+              !isFormType &&
+              !isCustomCardType
+            "
           :message="message"
           :is-email="isEmailContentType"
           :display-quoted-button="displayQuotedButton"
-        />
+        />   -->
         <div v-else-if="isCardType">
           <ChatCard
             v-for="item in cardItems"
@@ -540,9 +556,6 @@ export default {
           :submitted-values="contentAttributes.submitted_values"
           @submit="onFormSubmit"
         />
-        <div v-else-if="isCustomCardType">
-          <CustomCard :items="customCardItems" />
-        </div>
         <BubbleIntegration
           :message-id="data.id"
           :content-attributes="contentAttributes"

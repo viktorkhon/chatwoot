@@ -215,7 +215,10 @@ const settings = accountId => ({
       toState: frontendURL(`accounts/${accountId}/settings/billing`),
       toStateName: 'billing_settings_index',
       showOnlyOnCloud: false,
-      alwaysVisible: true,
+      // Looks like I will have to use the Shopify built in billing page
+      // However, if I want to use this as a stand along app outside of Shopify, 
+      // I will have an option to use this to create a billing page.
+      alwaysVisible: false,
     },
   ],
 });

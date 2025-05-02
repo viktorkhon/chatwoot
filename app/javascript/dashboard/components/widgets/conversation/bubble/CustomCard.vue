@@ -15,7 +15,7 @@
       <div class="card-content">
         <!-- Card title with optional markdown support -->
         <h3 v-if="item.title" class="card-title" v-html="renderMarkdown(item.title, item.supports_markdown)"></h3>
-        
+
         <!-- Description section with optional markdown support -->
         <div v-if="item.description" class="card-description">
           <h4 class="card-section-title">Product Description</h4>
@@ -212,6 +212,7 @@ export default {
 }
 
 // Description styles
+
 .card-description {
   @apply mb-3;
 }

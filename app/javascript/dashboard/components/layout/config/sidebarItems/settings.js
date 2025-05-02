@@ -219,6 +219,7 @@ const settings = accountId => ({
       // However, if I want to use this as a stand along app outside of Shopify, 
       // I will have an option to use this to create a billing page.
       alwaysVisible: false,
+      hidden: true,
     },
   ],
 });

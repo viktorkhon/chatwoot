@@ -1,5 +1,7 @@
 class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Accounts::Conversations::BaseController
   # assigns agent/team to a conversation
+  before_action :unwrap_body_params
+
   def create
     if params.key?(:assignee_id)
       set_agent

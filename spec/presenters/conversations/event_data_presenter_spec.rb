@@ -34,7 +34,9 @@ RSpec.describe Conversations::EventDataPresenter do
         updated_at: conversation.updated_at.to_f,
         waiting_since: conversation.waiting_since.to_i,
         priority: nil,
-        unread_count: 0
+        unread_count: 0,
+        assignee_id: conversation.assignee_id,
+        team_id: conversation.team_id
       }
     end
 

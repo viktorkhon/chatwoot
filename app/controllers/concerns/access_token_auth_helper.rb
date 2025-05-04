@@ -36,4 +36,20 @@ module AccessTokenAuthHelper
   def agent_bot_accessible?
     BOT_ACCESSIBLE_ENDPOINTS.fetch(params[:controller], []).include?(params[:action])
   end
+  
+  # Unwraps parameters that might be nested inside a 'body' property
+  # This is useful for API clients like n8n that wrap parameters
+  def unwrap_body_params
+    # Store the original parameters in case we need them
+    @original_params = params.dup
+    
+    # If body is present and is a hash, merge its contents into params
+    if params[:body].is_a?(Hash)
+      # Merge body parameters into params
+      params.merge!(params[:body])
+      
+      # Log the unwrapped parameters for debugging
+      Rails.logger.debug("Unwrapped body params: #{params.inspect}")
+    end
+  end
 end

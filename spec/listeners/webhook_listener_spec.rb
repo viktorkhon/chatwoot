@@ -164,6 +164,41 @@ describe WebhookListener do
     end
   end
 
+  describe '#conversation_updated for assignee and team' do
+    let(:agent) { create(:user, account: account) }
+    let(:team) { create(:team, account: account) }
+    let(:conversation_updated_event) do
+      Events::Base.new(
+        event_name, Time.zone.now,
+        conversation: conversation.reload,
+        changed_attributes: {
+          assignee_id: [nil, agent.id],
+          team_id: [nil, team.id]
+        }
+      )
+    end
+    let(:event_name) { :'conversation.updated' }
+
+    context 'when webhook is configured' do
+      it 'includes assignee_id and team_id in the webhook payload' do
+        webhook = create(:webhook, inbox: inbox, account: account)
+        
+        conversation.update(assignee: agent, team: team)
+
+        expect(WebhookJob).to receive(:perform_later).with(
+          webhook.url,
+          hash_including(
+            event: 'conversation_updated',
+            assignee_id: agent.id,
+            team_id: team.id
+          )
+        ).once
+
+        listener.conversation_updated(conversation_updated_event)
+      end
+    end
+  end
+
   describe '#contact_created' do
     let(:event_name) { :'contact.created' }
 

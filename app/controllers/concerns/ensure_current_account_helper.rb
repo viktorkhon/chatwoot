@@ -25,6 +25,17 @@ module EnsureCurrentAccountHelper
   end
 
   def account_accessible_for_bot?(account)
-    render_unauthorized('Bot is not authorized to access this account') unless @resource.agent_bot_inboxes.find_by(account_id: account.id)
+    # Log the bot access attempt for debugging
+    Rails.logger.info("Agent bot #{@resource.id} (#{@resource.name}) attempting to access account #{account.id}")
+    
+    # Check if the bot has any inbox in this account
+    has_access = @resource.agent_bot_inboxes.where(account_id: account.id).exists?
+    
+    if !has_access
+      Rails.logger.error("Access denied: Bot #{@resource.id} has no associated inboxes in account #{account.id}")
+      render_unauthorized('Bot is not authorized to access this account')
+    else
+      Rails.logger.info("Access granted: Bot #{@resource.id} has access to account #{account.id}")
+    end
   end
 end

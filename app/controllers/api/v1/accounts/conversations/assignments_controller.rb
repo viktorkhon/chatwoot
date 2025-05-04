@@ -1,17 +1,12 @@
 class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Accounts::Conversations::BaseController
   # assigns agent/team to a conversation
-  def create
-    # Extract parameters from nested body if present
-    if params[:body].present?
-      assignment_params = params[:body]
-    else
-      assignment_params = params
-    end
+  before_action :unwrap_body_params
 
-    if assignment_params.key?(:assignee_id)
-      set_agent(assignment_params)
-    elsif assignment_params.key?(:team_id)
-      set_team(assignment_params)
+  def create
+    if params.key?(:assignee_id)
+      set_agent
+    elsif params.key?(:team_id)
+      set_team
     else
       render json: nil
     end
@@ -19,8 +14,8 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
 
   private
 
-  def set_agent(assignment_params)
-    @agent = Current.account.users.find_by(id: assignment_params[:assignee_id])
+  def set_agent
+    @agent = Current.account.users.find_by(id: params[:assignee_id])
     @conversation.assignee = @agent
     @conversation.save!
     render_agent
@@ -34,8 +29,8 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
     end
   end
 
-  def set_team(assignment_params)
-    @team = Current.account.teams.find_by(id: assignment_params[:team_id])
+  def set_team
+    @team = Current.account.teams.find_by(id: params[:team_id])
     @conversation.update!(team: @team)
     render json: @team
   end

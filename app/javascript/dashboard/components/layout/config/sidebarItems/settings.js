@@ -189,6 +189,7 @@ const settings = accountId => ({
       toStateName: 'custom_roles_list',
       isEnterpriseOnly: true,
       beta: true,
+      hidden: true,
     },
     {
       icon: 'document-list-clock',
@@ -202,6 +203,7 @@ const settings = accountId => ({
       isEnterpriseOnly: true,
       featureFlag: FEATURE_FLAGS.SLA,
       beta: true,
+      hidden: true,
     },
     {
       icon: 'credit-card-person',
@@ -212,7 +214,12 @@ const settings = accountId => ({
       },
       toState: frontendURL(`accounts/${accountId}/settings/billing`),
       toStateName: 'billing_settings_index',
-      showOnlyOnCloud: true,
+      showOnlyOnCloud: false,
+      // Looks like I will have to use the Shopify built in billing page
+      // However, if I want to use this as a stand along app outside of Shopify, 
+      // I will have an option to use this to create a billing page.
+      alwaysVisible: false,
+      hidden: true,
     },
   ],
 });

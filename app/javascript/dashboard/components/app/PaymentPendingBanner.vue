@@ -46,10 +46,14 @@ export default {
   },
   methods: {
     routeToBilling() {
-      this.$router.push({
-        name: 'billing_settings_index',
-        params: { accountId: this.accountId },
-      });
+      // Billing page is hidden, so we don't route to it
+      // this.$router.push({
+      //   name: 'billing_settings_index',
+      //   params: { accountId: this.accountId },
+      // });
+      
+      // Instead, inform user that billing is handled through Shopify
+      window.alert('Billing is managed through your Shopify admin.');
     },
     isPaymentPending() {
       const { status, endsOn } = this.getSubscriptionInfo();

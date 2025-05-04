@@ -49,6 +49,16 @@ export default {
       return !!this.menuItem.children;
     },
     isMenuItemVisible() {
+      // First check if item is explicitly hidden
+      if (this.menuItem.hidden) {
+        return false;
+      }
+
+      // Always show items with alwaysVisible property
+      if (this.menuItem.alwaysVisible) {
+        return true;
+      }
+
       let isFeatureEnabled = true;
       if (this.menuItem.featureFlag) {
         isFeatureEnabled = this.isFeatureEnabledonAccount(

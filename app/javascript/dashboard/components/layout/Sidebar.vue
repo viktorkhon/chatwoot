@@ -127,6 +127,10 @@ export default {
       );
       const menuItems = this.sideMenuConfig.primaryMenu;
       return menuItems.filter(menuItem => {
+        if (menuItem.hidden) {
+          return false;
+        }
+
         const isAvailableForTheUser = hasPermissions(
           routesWithPermissions[menuItem.toStateName],
           userPermissions

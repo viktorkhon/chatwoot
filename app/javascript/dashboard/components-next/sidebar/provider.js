@@ -35,11 +35,24 @@ export function useSidebarContext() {
   };
 
   const isAllowed = to => {
+    if (!to) return false;
+    
+    const routeData = router.resolve(to);
+    if (routeData?.meta?.hidden) {
+      return false;
+    }
+
+    if (routeData?.meta?.alwaysVisible) {
+      return true;
+    }
+
     const permissions = resolvePermissions(to);
     const featureFlag = resolveFeatureFlag(to);
     const installationType = resolveInstallationType(to);
 
-    return shouldShow(featureFlag, permissions, installationType);
+    return shouldShow(featureFlag, permissions, installationType, { 
+      alwaysVisible: routeData?.meta?.alwaysVisible
+    });
   };
 
   return {

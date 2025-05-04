@@ -61,7 +61,12 @@ export function usePolicy() {
     return true;
   });
 
-  const shouldShow = (featureFlag, permissions, installationTypes) => {
+  const shouldShow = (featureFlag, permissions, installationTypes, options = {}) => {
+    // If alwaysVisible is set, return true regardless of other conditions
+    if (options.alwaysVisible) {
+      return true;
+    }
+
     const flag = unref(featureFlag);
     const perms = unref(permissions);
     const installation = unref(installationTypes);

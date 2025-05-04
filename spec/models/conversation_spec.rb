@@ -829,4 +829,17 @@ RSpec.describe Conversation do
       expect(message_window_service).to have_received(:can_reply?)
     end
   end
+
+  describe '#webhook_data' do
+    it 'includes assignee_id and team_id' do
+      agent = create(:user)
+      team = create(:team, account: conversation.account)
+      conversation.update(assignee: agent, team: team)
+
+      webhook_data = conversation.webhook_data
+      
+      expect(webhook_data[:assignee_id]).to eq(agent.id)
+      expect(webhook_data[:team_id]).to eq(team.id)
+    end
+  end
 end

@@ -113,10 +113,17 @@ class WebhookListener < BaseListener
 
   def deliver_webhook_payloads(payload, inbox)
     # Add Chatwoot frontend URL to the payload
+    frontend_url = ENV.fetch('FRONTEND_URL', '')
+    host = begin
+      URI.parse(frontend_url).host
+    rescue
+      nil
+    end
+    
     enriched_payload = payload.dup
     enriched_payload[:chatwoot_instance] = {
-      frontend_url: ENV.fetch('FRONTEND_URL', ''),
-      host: URI.parse(ENV.fetch('FRONTEND_URL', '')).host rescue nil
+      frontend_url: frontend_url,
+      host: host
     }
     
     deliver_account_webhooks(enriched_payload, inbox.account)

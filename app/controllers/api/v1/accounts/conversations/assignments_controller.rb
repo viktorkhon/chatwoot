@@ -15,6 +15,17 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
   def set_agent
     @agent = Current.account.users.find_by(id: params[:assignee_id])
     @conversation.assignee = @agent
+    
+    # Set explicitly_unassigned flag when the assignee is nil
+    if @agent.nil?
+      @conversation.additional_attributes = @conversation.additional_attributes.merge(
+        explicitly_unassigned: true
+      )
+    elsif @conversation.additional_attributes.is_a?(Hash)
+      # If assigning to a new agent, remove the flag
+      @conversation.additional_attributes = @conversation.additional_attributes.except('explicitly_unassigned')
+    end
+    
     @conversation.save!
     render_agent
   end

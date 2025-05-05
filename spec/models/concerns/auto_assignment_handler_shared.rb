@@ -59,5 +59,24 @@ shared_examples_for 'auto_assignment_handler' do
       conversation.save!
       expect(conversation.reload.assignee).to eq(agent2)
     end
+    
+    it 'will not auto assign if conversation was explicitly unassigned' do
+      # First create a conversation with an explicit unassignment
+      explicitly_unassigned_conversation = create(
+        :conversation,
+        account: account,
+        contact: create(:contact, account: account),
+        inbox: inbox,
+        assignee: nil,
+        additional_attributes: { explicitly_unassigned: true }
+      )
+      
+      # Change status to resolved and then back to open to trigger auto-assignment
+      explicitly_unassigned_conversation.update(status: 'resolved')
+      explicitly_unassigned_conversation.update(status: 'open')
+      
+      # Verify that no assignment happened
+      expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
+    end
   end
 end

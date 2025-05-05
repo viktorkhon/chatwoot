@@ -19,8 +19,16 @@ module AutoAssignmentHandler
 
   def should_run_auto_assignment?
     return false unless inbox.enable_auto_assignment?
+    return false if explicitly_unassigned?
 
     # run only if assignee is blank or doesn't have access to inbox
     assignee.blank? || inbox.members.exclude?(assignee)
+  end
+
+  # Check if the conversation was explicitly unassigned by a user
+  def explicitly_unassigned?
+    return false unless additional_attributes.is_a?(Hash)
+    
+    additional_attributes['explicitly_unassigned'] == true
   end
 end

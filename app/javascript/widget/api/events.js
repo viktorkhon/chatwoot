@@ -6,6 +6,14 @@ export const generateEventParams = () => ({
     timestamp: new Date().toString(),
   },
   referer: window.referrerURL || '',
+  page_url: window.location.href || document.URL || '',
+  page_title: document.title || '',
+  page_info: {
+    pathname: window.location.pathname || '',
+    hostname: window.location.hostname || '',
+    search: window.location.search || '',
+    hash: window.location.hash || ''
+  }
 });
 
 export default {

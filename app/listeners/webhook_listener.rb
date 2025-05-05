@@ -57,8 +57,19 @@ class WebhookListener < BaseListener
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
 
+    # Extract event info with page URL
+    event_info = event.data[:event_info] || {}
+    
     payload = contact_inbox.webhook_data.merge(event: __method__.to_s)
-    payload[:event_info] = event.data[:event_info]
+    payload[:event_info] = event_info
+    
+    # Add page URL directly to the payload for easier access in webhooks
+    if event_info.present?
+      payload[:page_url] = event_info[:page_url] 
+      payload[:page_title] = event_info[:page_title]
+      payload[:referer] = event_info[:referer]
+    end
+    
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -120,35 +131,49 @@ class WebhookListener < BaseListener
       nil
     end
     
-    # Extract the visitor's current page information
-    conversation = nil
-    
-    if payload[:event] == 'webwidget_triggered'
-      # For webwidget_triggered events, get conversation from contact_inbox
-      conversation = payload[:current_conversation]
-    elsif payload[:meta].present?
-      # For other events with meta field
-      conversation = Conversation.find_by(display_id: payload[:id])
-    end
-    
-    # Add website and referrer details to the payload
+    # Create enriched payload with Chatwoot instance information
     enriched_payload = payload.dup
     enriched_payload[:chatwoot_instance] = {
       frontend_url: frontend_url,
       host: host
     }
     
-    # Add visitor's current page information if available
-    if conversation.present? && conversation.additional_attributes.present?
-      enriched_payload[:visitor_page] = {
+    # Add visitor's page information based on event type
+    case enriched_payload[:event]
+    when 'message_created', 'message_updated'
+      # For message events, get the conversation from the message's conversation
+      if enriched_payload[:conversation].present?
+        conversation_id = enriched_payload[:conversation][:id]
+        conversation = Conversation.find_by(id: conversation_id)
+        add_page_info_to_payload(enriched_payload, conversation)
+      end
+    when 'conversation_created', 'conversation_updated', 'conversation_status_changed'
+      # For conversation events, get the conversation directly
+      conversation_id = enriched_payload[:id]
+      conversation = Conversation.find_by(id: conversation_id)
+      add_page_info_to_payload(enriched_payload, conversation)
+    when 'webwidget_triggered'
+      # For widget events, the conversation might not exist yet, so use event_info
+      if enriched_payload[:event_info].present?
+        enriched_payload[:visitor_page] = {
+          referer_url: enriched_payload[:event_info][:referer],
+          page_url: enriched_payload[:event_info][:page_url]
+        }
+      end
+    end
+    
+    deliver_account_webhooks(enriched_payload, inbox.account)
+    deliver_api_inbox_webhooks(enriched_payload, inbox)
+  end
+
+  def add_page_info_to_payload(payload, conversation)
+    if conversation&.additional_attributes.present?
+      payload[:visitor_page] = {
         referer_url: conversation.additional_attributes['referer'],
         browser: conversation.additional_attributes['browser'],
         browser_language: conversation.additional_attributes['browser_language'],
         initiated_at: conversation.additional_attributes['initiated_at']
       }
     end
-    
-    deliver_account_webhooks(enriched_payload, inbox.account)
-    deliver_api_inbox_webhooks(enriched_payload, inbox)
   end
 end

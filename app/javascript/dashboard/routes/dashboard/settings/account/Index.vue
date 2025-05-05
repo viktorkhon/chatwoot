@@ -40,6 +40,8 @@ export default {
       autoResolveDuration: null,
       latestChatwootVersion: null,
       showDeletePopup: false,
+      shopifyName: '',
+      vectorDatabaseNamespace: '',
     };
   },
   validations: {
@@ -151,6 +153,8 @@ export default {
           features,
           auto_resolve_duration,
           latest_chatwoot_version: latestChatwootVersion,
+          shopify_name,
+          vector_database_namespace,
         } = this.getAccount(this.accountId);
 
         this.$root.$i18n.locale = locale;
@@ -162,6 +166,8 @@ export default {
         this.features = features;
         this.autoResolveDuration = auto_resolve_duration;
         this.latestChatwootVersion = latestChatwootVersion;
+        this.shopifyName = shopify_name;
+        this.vectorDatabaseNamespace = vector_database_namespace;
       } catch (error) {
         // Ignore error
       }
@@ -180,6 +186,8 @@ export default {
           domain: this.domain,
           support_email: this.supportEmail,
           auto_resolve_duration: this.autoResolveDuration,
+          shopify_name: this.shopifyName,
+          vector_database_namespace: this.vectorDatabaseNamespace,
         });
         this.$root.$i18n.locale = this.locale;
         this.getAccount(this.id).locale = this.locale;
@@ -345,6 +353,45 @@ export default {
             </label>
           </div>
         </div>
+
+        <div class="flex flex-row border-b border-slate-25 dark:border-slate-800">
+          <div class="flex-grow-0 flex-shrink-0 flex-[25%] min-w-0 py-4 pr-6 pl-0">
+            <h4 class="text-lg font-medium text-black-900 dark:text-slate-200">
+              {{ $t('GENERAL_SETTINGS.FORM.SHOPIFY_SECTION.TITLE') }}
+            </h4>
+            <p>{{ $t('GENERAL_SETTINGS.FORM.SHOPIFY_SECTION.NOTE') }}</p>
+          </div>
+          <div class="p-4 flex-grow-0 flex-shrink-0 flex-[50%]">
+            <label>
+              {{ $t('GENERAL_SETTINGS.FORM.SHOPIFY_NAME.LABEL') }}
+              <input
+                v-model="shopifyName"
+                type="text"
+                :placeholder="$t('GENERAL_SETTINGS.FORM.SHOPIFY_NAME.PLACEHOLDER')"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div class="flex flex-row border-b border-slate-25 dark:border-slate-800">
+          <div class="flex-grow-0 flex-shrink-0 flex-[25%] min-w-0 py-4 pr-6 pl-0">
+            <h4 class="text-lg font-medium text-black-900 dark:text-slate-200">
+              {{ $t('GENERAL_SETTINGS.FORM.VECTOR_DB_SECTION.TITLE') }}
+            </h4>
+            <p>{{ $t('GENERAL_SETTINGS.FORM.VECTOR_DB_SECTION.NOTE') }}</p>
+          </div>
+          <div class="p-4 flex-grow-0 flex-shrink-0 flex-[50%]">
+            <label>
+              {{ $t('GENERAL_SETTINGS.FORM.VECTOR_DB_NAMESPACE.LABEL') }}
+              <input
+                v-model="vectorDatabaseNamespace"
+                type="text"
+                :placeholder="$t('GENERAL_SETTINGS.FORM.VECTOR_DB_NAMESPACE.PLACEHOLDER')"
+              />
+            </label>
+          </div>
+        </div>
+
       </form>
 
       <woot-loading-state v-if="uiFlags.isFetchingItem" />

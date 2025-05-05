@@ -4,6 +4,9 @@ class WebhookListener < BaseListener
     changed_attributes = extract_changed_attributes(event)
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
+    
+    add_page_info_to_payload(payload, conversation) if conversation.present?
+    
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -15,6 +18,9 @@ class WebhookListener < BaseListener
       conversation_id: conversation.id,
       account_id: conversation.account_id
     )
+    
+    add_page_info_to_payload(payload, conversation) if conversation.present?
+    
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -23,6 +29,9 @@ class WebhookListener < BaseListener
     changed_attributes = extract_changed_attributes(event)
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
+    
+    add_page_info_to_payload(payload, conversation) if conversation.present?
+    
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -30,6 +39,9 @@ class WebhookListener < BaseListener
     conversation = extract_conversation_and_account(event)[0]
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s)
+    
+    add_page_info_to_payload(payload, conversation) if conversation.present?
+    
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -46,16 +58,7 @@ class WebhookListener < BaseListener
     payload = message.webhook_data.merge(event: __method__.to_s)
     
     # Add conversation additional attributes to the payload
-    if conversation.present? && conversation.additional_attributes.present?
-      payload[:visitor_page] = {
-        page_url: conversation.additional_attributes['page_url'],
-        page_title: conversation.additional_attributes['page_title'],
-        referer: conversation.additional_attributes['referer'],
-        browser: conversation.additional_attributes['browser'],
-        browser_language: conversation.additional_attributes['browser_language'],
-        initiated_at: conversation.additional_attributes['initiated_at']
-      }
-    end
+    add_page_info_to_payload(payload, conversation) if conversation.present?
 
     deliver_webhook_payloads(payload, inbox)
   end
@@ -73,16 +76,7 @@ class WebhookListener < BaseListener
     payload = message.webhook_data.merge(event: __method__.to_s)
     
     # Add conversation additional attributes to the payload
-    if conversation.present? && conversation.additional_attributes.present?
-      payload[:visitor_page] = {
-        page_url: conversation.additional_attributes['page_url'],
-        page_title: conversation.additional_attributes['page_title'],
-        referer: conversation.additional_attributes['referer'],
-        browser: conversation.additional_attributes['browser'],
-        browser_language: conversation.additional_attributes['browser_language'],
-        initiated_at: conversation.additional_attributes['initiated_at']
-      }
-    end
+    add_page_info_to_payload(payload, conversation) if conversation.present?
 
     deliver_webhook_payloads(payload, inbox)
   end
@@ -99,9 +93,11 @@ class WebhookListener < BaseListener
     
     # Add page URL directly to the payload for easier access in webhooks
     if event_info.present?
-      payload[:page_url] = event_info[:page_url] 
-      payload[:page_title] = event_info[:page_title]
-      payload[:referer] = event_info[:referer]
+      payload[:visitor_page] = {
+        referer_url: event_info[:referer],
+        page_url: event_info[:page_url],
+        page_title: event_info[:page_title]
+      }
     end
     
     deliver_webhook_payloads(payload, inbox)
@@ -165,37 +161,16 @@ class WebhookListener < BaseListener
       nil
     end
     
-    # Create enriched payload with Chatwoot instance information
+    # Create the enriched payload
     enriched_payload = payload.dup
+    
+    # Ensure we always add the Chatwoot instance information
     enriched_payload[:chatwoot_instance] = {
       frontend_url: frontend_url,
       host: host
     }
     
-    # Add visitor's page information based on event type
-    case enriched_payload[:event]
-    when 'message_created', 'message_updated'
-      # For message events, get the conversation from the message's conversation
-      if enriched_payload[:conversation].present?
-        conversation_id = enriched_payload[:conversation][:id]
-        conversation = Conversation.find_by(id: conversation_id)
-        add_page_info_to_payload(enriched_payload, conversation)
-      end
-    when 'conversation_created', 'conversation_updated', 'conversation_status_changed'
-      # For conversation events, get the conversation directly
-      conversation_id = enriched_payload[:id]
-      conversation = Conversation.find_by(id: conversation_id)
-      add_page_info_to_payload(enriched_payload, conversation)
-    when 'webwidget_triggered'
-      # For widget events, the conversation might not exist yet, so use event_info
-      if enriched_payload[:event_info].present?
-        enriched_payload[:visitor_page] = {
-          referer_url: enriched_payload[:event_info][:referer],
-          page_url: enriched_payload[:event_info][:page_url]
-        }
-      end
-    end
-    
+    # Deliver the webhooks with the enriched payload
     deliver_account_webhooks(enriched_payload, inbox.account)
     deliver_api_inbox_webhooks(enriched_payload, inbox)
   end
@@ -204,6 +179,8 @@ class WebhookListener < BaseListener
     if conversation&.additional_attributes.present?
       payload[:visitor_page] = {
         referer_url: conversation.additional_attributes['referer'],
+        page_url: conversation.additional_attributes['page_url'],
+        page_title: conversation.additional_attributes['page_title'],
         browser: conversation.additional_attributes['browser'],
         browser_language: conversation.additional_attributes['browser_language'],
         initiated_at: conversation.additional_attributes['initiated_at']

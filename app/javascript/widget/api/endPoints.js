@@ -48,6 +48,8 @@ const sendMessage = (content, replyTo) => {
 
 const sendAttachment = ({ attachment, replyTo = null }) => {
   const { referrerURL = '' } = window;
+  const pageURL = window.location.href || document.URL || '';
+  const pageTitle = document.title || '';
   const timestamp = new Date().toString();
   const { file } = attachment;
 
@@ -59,6 +61,8 @@ const sendAttachment = ({ attachment, replyTo = null }) => {
   }
 
   formData.append('message[referer_url]', referrerURL);
+  formData.append('message[page_url]', pageURL);
+  formData.append('message[page_title]', pageTitle);
   formData.append('message[timestamp]', timestamp);
   if (replyTo !== null) {
     formData.append('message[reply_to]', replyTo);

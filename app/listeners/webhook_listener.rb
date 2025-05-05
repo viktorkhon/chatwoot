@@ -60,6 +60,20 @@ class WebhookListener < BaseListener
     # From message content_attributes if available
     if message.content_attributes.present? && message.content_attributes['page_info'].present?
       page_info = message.content_attributes['page_info']
+      if page_info.is_a?(String)
+        begin
+          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+          page_info = if page_info.include?('=>')
+                        eval(page_info)
+                      else
+                        JSON.parse(page_info)
+                      end
+        rescue => e
+          Rails.logger.error "Error parsing page_info: #{e.message}"
+          # Keep as is if parsing fails
+        end
+      end
+      
       payload[:visitor_page][:page_url] = page_info['page_url']
       payload[:visitor_page][:page_title] = page_info['page_title']
       payload[:visitor_page][:referer_url] = page_info['referer_url']
@@ -105,10 +119,15 @@ class WebhookListener < BaseListener
       page_info = message.content_attributes['page_info']
       if page_info.is_a?(String)
         begin
-          parsed_info = JSON.parse(page_info.gsub('=>', ':'))
-          page_info = parsed_info
-        rescue
-          # If parsing fails, use as is
+          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+          page_info = if page_info.include?('=>')
+                        eval(page_info)
+                      else
+                        JSON.parse(page_info)
+                      end
+        rescue => e
+          Rails.logger.error "Error parsing page_info: #{e.message}"
+          # Keep as is if parsing fails
         end
       end
       
@@ -142,11 +161,20 @@ class WebhookListener < BaseListener
     
     # Add page URL directly to the payload for easier access in webhooks
     if event_info.present?
+      # Make sure URLs don't have trailing semicolons
+      referer = event_info[:referer]&.gsub(/;$/, '')
+      page_url = event_info[:page_url]&.gsub(/;$/, '')
+      
       payload[:visitor_page] = {
-        referer_url: event_info[:referer],
-        page_url: event_info[:page_url],
+        referer_url: referer,
+        page_url: page_url,
         page_title: event_info[:page_title]
       }
+      
+      # Add directly to root level as well
+      payload[:referer_url] = referer
+      payload[:page_url] = page_url
+      payload[:page_title] = event_info[:page_title]
     end
     
     deliver_webhook_payloads(payload, inbox)
@@ -225,6 +253,11 @@ class WebhookListener < BaseListener
       enriched_payload[:page_url] = payload[:visitor_page][:page_url]
       enriched_payload[:page_title] = payload[:visitor_page][:page_title]
       enriched_payload[:referer_url] = payload[:visitor_page][:referer_url]
+      
+      # Add each key-value pair from visitor_page to the root for direct access
+      payload[:visitor_page].each do |key, value|
+        enriched_payload[key] = value if value.present?
+      end
     end
     
     # Deliver the webhooks with the enriched payload

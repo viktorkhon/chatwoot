@@ -172,10 +172,15 @@ class Message < ApplicationRecord
     if content_attributes.present? && content_attributes['page_info'].present?
       if content_attributes['page_info'].is_a?(String)
         begin
-          # Try to parse it if it's a string
-          parsed_info = JSON.parse(content_attributes['page_info'].gsub('=>', ':'))
+          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+          parsed_info = if content_attributes['page_info'].include?('=>')
+                          eval(content_attributes['page_info'])
+                        else
+                          JSON.parse(content_attributes['page_info'])
+                        end
           page_info = parsed_info
-        rescue
+        rescue => e
+          Rails.logger.error "Error parsing page_info in webhook_data: #{e.message}"
           # If parsing fails, try to extract directly
           page_info = content_attributes['page_info']
         end

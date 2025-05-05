@@ -81,12 +81,10 @@ class WebhookListener < BaseListener
     
     # From conversation if available
     conversation = message.conversation
-    if conversation&.additional_attributes.present?
-      payload[:visitor_page][:page_url] ||= conversation.additional_attributes['page_url']
-      payload[:visitor_page][:page_title] ||= conversation.additional_attributes['page_title']
-      payload[:visitor_page][:referer_url] ||= conversation.additional_attributes['referer']
-      payload[:visitor_page][:browser] = conversation.additional_attributes['browser']
-      payload[:visitor_page][:browser_language] = conversation.additional_attributes['browser_language']
+    if conversation&.custom_attributes.present?
+      payload[:visitor_page][:page_url] ||= conversation.custom_attributes['page_url']
+      payload[:visitor_page][:page_title] ||= conversation.custom_attributes['page_title']
+      payload[:visitor_page][:referer_url] ||= conversation.custom_attributes['referer_url']
     end
 
     # Always include current window location information if available
@@ -138,12 +136,10 @@ class WebhookListener < BaseListener
     
     # From conversation if available
     conversation = message.conversation
-    if conversation&.additional_attributes.present?
-      payload[:visitor_page][:page_url] ||= conversation.additional_attributes['page_url']
-      payload[:visitor_page][:page_title] ||= conversation.additional_attributes['page_title']
-      payload[:visitor_page][:referer_url] ||= conversation.additional_attributes['referer']
-      payload[:visitor_page][:browser] = conversation.additional_attributes['browser']
-      payload[:visitor_page][:browser_language] = conversation.additional_attributes['browser_language']
+    if conversation&.custom_attributes.present?
+      payload[:visitor_page][:page_url] ||= conversation.custom_attributes['page_url']
+      payload[:visitor_page][:page_title] ||= conversation.custom_attributes['page_title']
+      payload[:visitor_page][:referer_url] ||= conversation.custom_attributes['referer_url']
     end
 
     deliver_webhook_payloads(payload, inbox)
@@ -284,35 +280,36 @@ class WebhookListener < BaseListener
       conversation_id = payload[:conversation][:id]
       conversation = Conversation.find_by(id: conversation_id)
       
-      if conversation&.additional_attributes.present?
-        # Add visitor page info from conversation
+      if conversation&.custom_attributes.present? && conversation.custom_attributes['page_url'].present?
+        # Add visitor page info from conversation custom attributes
         payload[:visitor_page] ||= {}
-        payload[:visitor_page][:page_url] = conversation.additional_attributes['page_url']
-        payload[:visitor_page][:page_title] = conversation.additional_attributes['page_title']
-        payload[:visitor_page][:referer_url] = conversation.additional_attributes['referer']
+        payload[:visitor_page][:page_url] = conversation.custom_attributes['page_url']
+        payload[:visitor_page][:page_title] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
+        payload[:visitor_page][:referer_url] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
+      end
+      
+      # Try to get recent messages to extract page info
+      recent_message = conversation.messages.where.not(message_type: :activity).order(created_at: :desc).first
+      if recent_message&.content_attributes.present? && recent_message.content_attributes['page_info'].present?
+        page_info = recent_message.content_attributes['page_info']
         
-        # Try to get recent messages to extract page info
-        recent_message = conversation.messages.where.not(message_type: :activity).order(created_at: :desc).first
-        if recent_message&.content_attributes.present? && recent_message.content_attributes['page_info'].present?
-          page_info = recent_message.content_attributes['page_info']
-          
-          if page_info.is_a?(String)
-            begin
-              # Try to parse it if it's a string - handle both JSON and Ruby hash notations
-              page_info = if page_info.include?('=>')
-                            eval(page_info)
-                          else
-                            JSON.parse(page_info)
-                          end
-            rescue => e
-              Rails.logger.error "Error parsing page_info in deliver_webhook_payloads: #{e.message}"
-            end
+        if page_info.is_a?(String)
+          begin
+            # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+            page_info = if page_info.include?('=>')
+                          eval(page_info)
+                        else
+                          JSON.parse(page_info)
+                        end
+          rescue => e
+            Rails.logger.error "Error parsing page_info in deliver_webhook_payloads: #{e.message}"
           end
-          
-          payload[:visitor_page][:page_url] ||= page_info['page_url']
-          payload[:visitor_page][:page_title] ||= page_info['page_title']
-          payload[:visitor_page][:referer_url] ||= page_info['referer_url']
         end
+        
+        payload[:visitor_page] ||= {}
+        payload[:visitor_page][:page_url] ||= page_info['page_url'] if page_info['page_url'].present?
+        payload[:visitor_page][:page_title] ||= page_info['page_title'] if page_info['page_title'].present?
+        payload[:visitor_page][:referer_url] ||= page_info['referer_url'] if page_info['referer_url'].present?
       end
     end
     
@@ -325,21 +322,7 @@ class WebhookListener < BaseListener
   end
 
   def add_page_info_to_payload(payload, conversation, message = nil)
-    visitor_page = {}
-    
-    # Try to get page info from conversation's additional_attributes
-    if conversation&.additional_attributes.present?
-      visitor_page = {
-        referer_url: conversation.additional_attributes['referer'],
-        page_url: conversation.additional_attributes['page_url'],
-        page_title: conversation.additional_attributes['page_title'],
-        browser: conversation.additional_attributes['browser'],
-        browser_language: conversation.additional_attributes['browser_language'],
-        initiated_at: conversation.additional_attributes['initiated_at']
-      }
-    end
-    
-    # Try to get page info from message's content_attributes (this is the new approach)
+    # Check for page URL from message first (most recent)
     if message.present? && message.content_attributes.present? && message.content_attributes['page_info'].present?
       page_info = message.content_attributes['page_info']
       if page_info.is_a?(String)
@@ -356,19 +339,40 @@ class WebhookListener < BaseListener
         end
       end
       
-      visitor_page[:referer_url] ||= page_info['referer_url']
-      visitor_page[:page_url] ||= page_info['page_url']
-      visitor_page[:page_title] ||= page_info['page_title']
+      # If we found a page URL in the message, use it
+      if page_info['page_url'].present?
+        visitor_page = { page_url: page_info['page_url'] }
+        
+        # Add other info if available
+        visitor_page[:page_title] = page_info['page_title'] if page_info['page_title'].present?
+        visitor_page[:referer_url] = page_info['referer_url'] if page_info['referer_url'].present?
+        
+        # Add to payload
+        payload[:visitor_page] = visitor_page
+        payload[:page_url] = visitor_page[:page_url]
+        payload[:page_title] = visitor_page[:page_title] if visitor_page[:page_title].present?
+        payload[:referer_url] = visitor_page[:referer_url] if visitor_page[:referer_url].present?
+        
+        # We found page URL in message, so we're done
+        return
+      end
     end
     
-    # Only add visitor_page if it contains any data
-    payload[:visitor_page] = visitor_page if visitor_page.values.any?(&:present?)
-    
-    # Add directly to root level as well for easier access
-    if payload[:visitor_page].present?
-      payload[:page_url] = payload[:visitor_page][:page_url]
-      payload[:page_title] = payload[:visitor_page][:page_title]
-      payload[:referer_url] = payload[:visitor_page][:referer_url]
+    # If we didn't find page URL in message, check conversation custom_attributes
+    if conversation&.custom_attributes.present?
+      if conversation.custom_attributes['page_url'].present?
+        visitor_page = { page_url: conversation.custom_attributes['page_url'] }
+        
+        # Add other info if available
+        visitor_page[:page_title] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
+        visitor_page[:referer_url] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
+        
+        # Add to payload
+        payload[:visitor_page] = visitor_page
+        payload[:page_url] = visitor_page[:page_url]
+        payload[:page_title] = visitor_page[:page_title] if visitor_page[:page_title].present?
+        payload[:referer_url] = visitor_page[:referer_url] if visitor_page[:referer_url].present?
+      end
     end
   end
 end

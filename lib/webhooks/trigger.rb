@@ -21,6 +21,9 @@ class Webhooks::Trigger
         Rails.logger.debug "Webhooks::Trigger.execute - Content Type: #{payload[:content_type]}, Class: #{payload[:content_type].class}"
       end
       
+      # Ensure page info is at the root level of the payload
+      payload = ensure_page_info_at_root(payload)
+      
       response = perform_request(url, payload)
       Rails.logger.debug "Webhooks::Trigger.execute - Response: Status #{response.status}, Body: #{response.body.to_s[0...500]}"
       
@@ -74,6 +77,42 @@ class Webhooks::Trigger
 
   def self.evaluate_response(response)
     response&.parsed_response.presence || { status: 'delivered' }
+  end
+
+  def self.ensure_page_info_at_root(payload)
+    # Clone the payload to modify it
+    enriched_payload = payload.dup
+    
+    # Check if page URL exists in visitor_page
+    if payload[:visitor_page].present? && payload[:visitor_page][:page_url].present? && enriched_payload[:page_url].blank?
+      enriched_payload[:page_url] = payload[:visitor_page][:page_url]
+      
+      # Include other info if available
+      if payload[:visitor_page][:page_title].present?
+        enriched_payload[:page_title] = payload[:visitor_page][:page_title]
+      end
+      
+      if payload[:visitor_page][:referer_url].present?
+        enriched_payload[:referer_url] = payload[:visitor_page][:referer_url]
+      end
+    end
+    
+    # Check for page_url in conversation's custom_attributes
+    if enriched_payload[:page_url].blank? && payload[:conversation].present? && 
+       payload[:conversation][:custom_attributes].present? && 
+       payload[:conversation][:custom_attributes].is_a?(Hash) &&
+       payload[:conversation][:custom_attributes]['page_url'].present?
+       
+      # We found a URL in conversation attributes
+      enriched_payload[:page_url] = payload[:conversation][:custom_attributes]['page_url']
+      
+      # Include other info if available
+      attrs = payload[:conversation][:custom_attributes]
+      enriched_payload[:page_title] = attrs['page_title'] if attrs['page_title'].present?
+      enriched_payload[:referer_url] = attrs['referer_url'] if attrs['referer_url'].present?
+    end
+    
+    enriched_payload
   end
 
   def execute

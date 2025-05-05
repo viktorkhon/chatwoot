@@ -190,19 +190,30 @@ class Conversation < ApplicationRecord
       account_id: self.account_id,
     }
     
-    # Add page information from additional_attributes
-    if additional_attributes.present?
-      data[:current_page_url] = additional_attributes['page_url']
-      data[:current_page_title] = additional_attributes['page_title']
-      data[:current_referer_url] = additional_attributes['referer']
-      data[:visitor_page] = {
-        page_url: additional_attributes['page_url'],
-        page_title: additional_attributes['page_title'],
-        referer_url: additional_attributes['referer'],
-        browser: additional_attributes['browser'],
-        browser_language: additional_attributes['browser_language'],
-        initiated_at: additional_attributes['initiated_at']
-      }
+    # Get page information from custom_attributes
+    if custom_attributes.present?
+      # Add page URL info if present
+      if custom_attributes['page_url'].present?
+        # We have a page URL, which is the most important piece of info
+        data[:page_url] = custom_attributes['page_url']
+        
+        # Create visitor page object with URL
+        visitor_page = { page_url: custom_attributes['page_url'] }
+        
+        # Add other info if available
+        if custom_attributes['page_title'].present?
+          data[:page_title] = custom_attributes['page_title']
+          visitor_page[:page_title] = custom_attributes['page_title']
+        end
+        
+        if custom_attributes['referer_url'].present?
+          data[:referer_url] = custom_attributes['referer_url']
+          visitor_page[:referer_url] = custom_attributes['referer_url']
+        end
+        
+        # Add visitor_page to data
+        data[:visitor_page] = visitor_page
+      end
     end
     
     data

@@ -189,11 +189,11 @@ class Message < ApplicationRecord
       end
     end
     
-    # From conversation additional_attributes if available
-    if conversation.present? && conversation.additional_attributes.present?
-      page_info['page_url'] ||= conversation.additional_attributes['page_url']
-      page_info['page_title'] ||= conversation.additional_attributes['page_title']
-      page_info['referer_url'] ||= conversation.additional_attributes['referer']
+    # From conversation custom_attributes if available
+    if conversation.present? && conversation.custom_attributes.present?
+      page_info['page_url'] ||= conversation.custom_attributes['page_url']
+      page_info['page_title'] ||= conversation.custom_attributes['page_title']
+      page_info['referer_url'] ||= conversation.custom_attributes['referer_url']
     end
     
     data = {

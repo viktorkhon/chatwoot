@@ -80,11 +80,11 @@ class MessageTemplates::HookExecutionService
   end
 
   def add_page_info_to_message
-    if conversation.additional_attributes.present?
+    if conversation.custom_attributes.present?
       page_info = {
-        'page_url' => conversation.additional_attributes['page_url'],
-        'page_title' => conversation.additional_attributes['page_title'],
-        'referer_url' => conversation.additional_attributes['referer']
+        'page_url' => conversation.custom_attributes['page_url'],
+        'page_title' => conversation.custom_attributes['page_title'],
+        'referer_url' => conversation.custom_attributes['referer_url']
       }
       
       message.content_attributes = message.content_attributes.merge(

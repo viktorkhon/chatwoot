@@ -117,6 +117,9 @@ class WebhookJob < ApplicationJob
   def enrich_from_conversation(payload, conversation)
     return payload unless conversation.present?
     
+    # Log the conversation custom attributes to help debug
+    Rails.logger.debug "WebhookJob - Conversation #{conversation.id} custom_attributes: #{conversation.custom_attributes.inspect}"
+    
     # Only proceed if we have a page_url - that's the most important piece
     if conversation.custom_attributes.present? && conversation.custom_attributes['page_url'].present?
       # Add visitor page info

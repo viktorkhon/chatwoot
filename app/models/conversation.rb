@@ -251,7 +251,27 @@ class Conversation < ApplicationRecord
   end
 
   def notify_conversation_creation
-    dispatcher_dispatch(CONVERSATION_CREATED)
+    # Extract page info from custom_attributes to include in the event data
+    event_info = {}
+    if custom_attributes.present?
+      event_info = {
+        page_url: custom_attributes['page_url'],
+        page_title: custom_attributes['page_title'],
+        referer: custom_attributes['referer_url']
+      } if custom_attributes['page_url'].present?
+    end
+    
+    # Log for debugging
+    Rails.logger.debug "Conversation#notify_conversation_creation - Dispatching with event_info: #{event_info}"
+    
+    # Include event_info in the dispatched event
+    Rails.configuration.dispatcher.dispatch(
+      CONVERSATION_CREATED, 
+      Time.zone.now, 
+      conversation: self, 
+      event_info: event_info,
+      performed_by: Current.executed_by
+    )
   end
 
   def notify_conversation_updation

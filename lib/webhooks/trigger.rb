@@ -83,9 +83,21 @@ class Webhooks::Trigger
     # Clone the payload to modify it
     enriched_payload = payload.dup
     
+    # Add debug logging
+    Rails.logger.debug "Webhooks::Trigger - Ensuring page info for payload: #{enriched_payload[:page_url].present? ? 'Has page_url' : 'No page_url'}, visitor_page: #{enriched_payload[:visitor_page].present? ? (enriched_payload[:visitor_page].empty? ? 'Empty' : 'Has content') : 'Missing'}"
+    
+    # Check if visitor_page is empty and remove it to prevent empty objects in the final payload
+    if enriched_payload[:visitor_page].is_a?(Hash) && enriched_payload[:visitor_page].empty?
+      Rails.logger.debug "Webhooks::Trigger - Removing empty visitor_page object"
+      enriched_payload.delete(:visitor_page)
+    end
+    
     # Check if page URL exists in visitor_page
-    if payload[:visitor_page].present? && payload[:visitor_page][:page_url].present? && enriched_payload[:page_url].blank?
+    if payload[:visitor_page].present? && !payload[:visitor_page].empty? && 
+       payload[:visitor_page][:page_url].present? && enriched_payload[:page_url].blank?
+      
       enriched_payload[:page_url] = payload[:visitor_page][:page_url]
+      Rails.logger.debug "Webhooks::Trigger - Added page_url from visitor_page: #{enriched_payload[:page_url]}"
       
       # Include other info if available
       if payload[:visitor_page][:page_title].present?
@@ -105,11 +117,20 @@ class Webhooks::Trigger
        
       # We found a URL in conversation attributes
       enriched_payload[:page_url] = payload[:conversation][:custom_attributes]['page_url']
+      Rails.logger.debug "Webhooks::Trigger - Added page_url from conversation custom_attributes: #{enriched_payload[:page_url]}"
       
       # Include other info if available
       attrs = payload[:conversation][:custom_attributes]
       enriched_payload[:page_title] = attrs['page_title'] if attrs['page_title'].present?
       enriched_payload[:referer_url] = attrs['referer_url'] if attrs['referer_url'].present?
+    end
+    
+    # Remove empty objects at the root level
+    [:visitor_page].each do |key|
+      if enriched_payload[key].is_a?(Hash) && enriched_payload[key].empty?
+        enriched_payload.delete(key)
+        Rails.logger.debug "Webhooks::Trigger - Removed empty #{key} from payload"
+      end
     end
     
     enriched_payload

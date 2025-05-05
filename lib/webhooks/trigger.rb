@@ -40,10 +40,22 @@ class Webhooks::Trigger
   end
 
   def self.perform_request(url, payload)
+    # Get account from payload if conversation is present
+    account = nil
+    if payload[:conversation].present? && payload[:conversation][:account_id].present?
+      account = Account.find_by(id: payload[:conversation][:account_id])
+    end
+
+    # Set up headers with vector_database_namespace if available
+    headers = { 'Content-Type' => 'application/json' }
+    if account&.vector_database_namespace.present?
+      headers['X-Vector-Database-Namespace'] = account.vector_database_namespace
+    end
+
     response = HTTParty.post(
       url,
       body: payload.to_json,
-      headers: { 'Content-Type' => 'application/json' },
+      headers: headers,
       timeout: 5
     )
 
@@ -91,11 +103,23 @@ class Webhooks::Trigger
       @payload[:content_type] = @payload[:content_type].to_s
     end
     
+    # Get account from payload if conversation is present
+    account = nil
+    if @payload[:conversation].present? && @payload[:conversation][:account_id].present?
+      account = Account.find_by(id: @payload[:conversation][:account_id])
+    end
+
+    # Set up headers with vector_database_namespace if available
+    headers = { content_type: :json, accept: :json }
+    if account&.vector_database_namespace.present?
+      headers['X-Vector-Database-Namespace'] = account.vector_database_namespace
+    end
+    
     RestClient::Request.execute(
       method: :post,
       url: @url,
       payload: @payload.to_json,
-      headers: { content_type: :json, accept: :json },
+      headers: headers,
       timeout: 5
     )
   end

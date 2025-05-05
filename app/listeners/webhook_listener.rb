@@ -57,8 +57,8 @@ class WebhookListener < BaseListener
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
-    # Add conversation additional attributes to the payload
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Add page info to the payload (try both conversation and message)
+    add_page_info_to_payload(payload, conversation, message)
 
     deliver_webhook_payloads(payload, inbox)
   end
@@ -75,8 +75,8 @@ class WebhookListener < BaseListener
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
-    # Add conversation additional attributes to the payload
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Add page info to the payload (try both conversation and message)
+    add_page_info_to_payload(payload, conversation, message)
 
     deliver_webhook_payloads(payload, inbox)
   end
@@ -175,9 +175,12 @@ class WebhookListener < BaseListener
     deliver_api_inbox_webhooks(enriched_payload, inbox)
   end
 
-  def add_page_info_to_payload(payload, conversation)
+  def add_page_info_to_payload(payload, conversation, message = nil)
+    visitor_page = {}
+    
+    # Try to get page info from conversation's additional_attributes
     if conversation&.additional_attributes.present?
-      payload[:visitor_page] = {
+      visitor_page = {
         referer_url: conversation.additional_attributes['referer'],
         page_url: conversation.additional_attributes['page_url'],
         page_title: conversation.additional_attributes['page_title'],
@@ -186,5 +189,16 @@ class WebhookListener < BaseListener
         initiated_at: conversation.additional_attributes['initiated_at']
       }
     end
+    
+    # Try to get page info from message's content_attributes (this is the new approach)
+    if message.present? && message.content_attributes.present? && message.content_attributes['page_info'].present?
+      page_info = message.content_attributes['page_info']
+      visitor_page[:referer_url] ||= page_info['referer_url']
+      visitor_page[:page_url] ||= page_info['page_url']
+      visitor_page[:page_title] ||= page_info['page_title']
+    end
+    
+    # Only add visitor_page if it contains any data
+    payload[:visitor_page] = visitor_page if visitor_page.values.any?(&:present?)
   end
 end

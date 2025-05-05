@@ -41,6 +41,13 @@ const sendMessage = (content, replyTo) => {
         referer_url: referrerURL,
         page_url: pageURL,
         page_title: pageTitle,
+        content_attributes: {
+          page_info: {
+            referer_url: referrerURL,
+            page_url: pageURL,
+            page_title: pageTitle
+          }
+        }
       },
     },
   };

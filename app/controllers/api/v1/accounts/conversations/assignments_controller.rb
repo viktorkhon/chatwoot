@@ -35,6 +35,21 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
   private
 
   def set_agent
+    Rails.logger.info("Setting agent with assignee_id: #{params[:assignee_id]}")
+    
+    # Check for numeric 0 or string '0' for explicit unassignment
+    if params[:assignee_id] == '0' || params[:assignee_id] == 0
+      Rails.logger.info("Unassigning agent (assignee_id is 0)")
+      @agent = nil
+      @conversation.additional_attributes = @conversation.additional_attributes.merge(
+        explicitly_unassigned: true
+      )
+      @conversation.assignee = nil
+      @conversation.save!
+      render_agent
+      return
+    end
+    
     @agent = Current.account.users.find_by(id: params[:assignee_id])
     @conversation.assignee = @agent
     

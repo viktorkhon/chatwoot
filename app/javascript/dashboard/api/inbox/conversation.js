@@ -63,6 +63,10 @@ class ConversationApi extends ApiClient {
   }
 
   assignAgent({ conversationId, agentId }) {
+    if (!conversationId || (typeof conversationId !== 'number' && isNaN(parseInt(conversationId, 10)))) {
+      console.warn(`Invalid conversation ID: ${conversationId}. This may cause API errors.`);
+    }
+    
     return axios.post(
       `${this.url}/${conversationId}/assignments?assignee_id=${agentId}`,
       {}
@@ -70,6 +74,10 @@ class ConversationApi extends ApiClient {
   }
 
   assignTeam({ conversationId, teamId }) {
+    if (!conversationId || (typeof conversationId !== 'number' && isNaN(parseInt(conversationId, 10)))) {
+      console.warn(`Invalid conversation ID: ${conversationId}. This may cause API errors.`);
+    }
+    
     const params = { team_id: teamId };
     return axios.post(`${this.url}/${conversationId}/assignments`, params);
   }

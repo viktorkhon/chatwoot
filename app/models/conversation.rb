@@ -183,6 +183,31 @@ class Conversation < ApplicationRecord
     dispatcher_dispatch(CONVERSATION_UPDATED, previous_changes)
   end
 
+  def webhook_data
+    data = {
+      **Conversations::EventDataPresenter.new(self).push_data,
+      id: self.id,
+      account_id: self.account_id,
+    }
+    
+    # Add page information from additional_attributes
+    if additional_attributes.present?
+      data[:current_page_url] = additional_attributes['page_url']
+      data[:current_page_title] = additional_attributes['page_title']
+      data[:current_referer_url] = additional_attributes['referer']
+      data[:visitor_page] = {
+        page_url: additional_attributes['page_url'],
+        page_title: additional_attributes['page_title'],
+        referer_url: additional_attributes['referer'],
+        browser: additional_attributes['browser'],
+        browser_language: additional_attributes['browser_language'],
+        initiated_at: additional_attributes['initiated_at']
+      }
+    end
+    
+    data
+  end
+
   private
 
   def execute_after_update_commit_callbacks

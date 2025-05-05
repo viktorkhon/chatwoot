@@ -165,6 +165,21 @@ class Message < ApplicationRecord
   end
 
   def webhook_data
+    # Extract page information from various sources
+    page_info = {}
+    
+    # From message content_attributes
+    if content_attributes.present? && content_attributes['page_info'].present?
+      page_info = content_attributes['page_info']
+    end
+    
+    # From conversation additional_attributes if available
+    if conversation.present? && conversation.additional_attributes.present?
+      page_info['page_url'] ||= conversation.additional_attributes['page_url']
+      page_info['page_title'] ||= conversation.additional_attributes['page_title']
+      page_info['referer_url'] ||= conversation.additional_attributes['referer']
+    end
+    
     data = {
       account: account.webhook_data,
       additional_attributes: additional_attributes,
@@ -178,7 +193,11 @@ class Message < ApplicationRecord
       message_type: message_type,
       private: private,
       sender: sender.try(:webhook_data),
-      source_id: source_id
+      source_id: source_id,
+      # Add page info directly to the webhook data
+      current_page_url: page_info['page_url'],
+      current_page_title: page_info['page_title'],
+      current_referer_url: page_info['referer_url']
     }
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
     data

@@ -1,9 +1,14 @@
 class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Accounts::Conversations::BaseController
   # assigns agent/team to a conversation
-  before_action :unwrap_body_params, only: [:create]
-
   def create
     Rails.logger.info("Assignment attempt by #{Current.user.class.name} #{Current.user.id} with params: #{params.inspect}")
+    
+    # Handle nested params from assignment hash if present
+    if params[:assignment].present? && params[:assignment][:team_id].present?
+      params[:team_id] = params[:assignment][:team_id]
+    elsif params[:assignment].present? && params[:assignment][:assignee_id].present?
+      params[:assignee_id] = params[:assignment][:assignee_id]
+    end
     
     if params.key?(:assignee_id)
       set_agent

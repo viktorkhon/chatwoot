@@ -183,6 +183,11 @@ class WebhookListener < BaseListener
   def contact_created(event)
     contact, account = extract_contact_and_account(event)
     payload = contact.webhook_data.merge(event: __method__.to_s)
+    
+    # Check if there are any recent conversations involving this contact
+    recent_conversation = contact.conversations.order(created_at: :desc).first
+    add_page_info_to_payload(payload, recent_conversation) if recent_conversation.present?
+    
     deliver_account_webhooks(payload, account)
   end
 
@@ -192,6 +197,11 @@ class WebhookListener < BaseListener
     return if changed_attributes.blank?
 
     payload = contact.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
+    
+    # Check if there are any recent conversations involving this contact
+    recent_conversation = contact.conversations.order(created_at: :desc).first
+    add_page_info_to_payload(payload, recent_conversation) if recent_conversation.present?
+    
     deliver_account_webhooks(payload, account)
   end
 
@@ -215,21 +225,19 @@ class WebhookListener < BaseListener
   private
 
   def deliver_account_webhooks(payload, account)
+    # Create an enriched payload with consistent structure
+    enriched_payload = enhance_webhook_payload(payload)
+    
+    # Send the webhook to all subscribed endpoints
     account.webhooks.account_type.each do |webhook|
       next unless webhook.subscriptions.include?(payload[:event])
 
-      WebhookJob.perform_later(webhook.url, payload)
+      WebhookJob.perform_later(webhook.url, enriched_payload)
     end
   end
 
-  def deliver_api_inbox_webhooks(payload, inbox)
-    return unless inbox.channel_type == 'Channel::Api'
-    return if inbox.channel.webhook_url.blank?
-
-    WebhookJob.perform_later(inbox.channel.webhook_url, payload, :api_inbox_webhook)
-  end
-
-  def deliver_webhook_payloads(payload, inbox)
+  # Helper method to create a consistent enriched payload structure
+  def enhance_webhook_payload(payload)
     # Add Chatwoot frontend URL to the payload
     frontend_url = ENV.fetch('FRONTEND_URL', '')
     host = begin
@@ -248,17 +256,68 @@ class WebhookListener < BaseListener
     }
     
     # Ensure visitor page info is available at the root level for all events
-    if payload[:visitor_page].present?
+    if enriched_payload[:visitor_page].present?
       # Copy important fields to root level for direct access
-      enriched_payload[:page_url] = payload[:visitor_page][:page_url]
-      enriched_payload[:page_title] = payload[:visitor_page][:page_title]
-      enriched_payload[:referer_url] = payload[:visitor_page][:referer_url]
+      enriched_payload[:page_url] ||= enriched_payload[:visitor_page][:page_url]
+      enriched_payload[:page_title] ||= enriched_payload[:visitor_page][:page_title]
+      enriched_payload[:referer_url] ||= enriched_payload[:visitor_page][:referer_url]
       
       # Add each key-value pair from visitor_page to the root for direct access
-      payload[:visitor_page].each do |key, value|
-        enriched_payload[key] = value if value.present?
+      enriched_payload[:visitor_page].each do |key, value|
+        enriched_payload[key] ||= value if value.present?
       end
     end
+    
+    enriched_payload
+  end
+
+  def deliver_api_inbox_webhooks(payload, inbox)
+    return unless inbox.channel_type == 'Channel::Api'
+    return if inbox.channel.webhook_url.blank?
+
+    WebhookJob.perform_later(inbox.channel.webhook_url, payload, :api_inbox_webhook)
+  end
+
+  def deliver_webhook_payloads(payload, inbox)
+    # Ensure page info is available for every webhook by checking the conversation if needed
+    if payload[:conversation].present? && payload[:visitor_page].blank?
+      conversation_id = payload[:conversation][:id]
+      conversation = Conversation.find_by(id: conversation_id)
+      
+      if conversation&.additional_attributes.present?
+        # Add visitor page info from conversation
+        payload[:visitor_page] ||= {}
+        payload[:visitor_page][:page_url] = conversation.additional_attributes['page_url']
+        payload[:visitor_page][:page_title] = conversation.additional_attributes['page_title']
+        payload[:visitor_page][:referer_url] = conversation.additional_attributes['referer']
+        
+        # Try to get recent messages to extract page info
+        recent_message = conversation.messages.where.not(message_type: :activity).order(created_at: :desc).first
+        if recent_message&.content_attributes.present? && recent_message.content_attributes['page_info'].present?
+          page_info = recent_message.content_attributes['page_info']
+          
+          if page_info.is_a?(String)
+            begin
+              # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+              page_info = if page_info.include?('=>')
+                            eval(page_info)
+                          else
+                            JSON.parse(page_info)
+                          end
+            rescue => e
+              Rails.logger.error "Error parsing page_info in deliver_webhook_payloads: #{e.message}"
+            end
+          end
+          
+          payload[:visitor_page][:page_url] ||= page_info['page_url']
+          payload[:visitor_page][:page_title] ||= page_info['page_title']
+          payload[:visitor_page][:referer_url] ||= page_info['referer_url']
+        end
+      end
+    end
+    
+    # Create enriched payload with consistent structure
+    enriched_payload = enhance_webhook_payload(payload)
     
     # Deliver the webhooks with the enriched payload
     deliver_account_webhooks(enriched_payload, inbox.account)
@@ -283,6 +342,20 @@ class WebhookListener < BaseListener
     # Try to get page info from message's content_attributes (this is the new approach)
     if message.present? && message.content_attributes.present? && message.content_attributes['page_info'].present?
       page_info = message.content_attributes['page_info']
+      if page_info.is_a?(String)
+        begin
+          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
+          page_info = if page_info.include?('=>')
+                        eval(page_info)
+                      else
+                        JSON.parse(page_info)
+                      end
+        rescue => e
+          Rails.logger.error "Error parsing page_info: #{e.message}"
+          # Keep as is if parsing fails
+        end
+      end
+      
       visitor_page[:referer_url] ||= page_info['referer_url']
       visitor_page[:page_url] ||= page_info['page_url']
       visitor_page[:page_title] ||= page_info['page_title']
@@ -290,5 +363,12 @@ class WebhookListener < BaseListener
     
     # Only add visitor_page if it contains any data
     payload[:visitor_page] = visitor_page if visitor_page.values.any?(&:present?)
+    
+    # Add directly to root level as well for easier access
+    if payload[:visitor_page].present?
+      payload[:page_url] = payload[:visitor_page][:page_url]
+      payload[:page_title] = payload[:visitor_page][:page_title]
+      payload[:referer_url] = payload[:visitor_page][:referer_url]
+    end
   end
 end

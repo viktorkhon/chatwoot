@@ -83,7 +83,11 @@ class Api::V1::Widget::BaseController < ApplicationController
       inbox_id: conversation.inbox_id,
       content_attributes: {
         in_reply_to: permitted_params[:message][:reply_to],
-        page_info: permitted_params[:message].dig(:content_attributes, :page_info) || {}
+        page_info: {
+          page_url: permitted_params[:message][:page_url],
+          page_title: permitted_params[:message][:page_title],
+          referer_url: permitted_params[:message][:referer_url]
+        }
       },
       echo_id: permitted_params[:message][:echo_id],
       message_type: :incoming

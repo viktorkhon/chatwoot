@@ -120,11 +120,33 @@ class WebhookListener < BaseListener
       nil
     end
     
+    # Extract the visitor's current page information
+    conversation = nil
+    
+    if payload[:event] == 'webwidget_triggered'
+      # For webwidget_triggered events, get conversation from contact_inbox
+      conversation = payload[:current_conversation]
+    elsif payload[:meta].present?
+      # For other events with meta field
+      conversation = Conversation.find_by(display_id: payload[:id])
+    end
+    
+    # Add website and referrer details to the payload
     enriched_payload = payload.dup
     enriched_payload[:chatwoot_instance] = {
       frontend_url: frontend_url,
       host: host
     }
+    
+    # Add visitor's current page information if available
+    if conversation.present? && conversation.additional_attributes.present?
+      enriched_payload[:visitor_page] = {
+        referer_url: conversation.additional_attributes['referer'],
+        browser: conversation.additional_attributes['browser'],
+        browser_language: conversation.additional_attributes['browser_language'],
+        initiated_at: conversation.additional_attributes['initiated_at']
+      }
+    end
     
     deliver_account_webhooks(enriched_payload, inbox.account)
     deliver_api_inbox_webhooks(enriched_payload, inbox)

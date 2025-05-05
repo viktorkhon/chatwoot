@@ -1,7 +1,10 @@
 class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Accounts::Conversations::BaseController
   # assigns agent/team to a conversation
   before_action :unwrap_body_params, only: [:create]
+
   def create
+    Rails.logger.info("Assignment attempt by #{Current.user.class.name} #{Current.user.id} with params: #{params.inspect}")
+    
     if params.key?(:assignee_id)
       set_agent
     elsif params.key?(:team_id)
@@ -35,34 +38,22 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
   private
 
   def set_agent
-    Rails.logger.info("Setting agent with assignee_id: #{params[:assignee_id]}")
-    
-    # Check for numeric 0 or string '0' for explicit unassignment
+    # Handle unassignment (assignee_id = 0)
     if params[:assignee_id] == '0' || params[:assignee_id] == 0
-      Rails.logger.info("Unassigning agent (assignee_id is 0)")
       @agent = nil
-      @conversation.additional_attributes = @conversation.additional_attributes.merge(
+      @conversation.additional_attributes = (@conversation.additional_attributes || {}).merge(
         explicitly_unassigned: true
       )
-      @conversation.assignee = nil
-      @conversation.save!
-      render_agent
-      return
+    else
+      @agent = Current.account.users.find_by(id: params[:assignee_id])
+      
+      # If assigning to agent, remove explicitly_unassigned flag
+      if @agent.present? && @conversation.additional_attributes.is_a?(Hash) && @conversation.additional_attributes['explicitly_unassigned']
+        @conversation.additional_attributes = @conversation.additional_attributes.except('explicitly_unassigned')
+      end
     end
     
-    @agent = Current.account.users.find_by(id: params[:assignee_id])
     @conversation.assignee = @agent
-    
-    # Set explicitly_unassigned flag when the assignee is nil
-    if @agent.nil?
-      @conversation.additional_attributes = @conversation.additional_attributes.merge(
-        explicitly_unassigned: true
-      )
-    elsif @conversation.additional_attributes.is_a?(Hash)
-      # If assigning to a new agent, remove the flag
-      @conversation.additional_attributes = @conversation.additional_attributes.except('explicitly_unassigned')
-    end
-    
     @conversation.save!
     render_agent
   end

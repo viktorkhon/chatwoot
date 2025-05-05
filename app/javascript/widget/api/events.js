@@ -2,10 +2,10 @@ import { API } from 'widget/helpers/axios';
 import { buildSearchParamsWithLocale } from '../helpers/urlParamsHelper';
 
 export const generateEventParams = () => {
-  // Get all available page information
-  const currentPageUrl = window.location.href || document.URL || '';
+  // Get all available page information with clean URLs (no trailing semicolons)
+  const currentPageUrl = (window.location.href || document.URL || '').replace(/;$/, '');
   const currentPageTitle = document.title || '';
-  const referrerUrl = window.referrerURL || document.referrer || '';
+  const referrerUrl = (window.referrerURL || document.referrer || '').replace(/;$/, '');
   
   return {
     initiated_at: {

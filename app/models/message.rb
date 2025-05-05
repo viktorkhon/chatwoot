@@ -170,7 +170,18 @@ class Message < ApplicationRecord
     
     # From message content_attributes
     if content_attributes.present? && content_attributes['page_info'].present?
-      page_info = content_attributes['page_info']
+      if content_attributes['page_info'].is_a?(String)
+        begin
+          # Try to parse it if it's a string
+          parsed_info = JSON.parse(content_attributes['page_info'].gsub('=>', ':'))
+          page_info = parsed_info
+        rescue
+          # If parsing fails, try to extract directly
+          page_info = content_attributes['page_info']
+        end
+      else
+        page_info = content_attributes['page_info']
+      end
     end
     
     # From conversation additional_attributes if available
@@ -194,11 +205,15 @@ class Message < ApplicationRecord
       private: private,
       sender: sender.try(:webhook_data),
       source_id: source_id,
-      # Add page info directly to the webhook data
-      current_page_url: page_info['page_url'],
-      current_page_title: page_info['page_title'],
-      current_referer_url: page_info['referer_url']
+      
+      # Add page info directly at the root level
+      page_url: page_info['page_url'],
+      page_title: page_info['page_title'],
+      referer_url: page_info['referer_url'],
+      current_url: page_info['page_url'], # Alias for compatibility
+      website_url: page_info['referer_url'] # Alias for compatibility
     }
+    
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
     data
   end

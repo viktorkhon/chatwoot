@@ -94,14 +94,38 @@ class WebhookListener < BaseListener
 
     return unless message.webhook_sendable?
 
-    # Get the conversation from the message
-    conversation = message.conversation
-    
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
-    # Add page info to the payload (try both conversation and message)
-    add_page_info_to_payload(payload, conversation, message)
+    # Directly add page information to the payload
+    payload[:visitor_page] = {}
+    
+    # From message content_attributes if available
+    if message.content_attributes.present? && message.content_attributes['page_info'].present?
+      page_info = message.content_attributes['page_info']
+      if page_info.is_a?(String)
+        begin
+          parsed_info = JSON.parse(page_info.gsub('=>', ':'))
+          page_info = parsed_info
+        rescue
+          # If parsing fails, use as is
+        end
+      end
+      
+      payload[:visitor_page][:page_url] = page_info['page_url']
+      payload[:visitor_page][:page_title] = page_info['page_title']
+      payload[:visitor_page][:referer_url] = page_info['referer_url']
+    end
+    
+    # From conversation if available
+    conversation = message.conversation
+    if conversation&.additional_attributes.present?
+      payload[:visitor_page][:page_url] ||= conversation.additional_attributes['page_url']
+      payload[:visitor_page][:page_title] ||= conversation.additional_attributes['page_title']
+      payload[:visitor_page][:referer_url] ||= conversation.additional_attributes['referer']
+      payload[:visitor_page][:browser] = conversation.additional_attributes['browser']
+      payload[:visitor_page][:browser_language] = conversation.additional_attributes['browser_language']
+    end
 
     deliver_webhook_payloads(payload, inbox)
   end
@@ -189,21 +213,18 @@ class WebhookListener < BaseListener
     # Create the enriched payload
     enriched_payload = payload.dup
     
-    # Add debugging information to verify the payload structure
-    Rails.logger.info "WebhookListener#deliver_webhook_payloads - Original payload: #{payload.inspect}"
-    
     # Ensure we always add the Chatwoot instance information
     enriched_payload[:chatwoot_instance] = {
       frontend_url: frontend_url,
       host: host
     }
     
-    # Always include current page information directly in the payload root for easier access
+    # Ensure visitor page info is available at the root level for all events
     if payload[:visitor_page].present?
-      # If visitor_page is already in the payload, move it to the root level
-      enriched_payload[:current_page_url] = payload[:visitor_page][:page_url]
-      enriched_payload[:current_page_title] = payload[:visitor_page][:page_title]
-      enriched_payload[:current_referer_url] = payload[:visitor_page][:referer_url]
+      # Copy important fields to root level for direct access
+      enriched_payload[:page_url] = payload[:visitor_page][:page_url]
+      enriched_payload[:page_title] = payload[:visitor_page][:page_title]
+      enriched_payload[:referer_url] = payload[:visitor_page][:referer_url]
     end
     
     # Deliver the webhooks with the enriched payload

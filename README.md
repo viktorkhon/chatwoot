@@ -39,7 +39,7 @@ Chatwoot is the modern, open-source, and self-hosted customer support platform d
 
 ### ✨ Captain – AI Agent for Support
 
-Supercharge your support with Captain, Chatwoot’s AI agent. Captain helps automate responses, handle common queries, and reduce agent workload—ensuring customers get instant, accurate answers. With Captain, your team can focus on complex conversations while routine questions are resolved automatically. Read more about Captain [here](https://chwt.app/captain-docs).
+Supercharge your support with Captain, Chatwoot's AI agent. Captain helps automate responses, handle common queries, and reduce agent workload—ensuring customers get instant, accurate answers. With Captain, your team can focus on complex conversations while routine questions are resolved automatically. Read more about Captain [here](https://chwt.app/captain-docs).
 
 ### 💬 Omnichannel Support Desk
 
@@ -85,6 +85,23 @@ Publish help articles, FAQs, and guides through the built-in Help Center Portal.
 - CSAT Reports to measure customer satisfaction.
 - Downloadable Reports for offline analysis and reporting.
 
+## Webhook Enhancements
+
+This version includes enhanced webhook functionality for better tracking visitor page information:
+
+### Features:
+- Webhooks now include page URL information directly at the root level: `page_url`, `page_title`, and `referer_url`
+- This page information is included for all message types (user, agent, and bot messages)
+- Fixed URL handling to prevent malformed URLs in webhooks
+- Improved parsing of page information from various sources
+- Added more comprehensive browser and device information
+
+### Technical Details:
+- Message webhook payloads include the current URL where the chat is open
+- The referrer URL shows which page the visitor came from
+- Page information is gathered from both the current message and the conversation history
+- URLs are sanitized to remove any trailing semicolons or other invalid characters
+- Browser information including language and resolution are included when available
 
 ## Documentation
 

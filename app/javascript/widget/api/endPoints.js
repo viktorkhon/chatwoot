@@ -3,6 +3,8 @@ import { generateEventParams } from './events';
 
 const createConversation = params => {
   const referrerURL = window.referrerURL || '';
+  const pageURL = window.location.href || document.URL || '';
+  const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
   return {
     url: `/api/v1/widget/conversations${search}`,
@@ -16,6 +18,8 @@ const createConversation = params => {
         content: params.message,
         timestamp: new Date().toString(),
         referer_url: referrerURL,
+        page_url: pageURL,
+        page_title: pageTitle,
       },
       custom_attributes: params.customAttributes,
     },
@@ -24,6 +28,8 @@ const createConversation = params => {
 
 const sendMessage = (content, replyTo) => {
   const referrerURL = window.referrerURL || '';
+  const pageURL = window.location.href || document.URL || '';
+  const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
   return {
     url: `/api/v1/widget/messages${search}`,
@@ -33,6 +39,8 @@ const sendMessage = (content, replyTo) => {
         reply_to: replyTo,
         timestamp: new Date().toString(),
         referer_url: referrerURL,
+        page_url: pageURL,
+        page_title: pageTitle,
       },
     },
   };

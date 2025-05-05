@@ -39,7 +39,24 @@ class WebhookListener < BaseListener
 
     return unless message.webhook_sendable?
 
+    # Get the conversation from the message
+    conversation = message.conversation
+    
+    # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
+    
+    # Add conversation additional attributes to the payload
+    if conversation.present? && conversation.additional_attributes.present?
+      payload[:visitor_page] = {
+        page_url: conversation.additional_attributes['page_url'],
+        page_title: conversation.additional_attributes['page_title'],
+        referer: conversation.additional_attributes['referer'],
+        browser: conversation.additional_attributes['browser'],
+        browser_language: conversation.additional_attributes['browser_language'],
+        initiated_at: conversation.additional_attributes['initiated_at']
+      }
+    end
+
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -49,7 +66,24 @@ class WebhookListener < BaseListener
 
     return unless message.webhook_sendable?
 
+    # Get the conversation from the message
+    conversation = message.conversation
+    
+    # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
+    
+    # Add conversation additional attributes to the payload
+    if conversation.present? && conversation.additional_attributes.present?
+      payload[:visitor_page] = {
+        page_url: conversation.additional_attributes['page_url'],
+        page_title: conversation.additional_attributes['page_title'],
+        referer: conversation.additional_attributes['referer'],
+        browser: conversation.additional_attributes['browser'],
+        browser_language: conversation.additional_attributes['browser_language'],
+        initiated_at: conversation.additional_attributes['initiated_at']
+      }
+    end
+
     deliver_webhook_payloads(payload, inbox)
   end
 

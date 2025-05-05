@@ -63,6 +63,14 @@ class ConversationApi extends ApiClient {
   }
 
   assignAgent({ conversationId, agentId }) {
+    // Add debug logging
+    console.log(`Assigning agent ${agentId} to conversation ${conversationId}`);
+    
+    // If agentId is 0, we're unassigning - use DELETE
+    if (agentId === 0) {
+      return axios.delete(`${this.url}/${conversationId}/assignments`);
+    }
+    // Normal assignment - use POST
     return axios.post(
       `${this.url}/${conversationId}/assignments?assignee_id=${agentId}`,
       {}
@@ -70,6 +78,14 @@ class ConversationApi extends ApiClient {
   }
 
   assignTeam({ conversationId, teamId }) {
+    // Add debug logging
+    console.log(`Assigning team ${teamId} to conversation ${conversationId}`);
+    
+    // If teamId is 0, we're unassigning - use DELETE
+    if (teamId === 0) {
+      return axios.delete(`${this.url}/${conversationId}/assignments`);
+    }
+    // Normal team assignment - use POST
     const params = { team_id: teamId };
     return axios.post(`${this.url}/${conversationId}/assignments`, params);
   }

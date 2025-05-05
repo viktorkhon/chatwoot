@@ -9,9 +9,6 @@ module AutoAssignmentHandler
   private
 
   def run_auto_assignment
-    # First check if explicitly unassigned
-    return if explicitly_unassigned?
-    
     # Round robin kicks in on conversation create & update
     # run it only when conversation status changes to open
     return unless conversation_status_changed_to_open?
@@ -22,13 +19,8 @@ module AutoAssignmentHandler
 
   def should_run_auto_assignment?
     return false unless inbox.enable_auto_assignment?
-    return false if explicitly_unassigned?
 
     # run only if assignee is blank or doesn't have access to inbox
     assignee.blank? || inbox.members.exclude?(assignee)
-  end
-  
-  def explicitly_unassigned?
-    additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned'] == true
   end
 end

@@ -332,7 +332,12 @@ class Message < ApplicationRecord
   def reopen_resolved_conversation
     # mark resolved bot conversation as pending to be reopened by bot processor service
     if conversation.inbox.active_bot?
-      conversation.pending!
+      # Preserve explicitly_unassigned flag when changing conversation status
+      if conversation.additional_attributes.is_a?(Hash) && conversation.additional_attributes['explicitly_unassigned']
+        conversation.pending!
+      else
+        conversation.pending!
+      end
     elsif conversation.inbox.api?
       Current.executed_by = sender if reopened_by_contact?
       conversation.open!

@@ -102,5 +102,39 @@ shared_examples_for 'auto_assignment_handler' do
       # Verify that no assignment happened even after a message
       expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
     end
+
+    it 'will not auto assign even when a message reopens a resolved conversation' do
+      # First create a conversation with an explicit unassignment
+      explicitly_unassigned_conversation = create(
+        :conversation,
+        account: account,
+        contact: create(:contact, account: account),
+        inbox: inbox,
+        status: 'resolved',
+        assignee: nil,
+        additional_attributes: { explicitly_unassigned: true }
+      )
+      
+      # Verify it starts with no assignee
+      expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
+      
+      # Create a new message which should reopen the conversation (status changes to open)
+      create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: explicitly_unassigned_conversation,
+        message_type: 'incoming'
+      )
+      
+      # Verify that the conversation is reopened
+      expect(explicitly_unassigned_conversation.reload.status).to eq('open')
+      
+      # Verify that no assignment happened even after reopening
+      expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
+      
+      # Verify that the flag is still preserved
+      expect(explicitly_unassigned_conversation.reload.additional_attributes['explicitly_unassigned']).to eq(true)
+    end
   end
 end

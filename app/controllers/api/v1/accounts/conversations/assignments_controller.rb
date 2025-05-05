@@ -1,5 +1,6 @@
 class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Accounts::Conversations::BaseController
   # assigns agent/team to a conversation
+  before_action :unwrap_body_params, only: [:create]
   def create
     if params.key?(:assignee_id)
       set_agent
@@ -8,6 +9,27 @@ class Api::V1::Accounts::Conversations::AssignmentsController < Api::V1::Account
     else
       render json: nil
     end
+  end
+
+  # unassigns agent/team from a conversation
+  def destroy
+    # Unassign agent if present
+    if @conversation.assignee.present?
+      # Set explicitly_unassigned flag
+      @conversation.additional_attributes = @conversation.additional_attributes.merge(
+        explicitly_unassigned: true
+      )
+      @conversation.assignee = nil
+      @conversation.save!
+    end
+
+    # Unassign team if present
+    if @conversation.team.present?
+      @conversation.team = nil
+      @conversation.save!
+    end
+
+    render json: { status: 'success', message: 'Conversation unassigned' }
   end
 
   private

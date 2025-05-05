@@ -161,4 +161,44 @@ RSpec.describe 'Conversation Assignment API', type: :request do
       end
     end
   end
+
+  describe '#destroy' do
+    context 'when conversation has an assignee' do
+      let(:agent) { create(:user, account: account, role: :agent) }
+
+      before do
+        create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
+      end
+
+      it 'unassigns the assignee from the conversation and sets the explicitly_unassigned flag' do
+        delete api_v1_account_conversation_assignments_url(account_id: account.id, conversation_id: conversation.display_id),
+               headers: agent.create_new_auth_token,
+               as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(conversation.reload.assignee).to be_nil
+        expect(conversation.reload.additional_attributes['explicitly_unassigned']).to eq(true)
+      end
+    end
+
+    context 'when conversation has a team' do
+      let(:agent) { create(:user, account: account, role: :agent) }
+      let(:team) { create(:team, account: account) }
+
+      before do
+        create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(team: team)
+      end
+
+      it 'unassigns the team from the conversation' do
+        delete api_v1_account_conversation_assignments_url(account_id: account.id, conversation_id: conversation.display_id),
+               headers: agent.create_new_auth_token,
+               as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(conversation.reload.team).to be_nil
+      end
+    end
+  end
 end

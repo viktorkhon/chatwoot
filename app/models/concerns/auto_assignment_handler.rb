@@ -9,6 +9,9 @@ module AutoAssignmentHandler
   private
 
   def run_auto_assignment
+    # First check if the conversation was explicitly unassigned
+    return if explicitly_unassigned?
+    
     # Round robin kicks in on conversation create & update
     # run it only when conversation status changes to open
     return unless conversation_status_changed_to_open?

@@ -78,5 +78,29 @@ shared_examples_for 'auto_assignment_handler' do
       # Verify that no assignment happened
       expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
     end
+
+    it 'will not auto assign if conversation was explicitly unassigned even after a message is sent' do
+      # First create a conversation with an explicit unassignment
+      explicitly_unassigned_conversation = create(
+        :conversation,
+        account: account,
+        contact: create(:contact, account: account),
+        inbox: inbox,
+        assignee: nil,
+        additional_attributes: { explicitly_unassigned: true }
+      )
+      
+      # Create a message which triggers conversation status change
+      create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: explicitly_unassigned_conversation,
+        message_type: 'incoming'
+      )
+      
+      # Verify that no assignment happened even after a message
+      expect(explicitly_unassigned_conversation.reload.assignee).to be_nil
+    end
   end
 end

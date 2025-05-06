@@ -5,7 +5,11 @@ class WebhookListener < BaseListener
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
     
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, conversation)
     
     deliver_webhook_payloads(payload, inbox)
   end
@@ -19,7 +23,11 @@ class WebhookListener < BaseListener
       account_id: conversation.account_id
     )
     
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, conversation)
     
     deliver_webhook_payloads(payload, inbox)
   end
@@ -30,7 +38,11 @@ class WebhookListener < BaseListener
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
     
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, conversation)
     
     deliver_webhook_payloads(payload, inbox)
   end
@@ -40,7 +52,11 @@ class WebhookListener < BaseListener
     inbox = conversation.inbox
     payload = conversation.webhook_data.merge(event: __method__.to_s)
     
-    add_page_info_to_payload(payload, conversation) if conversation.present?
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, conversation)
     
     deliver_webhook_payloads(payload, inbox)
   end
@@ -89,7 +105,6 @@ class WebhookListener < BaseListener
     event_info = event.data[:event_info] || {}
     
     payload = contact_inbox.webhook_data.merge(event: __method__.to_s)
-    payload[:event_info] = event_info
     
     # Ensure custom_attributes exists
     payload[:custom_attributes] ||= {}
@@ -104,6 +119,13 @@ class WebhookListener < BaseListener
       payload[:custom_attributes]['page_url'] = page_url if page_url.present?
       payload[:custom_attributes]['page_title'] = event_info[:page_title] if event_info[:page_title].present?
       payload[:custom_attributes]['referer_url'] = referer if referer.present?
+    end
+    
+    # Keep event_info in the payload for backwards compatibility
+    # but remove any URL data from it
+    if event_info.present?
+      event_info = event_info.except(:page_url, :page_title, :referer)
+      payload[:event_info] = event_info unless event_info.empty?
     end
     
     deliver_webhook_payloads(payload, inbox)

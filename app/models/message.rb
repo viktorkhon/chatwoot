@@ -165,37 +165,6 @@ class Message < ApplicationRecord
   end
 
   def webhook_data
-    # Extract page information from various sources
-    page_info = {}
-    
-    # From message content_attributes
-    if content_attributes.present? && content_attributes['page_info'].present?
-      if content_attributes['page_info'].is_a?(String)
-        begin
-          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
-          parsed_info = if content_attributes['page_info'].include?('=>')
-                          eval(content_attributes['page_info'])
-                        else
-                          JSON.parse(content_attributes['page_info'])
-                        end
-          page_info = parsed_info
-        rescue => e
-          Rails.logger.error "Error parsing page_info in webhook_data: #{e.message}"
-          # If parsing fails, try to extract directly
-          page_info = content_attributes['page_info']
-        end
-      else
-        page_info = content_attributes['page_info']
-      end
-    end
-    
-    # From conversation custom_attributes if available
-    if conversation.present? && conversation.custom_attributes.present?
-      page_info['page_url'] ||= conversation.custom_attributes['page_url']
-      page_info['page_title'] ||= conversation.custom_attributes['page_title']
-      page_info['referer_url'] ||= conversation.custom_attributes['referer_url']
-    end
-    
     data = {
       account: account.webhook_data,
       additional_attributes: additional_attributes,
@@ -209,15 +178,22 @@ class Message < ApplicationRecord
       message_type: message_type,
       private: private,
       sender: sender.try(:webhook_data),
-      source_id: source_id,
-      
-      # Add page info directly at the root level
-      page_url: page_info['page_url'],
-      page_title: page_info['page_title'],
-      referer_url: page_info['referer_url'],
-      current_url: page_info['page_url'], # Alias for compatibility
-      website_url: page_info['referer_url'] # Alias for compatibility
+      source_id: source_id
     }
+    
+    # Ensure custom_attributes exists
+    data[:custom_attributes] ||= {}
+    
+    # Add frontend URL info to custom_attributes
+    frontend_url = ENV.fetch('FRONTEND_URL', '')
+    host = begin
+      URI.parse(frontend_url).host
+    rescue
+      nil
+    end
+    
+    data[:custom_attributes]['frontend_url'] = frontend_url if frontend_url.present?
+    data[:custom_attributes]['host'] = host if host.present?
     
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
     data

@@ -230,12 +230,11 @@ class Conversation < ApplicationRecord
   def notify_conversation_creation
     # Extract page info from custom_attributes to include in the event data
     event_info = {}
-    if custom_attributes.present?
-      event_info = {
-        page_url: custom_attributes['page_url'],
-        page_title: custom_attributes['page_title'],
-        referer: custom_attributes['referer_url']
-      } if custom_attributes['page_url'].present?
+    
+    # Add page URL data to custom_attributes if present
+    if custom_attributes.present? && custom_attributes['page_url'].present?
+      # URL information is already in custom_attributes, which is included in webhook data
+      # We don't need to duplicate it in event_info
     end
     
     # Include event_info in the dispatched event

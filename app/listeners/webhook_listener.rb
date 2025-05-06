@@ -54,48 +54,11 @@ class WebhookListener < BaseListener
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
-    # Directly add page information to the payload
-    payload[:visitor_page] = {}
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
     
-    # From message content_attributes if available
-    if message.content_attributes.present? && message.content_attributes['page_info'].present?
-      page_info = message.content_attributes['page_info']
-      if page_info.is_a?(String)
-        begin
-          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
-          page_info = if page_info.include?('=>')
-                        eval(page_info)
-                      else
-                        JSON.parse(page_info)
-                      end
-        rescue => e
-          Rails.logger.error "Error parsing page_info: #{e.message}"
-          # Keep as is if parsing fails
-        end
-      end
-      
-      payload[:visitor_page][:page_url] = page_info['page_url']
-      payload[:visitor_page][:page_title] = page_info['page_title']
-      payload[:visitor_page][:referer_url] = page_info['referer_url']
-    end
-    
-    # From conversation if available
-    conversation = message.conversation
-    if conversation&.custom_attributes.present?
-      payload[:visitor_page][:page_url] ||= conversation.custom_attributes['page_url']
-      payload[:visitor_page][:page_title] ||= conversation.custom_attributes['page_title']
-      payload[:visitor_page][:referer_url] ||= conversation.custom_attributes['referer_url']
-    end
-
-    # Always include current window location information if available
-    if message.content.present? && message.content.include?('window.location')
-      begin
-        window_info = JSON.parse(message.content)
-        payload[:visitor_page][:page_url] ||= window_info['window_location']
-      rescue
-        # In case parsing fails, ignore and continue
-      end
-    end
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, message.conversation, message)
     
     deliver_webhook_payloads(payload, inbox)
   end
@@ -109,39 +72,12 @@ class WebhookListener < BaseListener
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
-    # Directly add page information to the payload
-    payload[:visitor_page] = {}
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
     
-    # From message content_attributes if available
-    if message.content_attributes.present? && message.content_attributes['page_info'].present?
-      page_info = message.content_attributes['page_info']
-      if page_info.is_a?(String)
-        begin
-          # Try to parse it if it's a string - handle both JSON and Ruby hash notations
-          page_info = if page_info.include?('=>')
-                        eval(page_info)
-                      else
-                        JSON.parse(page_info)
-                      end
-        rescue => e
-          Rails.logger.error "Error parsing page_info: #{e.message}"
-          # Keep as is if parsing fails
-        end
-      end
-      
-      payload[:visitor_page][:page_url] = page_info['page_url']
-      payload[:visitor_page][:page_title] = page_info['page_title']
-      payload[:visitor_page][:referer_url] = page_info['referer_url']
-    end
+    # Add page information to custom_attributes
+    add_page_info_to_custom_attributes(payload, message.conversation, message)
     
-    # From conversation if available
-    conversation = message.conversation
-    if conversation&.custom_attributes.present?
-      payload[:visitor_page][:page_url] ||= conversation.custom_attributes['page_url']
-      payload[:visitor_page][:page_title] ||= conversation.custom_attributes['page_title']
-      payload[:visitor_page][:referer_url] ||= conversation.custom_attributes['referer_url']
-    end
-
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -155,22 +91,19 @@ class WebhookListener < BaseListener
     payload = contact_inbox.webhook_data.merge(event: __method__.to_s)
     payload[:event_info] = event_info
     
-    # Add page URL directly to the payload for easier access in webhooks
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Add page URL to custom_attributes for easier access in webhooks
     if event_info.present?
       # Make sure URLs don't have trailing semicolons
       referer = event_info[:referer]&.gsub(/;$/, '')
       page_url = event_info[:page_url]&.gsub(/;$/, '')
       
-      payload[:visitor_page] = {
-        referer_url: referer,
-        page_url: page_url,
-        page_title: event_info[:page_title]
-      }
-      
-      # Add directly to root level as well
-      payload[:referer_url] = referer
-      payload[:page_url] = page_url
-      payload[:page_title] = event_info[:page_title]
+      # Add to custom_attributes
+      payload[:custom_attributes]['page_url'] = page_url if page_url.present?
+      payload[:custom_attributes]['page_title'] = event_info[:page_title] if event_info[:page_title].present?
+      payload[:custom_attributes]['referer_url'] = referer if referer.present?
     end
     
     deliver_webhook_payloads(payload, inbox)
@@ -180,9 +113,12 @@ class WebhookListener < BaseListener
     contact, account = extract_contact_and_account(event)
     payload = contact.webhook_data.merge(event: __method__.to_s)
     
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
     # Check if there are any recent conversations involving this contact
     recent_conversation = contact.conversations.order(created_at: :desc).first
-    add_page_info_to_payload(payload, recent_conversation) if recent_conversation.present?
+    add_page_info_to_custom_attributes(payload, recent_conversation) if recent_conversation.present?
     
     deliver_account_webhooks(payload, account)
   end
@@ -194,9 +130,12 @@ class WebhookListener < BaseListener
 
     payload = contact.webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
     
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
     # Check if there are any recent conversations involving this contact
     recent_conversation = contact.conversations.order(created_at: :desc).first
-    add_page_info_to_payload(payload, recent_conversation) if recent_conversation.present?
+    add_page_info_to_custom_attributes(payload, recent_conversation) if recent_conversation.present?
     
     deliver_account_webhooks(payload, account)
   end
@@ -245,24 +184,19 @@ class WebhookListener < BaseListener
     # Create the enriched payload
     enriched_payload = payload.dup
     
-    # Ensure we always add the Chatwoot instance information
-    enriched_payload[:chatwoot_instance] = {
-      frontend_url: frontend_url,
-      host: host
-    }
+    # Ensure custom_attributes exists
+    enriched_payload[:custom_attributes] ||= {}
     
-    # Ensure visitor page info is available at the root level for all events
-    if enriched_payload[:visitor_page].present?
-      # Copy important fields to root level for direct access
-      enriched_payload[:page_url] ||= enriched_payload[:visitor_page][:page_url]
-      enriched_payload[:page_title] ||= enriched_payload[:visitor_page][:page_title]
-      enriched_payload[:referer_url] ||= enriched_payload[:visitor_page][:referer_url]
-      
-      # Add each key-value pair from visitor_page to the root for direct access
-      enriched_payload[:visitor_page].each do |key, value|
-        enriched_payload[key] ||= value if value.present?
-      end
-    end
+    # Move chatwoot_instance values into custom_attributes
+    enriched_payload[:custom_attributes]['frontend_url'] = frontend_url if frontend_url.present?
+    enriched_payload[:custom_attributes]['host'] = host if host.present?
+    
+    # Remove duplicate URL fields if they exist
+    enriched_payload.delete(:visitor_page)
+    enriched_payload.delete(:page_url)
+    enriched_payload.delete(:page_title)
+    enriched_payload.delete(:referer_url)
+    enriched_payload.delete(:chatwoot_instance)
     
     enriched_payload
   end
@@ -275,44 +209,6 @@ class WebhookListener < BaseListener
   end
 
   def deliver_webhook_payloads(payload, inbox)
-    # Ensure page info is available for every webhook by checking the conversation if needed
-    if payload[:conversation].present? && payload[:visitor_page].blank?
-      conversation_id = payload[:conversation][:id]
-      conversation = Conversation.find_by(id: conversation_id)
-      
-      if conversation&.custom_attributes.present? && conversation.custom_attributes['page_url'].present?
-        # Add visitor page info from conversation custom attributes
-        payload[:visitor_page] ||= {}
-        payload[:visitor_page][:page_url] = conversation.custom_attributes['page_url']
-        payload[:visitor_page][:page_title] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
-        payload[:visitor_page][:referer_url] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
-      end
-      
-      # Try to get recent messages to extract page info
-      recent_message = conversation.messages.where.not(message_type: :activity).order(created_at: :desc).first
-      if recent_message&.content_attributes.present? && recent_message.content_attributes['page_info'].present?
-        page_info = recent_message.content_attributes['page_info']
-        
-        if page_info.is_a?(String)
-          begin
-            # Try to parse it if it's a string - handle both JSON and Ruby hash notations
-            page_info = if page_info.include?('=>')
-                          eval(page_info)
-                        else
-                          JSON.parse(page_info)
-                        end
-          rescue => e
-            Rails.logger.error "Error parsing page_info in deliver_webhook_payloads: #{e.message}"
-          end
-        end
-        
-        payload[:visitor_page] ||= {}
-        payload[:visitor_page][:page_url] ||= page_info['page_url'] if page_info['page_url'].present?
-        payload[:visitor_page][:page_title] ||= page_info['page_title'] if page_info['page_title'].present?
-        payload[:visitor_page][:referer_url] ||= page_info['referer_url'] if page_info['referer_url'].present?
-      end
-    end
-    
     # Create enriched payload with consistent structure
     enriched_payload = enhance_webhook_payload(payload)
     
@@ -321,7 +217,7 @@ class WebhookListener < BaseListener
     deliver_api_inbox_webhooks(enriched_payload, inbox)
   end
 
-  def add_page_info_to_payload(payload, conversation, message = nil)
+  def add_page_info_to_custom_attributes(payload, conversation, message = nil)
     # Check for page URL from message first (most recent)
     if message.present? && message.content_attributes.present? && message.content_attributes['page_info'].present?
       page_info = message.content_attributes['page_info']
@@ -341,19 +237,9 @@ class WebhookListener < BaseListener
       
       # If we found a page URL in the message, use it
       if page_info['page_url'].present?
-        visitor_page = { page_url: page_info['page_url'] }
-        
-        # Add other info if available
-        visitor_page[:page_title] = page_info['page_title'] if page_info['page_title'].present?
-        visitor_page[:referer_url] = page_info['referer_url'] if page_info['referer_url'].present?
-        
-        # Add to payload
-        payload[:visitor_page] = visitor_page
-        payload[:page_url] = visitor_page[:page_url]
-        payload[:page_title] = visitor_page[:page_title] if visitor_page[:page_title].present?
-        payload[:referer_url] = visitor_page[:referer_url] if visitor_page[:referer_url].present?
-        
-        # We found page URL in message, so we're done
+        payload[:custom_attributes]['page_url'] = page_info['page_url']
+        payload[:custom_attributes]['page_title'] = page_info['page_title'] if page_info['page_title'].present?
+        payload[:custom_attributes]['referer_url'] = page_info['referer_url'] if page_info['referer_url'].present?
         return
       end
     end
@@ -361,17 +247,9 @@ class WebhookListener < BaseListener
     # If we didn't find page URL in message, check conversation custom_attributes
     if conversation&.custom_attributes.present?
       if conversation.custom_attributes['page_url'].present?
-        visitor_page = { page_url: conversation.custom_attributes['page_url'] }
-        
-        # Add other info if available
-        visitor_page[:page_title] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
-        visitor_page[:referer_url] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
-        
-        # Add to payload
-        payload[:visitor_page] = visitor_page
-        payload[:page_url] = visitor_page[:page_url]
-        payload[:page_title] = visitor_page[:page_title] if visitor_page[:page_title].present?
-        payload[:referer_url] = visitor_page[:referer_url] if visitor_page[:referer_url].present?
+        payload[:custom_attributes]['page_url'] = conversation.custom_attributes['page_url']
+        payload[:custom_attributes]['page_title'] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
+        payload[:custom_attributes]['referer_url'] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
       end
     end
   end

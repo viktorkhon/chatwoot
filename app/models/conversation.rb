@@ -190,31 +190,8 @@ class Conversation < ApplicationRecord
       account_id: self.account_id,
     }
     
-    # Get page information from custom_attributes
-    if custom_attributes.present?
-      # Add page URL info if present
-      if custom_attributes['page_url'].present?
-        # We have a page URL, which is the most important piece of info
-        data[:page_url] = custom_attributes['page_url']
-        
-        # Create visitor page object with URL
-        visitor_page = { page_url: custom_attributes['page_url'] }
-        
-        # Add other info if available
-        if custom_attributes['page_title'].present?
-          data[:page_title] = custom_attributes['page_title']
-          visitor_page[:page_title] = custom_attributes['page_title']
-        end
-        
-        if custom_attributes['referer_url'].present?
-          data[:referer_url] = custom_attributes['referer_url']
-          visitor_page[:referer_url] = custom_attributes['referer_url']
-        end
-        
-        # Add visitor_page to data
-        data[:visitor_page] = visitor_page
-      end
-    end
+    # No need to duplicate page URL info - it's already in custom_attributes
+    # and will be included in the webhook payload via EventDataPresenter
     
     data
   end
@@ -260,9 +237,6 @@ class Conversation < ApplicationRecord
         referer: custom_attributes['referer_url']
       } if custom_attributes['page_url'].present?
     end
-    
-    # Log for debugging
-    Rails.logger.debug "Conversation#notify_conversation_creation - Dispatching with event_info: #{event_info}"
     
     # Include event_info in the dispatched event
     Rails.configuration.dispatcher.dispatch(

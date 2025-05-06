@@ -62,8 +62,6 @@ class AgentBotListener < BaseListener
         conn.set(redis_key, page_info.to_json)
         conn.expire(redis_key, 30.minutes.to_i)
       end
-      
-      Rails.logger.info "AgentBotListener - Stored page info in Redis for contact_inbox: #{contact_inbox.source_id}"
     end
 
     event_name = __method__.to_s
@@ -84,28 +82,27 @@ class AgentBotListener < BaseListener
   def process_message_event(method_name, agent_bot, message, _event)
     # Only webhook bots are supported
     payload = message.webhook_data.merge(event: method_name)
-        
-    # Debug logging to understand the payload structure
-    Rails.logger.debug "AgentBotListener - webhook_data for message #{message.id}: #{payload.to_json}"
     
-    # Check if page info is missing and try to add it from conversation
-    if (payload[:page_url].blank? || payload[:visitor_page].blank?) && message.conversation.present?
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Copy page URL info from conversation custom_attributes if available
+    if message.conversation.present? && message.conversation.custom_attributes.present?
       conversation = message.conversation
-      Rails.logger.debug "AgentBotListener - conversation custom_attributes: #{conversation.custom_attributes}"
       
-      if conversation.custom_attributes.present? && conversation.custom_attributes['page_url'].present?
-        # Add page URL information directly to the payload
-        payload[:page_url] = conversation.custom_attributes['page_url']
-        payload[:page_title] = conversation.custom_attributes['page_title']
-        payload[:referer_url] = conversation.custom_attributes['referer_url']
-        
-        # Also add to visitor_page object
-        payload[:visitor_page] ||= {}
-        payload[:visitor_page][:page_url] = conversation.custom_attributes['page_url']
-        payload[:visitor_page][:page_title] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
-        payload[:visitor_page][:referer_url] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
+      if conversation.custom_attributes['page_url'].present?
+        # Only add to custom_attributes, not to root or visitor_page
+        payload[:custom_attributes]['page_url'] = conversation.custom_attributes['page_url']
+        payload[:custom_attributes]['page_title'] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
+        payload[:custom_attributes]['referer_url'] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
       end
     end
+    
+    # Remove any duplicate data formats we might have added previously
+    payload.delete(:visitor_page)
+    payload.delete(:page_url)
+    payload.delete(:page_title)
+    payload.delete(:referer_url)
     
     process_webhook_bot_event(agent_bot, payload)
   end

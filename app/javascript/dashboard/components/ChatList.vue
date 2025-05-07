@@ -263,10 +263,13 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
+  const statusFilter = activeStatus.value === 'default_filter' ? 
+    'open_and_pending' : activeStatus.value;
+
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,
     assigneeType: activeAssigneeTab.value,
-    status: activeStatus.value,
+    status: statusFilter,
     sortBy: activeSortBy.value,
     page: conversationListPagination.value,
     labels: props.label ? [props.label] : undefined,
@@ -362,12 +365,14 @@ function setFiltersFromUISettings() {
   const { conversations_filter_by: filterBy = {} } = uiSettings.value;
   const { status, order_by: orderBy } = filterBy;
   
-  // Only use the UI settings status if explicitly provided, otherwise show all non-resolved
+  // Only use the UI settings status if explicitly provided, otherwise default to showing open and pending
   if (status) {
+    // If status is already set in UI settings, respect that choice
     activeStatus.value = status;
   } else {
-    // Default to showing all non-resolved conversations
-    activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+    // Default behavior for initial page load - only show open and pending via custom filter
+    // We use a special value to indicate our default filter in updateAssigneeTab
+    activeStatus.value = 'default_filter'; 
   }
   
   activeSortBy.value = Object.values(wootConstants.SORT_BY_TYPE).includes(
@@ -619,15 +624,15 @@ function updateAssigneeTab(selectedTab) {
     emitter.emit('clearSearchInput');
     activeAssigneeTab.value = selectedTab;
     
-    // By default, show all non-resolved conversations
+    // Use our default filter unless the user has explicitly chosen a different one
+    // This ensures we show only open and pending by default but respect user choices
     if (!hasAppliedFilters.value) {
-      store.dispatch('setChatStatusFilter', wootConstants.STATUS_TYPE.ALL);
-      activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+      activeStatus.value = 'default_filter';
     }
     
-    if (!currentPage.value) {
-      fetchConversations();
-    }
+    store.dispatch('setChatAssigneeTab', selectedTab);
+    store.dispatch('setChatStatusFilter', activeStatus.value);
+    resetAndFetchData();
   }
 }
 
@@ -828,10 +833,10 @@ function onTabChange(value) {
   store.dispatch('setChatAssigneeTab', value);
   activeAssigneeTab.value = value;
   
-  // By default, show all non-resolved conversations
+  // By default, show only open and pending conversations
   if (!hasAppliedFilters.value) {
-    store.dispatch('setChatStatusFilter', wootConstants.STATUS_TYPE.ALL);
-    activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+    activeStatus.value = 'default_filter';
+    store.dispatch('setChatStatusFilter', activeStatus.value);
   }
   
   resetBulkActions();

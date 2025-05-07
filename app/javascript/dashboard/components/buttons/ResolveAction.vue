@@ -16,6 +16,7 @@ import {
 } from 'dashboard/helper/commandbar/events';
 
 import Button from 'dashboard/components-next/button/Button.vue';
+import CustomSnoozeModal from 'dashboard/components/CustomSnoozeModal.vue';
 
 const store = useStore();
 const getters = useStoreGetters();
@@ -23,6 +24,7 @@ const { t } = useI18n();
 
 const arrowDownButtonRef = ref(null);
 const isLoading = ref(false);
+const showSnoozeModal = ref(false);
 
 const [showActionsDropdown, toggleDropdown] = useToggle();
 const closeDropdown = () => toggleDropdown(false);
@@ -72,8 +74,17 @@ const getConversationParams = () => {
 };
 
 const openSnoozeModal = () => {
-  const ninja = document.querySelector('ninja-keys');
-  ninja.open({ parent: 'snooze_conversation' });
+  closeDropdown();
+  showSnoozeModal.value = true;
+};
+
+const handleSnooze = (conversationId, status, snoozedUntil) => {
+  toggleStatus(status, snoozedUntil);
+  showSnoozeModal.value = false;
+};
+
+const closeSnoozeModal = () => {
+  showSnoozeModal.value = false;
 };
 
 const toggleStatus = (status, snoozedUntil) => {
@@ -138,7 +149,7 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
       :class="!showOpenButton ? 'outline-n-container' : 'outline-transparent'"
     >
       <Button
-        v-if="isOpen"
+        v-if="isOpen || isPending"
         :label="t('CONVERSATION.HEADER.RESOLVE_ACTION')"
         size="sm"
         color="slate"
@@ -156,8 +167,8 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
         @click="onCmdOpenConversation"
       />
       <Button
-        v-else-if="showOpenButton"
-        :label="t('CONVERSATION.HEADER.OPEN_ACTION')"
+        v-else-if="isSnoozed"
+        :label="t('CONVERSATION.HEADER.REOPEN_ACTION')"
         size="sm"
         color="slate"
         :is-loading="isLoading"
@@ -190,7 +201,7 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
             start
             icon="i-lucide-alarm-clock-minus"
             class="w-full"
-            @click="() => openSnoozeModal()"
+            @click="openSnoozeModal"
           />
         </WootDropdownItem>
         <WootDropdownItem v-if="!isPending">
@@ -207,6 +218,13 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
         </WootDropdownItem>
       </WootDropdownMenu>
     </div>
+    
+    <CustomSnoozeModal 
+      :show="showSnoozeModal"
+      :conversation-id="currentChat.id"
+      @close="closeSnoozeModal"
+      @snooze="handleSnooze"
+    />
   </div>
 </template>
 

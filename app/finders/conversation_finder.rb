@@ -143,15 +143,24 @@ class ConversationFinder
   end
 
   def filter_by_status
-    return if params[:status] == 'all'
-
+    # If status is explicitly specified
     if params[:status].present?
-      # Apply specific status filter if provided
-      @conversations = @conversations.where(status: params[:status])
-    else
-      # By default, show all non-resolved conversations
-      @conversations = @conversations.where.not(status: Conversation.statuses[:resolved])
+      if params[:status] == 'all'
+        # If 'all' is explicitly selected, show all conversations
+        return
+      elsif params[:status] == 'open_and_pending'
+        # Our custom filter: show only open and pending conversations
+        @conversations = @conversations.where(status: [:open, :pending])
+        return
+      else
+        # If a specific status is selected, filter by that status
+        @conversations = @conversations.where(status: params[:status])
+        return
+      end
     end
+    
+    # Default behavior when no status is specified: show only open and pending conversations
+    @conversations = @conversations.where(status: [:open, :pending])
   end
 
   def filter_by_team

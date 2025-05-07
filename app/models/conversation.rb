@@ -183,6 +183,32 @@ class Conversation < ApplicationRecord
     dispatcher_dispatch(CONVERSATION_UPDATED, previous_changes)
   end
 
+  def open!
+    # Keep track of the flag before the status change
+    preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']
+    
+    # Call the original status change method
+    super
+    
+    # Restore the flag if it was set
+    if preserve_explicitly_unassigned_flag
+      update_column(:additional_attributes, additional_attributes.merge('explicitly_unassigned' => true))
+    end
+  end
+
+  def pending!
+    # Keep track of the flag before the status change
+    preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']
+    
+    # Call the original status change method
+    super
+    
+    # Restore the flag if it was set
+    if preserve_explicitly_unassigned_flag
+      update_column(:additional_attributes, additional_attributes.merge('explicitly_unassigned' => true))
+    end
+  end
+
   private
 
   def execute_after_update_commit_callbacks

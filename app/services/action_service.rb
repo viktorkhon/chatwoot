@@ -33,13 +33,30 @@ class ActionService
   end
 
   def assign_agent(agent_ids = [])
-    return @conversation.update!(assignee_id: nil) if agent_ids[0] == 'nil'
+    return set_explicitly_unassigned if agent_ids[0] == 'nil'
 
     return unless agent_belongs_to_inbox?(agent_ids)
 
     @agent = @account.users.find_by(id: agent_ids)
 
-    @conversation.update!(assignee_id: @agent.id) if @agent.present?
+    if @agent.present?
+      # Clear explicitly_unassigned flag if it exists
+      clear_explicitly_unassigned if @conversation.additional_attributes.is_a?(Hash) && @conversation.additional_attributes['explicitly_unassigned']
+      @conversation.update!(assignee_id: @agent.id)
+    end
+  end
+
+  # Helper method to set explicitly_unassigned flag and update assignee to nil
+  def set_explicitly_unassigned
+    @conversation.additional_attributes = @conversation.additional_attributes.merge(
+      explicitly_unassigned: true
+    )
+    @conversation.update!(assignee_id: nil)
+  end
+
+  # Helper method to clear the explicitly_unassigned flag
+  def clear_explicitly_unassigned
+    @conversation.additional_attributes = @conversation.additional_attributes.except('explicitly_unassigned')
   end
 
   def remove_label(labels)

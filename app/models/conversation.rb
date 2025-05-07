@@ -189,11 +189,32 @@ class Conversation < ApplicationRecord
       id: self.id,
       account_id: self.account_id,
     }
-    
-    # No need to duplicate page URL info - it's already in custom_attributes
-    # and will be included in the webhook payload via EventDataPresenter
-    
     data
+    
+  def open!
+    # Keep track of the flag before the status change
+    preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']
+    
+    # Call the original status change method
+    super
+    
+    # Restore the flag if it was set
+    if preserve_explicitly_unassigned_flag
+      update_column(:additional_attributes, additional_attributes.merge('explicitly_unassigned' => true))
+    end
+  end
+
+  def pending!
+    # Keep track of the flag before the status change
+    preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']
+    
+    # Call the original status change method
+    super
+    
+    # Restore the flag if it was set
+    if preserve_explicitly_unassigned_flag
+      update_column(:additional_attributes, additional_attributes.merge('explicitly_unassigned' => true))
+    end
   end
 
   private

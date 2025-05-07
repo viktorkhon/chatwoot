@@ -38,6 +38,6 @@ class Platform::Api::V1::AccountsController < PlatformController
   end
 
   def permitted_params
-    params.permit(:name, :locale, :domain, :support_email, :status, features: {}, limits: {}, custom_attributes: {})
+    params.permit(:name, :locale, :domain, :support_email, :status, :shopify_name, :vector_database_namespace, features: {}, limits: {}, custom_attributes: {})
   end
 end

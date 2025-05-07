@@ -72,6 +72,24 @@
       "FEATURES": {
         "INBOUND_EMAIL_ENABLED": "Conversation continuity with emails is enabled for your account.",
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "You can receive emails in your custom domain now."
+      },
+      "SHOPIFY_SECTION": {
+        "TITLE": "Shopify Integration",
+        "NOTE": "Configure your Shopify store integration"
+      },
+      "SHOPIFY_NAME": {
+        "LABEL": "Shopify Name",
+        "PLACEHOLDER": "Enter your Shopify store name",
+        "ERROR": ""
+      },
+      "VECTOR_DB_SECTION": {
+        "TITLE": "Vector Database Configuration",
+        "NOTE": "Configure your vector database settings for enhanced AI capabilities"
+      },
+      "VECTOR_DB_NAMESPACE": {
+        "LABEL": "Vector Database Namespace",
+        "PLACEHOLDER": "Enter the namespace for filtering vector database queries",
+        "ERROR": ""
       }
     },
     "UPDATE_CHATWOOT": "An update {latestChatwootVersion} for Chatwoot is available. Please update your instance.",

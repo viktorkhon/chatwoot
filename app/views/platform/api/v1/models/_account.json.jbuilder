@@ -7,3 +7,5 @@ json.features resource.enabled_features
 json.custom_attributes resource.custom_attributes
 json.limits resource.limits
 json.status resource.status
+json.shopify_name resource.shopify_name
+json.vector_database_namespace resource.vector_database_namespace

@@ -3,6 +3,11 @@ import BaseActionCableConnector from '../../shared/helpers/BaseActionCableConnec
 import DashboardAudioNotificationHelper from './AudioAlerts/DashboardAudioNotificationHelper';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { emitter } from 'shared/helpers/mitt';
+import { 
+  showBrowserNotification, 
+  shouldNotifyForMessage,
+  sanitizeContent 
+} from 'dashboard/helper/browserNotifications';
 
 class ActionCableConnector extends BaseActionCableConnector {
   constructor(app, pubsubToken) {
@@ -93,16 +98,53 @@ class ActionCableConnector extends BaseActionCableConnector {
       conversation: { last_activity_at: lastActivityAt },
       conversation_id: conversationId,
     } = data;
-    DashboardAudioNotificationHelper.onNewMessage(data);
-    this.app.$store.dispatch('addMessage', data);
-    this.app.$store.dispatch('updateConversationLastActivity', {
-      lastActivityAt,
-      conversationId,
-    });
     
-    // Emit an event that a message has been created
-    // This allows components to update without navigation changes
-    emitter.emit(BUS_EVENTS.MESSAGE_CREATED, data);
+    try {
+      // Play audio notification
+      DashboardAudioNotificationHelper.onNewMessage(data);
+      
+      // Update store with new message
+      this.app.$store.dispatch('addMessage', data);
+      this.app.$store.dispatch('updateConversationLastActivity', {
+        lastActivityAt,
+        conversationId,
+      });
+      
+      // Browser notification logic
+      if (shouldNotifyForMessage(data)) {
+        const senderName = data.sender?.name || 'User';
+        let messageContent = data.content || '';
+        
+        // Handle different message types
+        if (data.message_type === 'image' || data.message_type === 'file') {
+          messageContent = `[${data.message_type}] ${data.content || ''}`;
+        }
+        
+        showBrowserNotification({
+          title: `New message from ${senderName}`,
+          body: sanitizeContent(messageContent),
+          onClick: () => {
+            window.focus();
+            // Navigate to conversation if we have router access
+            if (this.app.$router) {
+              const accountId = this.app.$store.getters.getCurrentAccountId;
+              this.app.$router.push({
+                name: 'inbox_conversation',
+                params: {
+                  accountId,
+                  conversation_id: conversationId,
+                },
+              });
+            }
+          },
+        });
+      }
+      
+      // Emit event for other components to react to the new message
+      emitter.emit(BUS_EVENTS.MESSAGE_CREATED, data);
+    } catch (error) {
+      console.error('Error processing new message:', error);
+    }
   };
 
   // eslint-disable-next-line class-methods-use-this

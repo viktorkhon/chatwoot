@@ -263,8 +263,9 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
-  const statusFilter = activeStatus.value === 'default_filter' ? 
-    'open_and_pending' : activeStatus.value;
+  const statusFilter = activeStatus.value === 'default_filter' 
+    ? 'open_and_pending' 
+    : activeStatus.value;
 
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,

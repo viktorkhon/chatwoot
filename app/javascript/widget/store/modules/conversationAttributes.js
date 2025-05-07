@@ -8,6 +8,8 @@ import { getConversationAPI } from '../../api/conversation';
 const state = {
   id: '',
   status: '',
+  assignee: null,
+  team: null,
 };
 
 export const getters = {
@@ -37,16 +39,22 @@ export const mutations = {
   [SET_CONVERSATION_ATTRIBUTES]($state, data) {
     $state.id = data.id;
     $state.status = data.status;
+    $state.assignee = data.assignee;
+    $state.team = data.team;
   },
   [UPDATE_CONVERSATION_ATTRIBUTES]($state, data) {
     if (data.id === $state.id) {
       $state.id = data.id;
       $state.status = data.status;
+      $state.assignee = data.assignee;
+      $state.team = data.team;
     }
   },
   [CLEAR_CONVERSATION_ATTRIBUTES]($state) {
     $state.id = '';
     $state.status = '';
+    $state.assignee = null;
+    $state.team = null;
   },
 };
 

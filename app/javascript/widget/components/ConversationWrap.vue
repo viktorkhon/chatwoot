@@ -45,14 +45,28 @@ export default {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
     showStatusIndicator() {
-      const { status } = this.conversationAttributes;
+      const { status, assignee, team } = this.conversationAttributes;
       const isConversationInPendingStatus = status === 'pending';
+      const isConversationOpen = status === 'open';
       const isLastMessageIncoming =
-        this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
-      return (
-        this.isAgentTyping ||
-        (isConversationInPendingStatus && isLastMessageIncoming)
-      );
+        this.lastMessage && this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
+      const isAssignedToAgentOrTeam = assignee || team;
+
+      // Show typing indicator in these cases:
+      // 1. Agent is actively typing (regardless of assignment)
+      // 2. Conversation is pending, last message was from user, and not assigned to anyone
+      // 3. Do NOT show if assigned to agent/team but no active typing (prevents phantom typing)
+      
+      if (this.isAgentTyping) {
+        return true;
+      }
+      
+      if (isConversationInPendingStatus && isLastMessageIncoming && !isAssignedToAgentOrTeam) {
+        return true;
+      }
+      
+      // For all other cases, don't show the typing indicator
+      return false;
     },
   },
   watch: {

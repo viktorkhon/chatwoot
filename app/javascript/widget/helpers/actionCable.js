@@ -104,12 +104,28 @@ class ActionCableConnector extends BaseActionCableConnector {
     const activeConversationId =
       this.app.$store.getters['conversationAttributes/getConversationParams']
         .id;
+    const conversationAttributes = 
+      this.app.$store.getters['conversationAttributes/getConversationParams'];
     const isUserTypingOnAnotherConversation =
       data.conversation && data.conversation.id !== activeConversationId;
 
     if (isUserTypingOnAnotherConversation || data.is_private) {
       return;
     }
+
+    // Get the conversation's status and assignment information
+    const { assignee, team } = conversationAttributes;
+    const isAssignedToAgentOrTeam = assignee || team;
+    
+    // Check if typing event is from an automated source (like n8n)
+    const isAutomatedSource = data.user && (data.user.bot || data.user.type === 'automation');
+    
+    // If conversation is assigned to an agent or team and the typing event is from an automated source,
+    // don't show the typing indicator
+    if (isAssignedToAgentOrTeam && isAutomatedSource) {
+      return;
+    }
+    
     this.clearTimer();
     this.app.$store.dispatch('conversation/toggleAgentTyping', {
       status: 'on',

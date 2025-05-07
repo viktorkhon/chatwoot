@@ -6,7 +6,8 @@ import { emitter } from 'shared/helpers/mitt';
 import { 
   showBrowserNotification, 
   shouldNotifyForMessage,
-  sanitizeContent 
+  sanitizeContent,
+  navigateToConversation
 } from 'dashboard/helper/browserNotifications';
 
 class ActionCableConnector extends BaseActionCableConnector {
@@ -109,35 +110,33 @@ class ActionCableConnector extends BaseActionCableConnector {
         lastActivityAt,
         conversationId,
       });
+
+      // Check if the current chat is this conversation
+      // If it is, don't show a notification because agent is already viewing it
+      const currentChat = this.app.$store.getters.getSelectedChat;
+      const isCurrentConversation = currentChat && currentChat.id === parseInt(conversationId, 10);
       
-      // Browser notification logic
-      if (shouldNotifyForMessage(data)) {
-        const senderName = data.sender?.name || 'User';
-        let messageContent = data.content || '';
-        
-        // Handle different message types
-        if (data.message_type === 'image' || data.message_type === 'file') {
-          messageContent = `[${data.message_type}] ${data.content || ''}`;
+      // Only show notification if it's not the current conversation
+      if (!isCurrentConversation) {
+        // Check notification settings and show browser notification if eligible
+        if (shouldNotifyForMessage(data)) {
+          const senderName = data.sender?.name || 'User';
+          let messageContent = data.content || '';
+          
+          // Handle different message types
+          if (data.message_type === 'image') {
+            messageContent = '[Image]';
+          } else if (data.message_type === 'file') {
+            messageContent = '[File]';
+          }
+          
+          // Pass conversationId to enable smart tab focusing
+          showBrowserNotification({
+            title: `New message from ${senderName}`,
+            body: sanitizeContent(messageContent),
+            conversationId: parseInt(conversationId, 10)
+          });
         }
-        
-        showBrowserNotification({
-          title: `New message from ${senderName}`,
-          body: sanitizeContent(messageContent),
-          onClick: () => {
-            window.focus();
-            // Navigate to conversation if we have router access
-            if (this.app.$router) {
-              const accountId = this.app.$store.getters.getCurrentAccountId;
-              this.app.$router.push({
-                name: 'inbox_conversation',
-                params: {
-                  accountId,
-                  conversation_id: conversationId,
-                },
-              });
-            }
-          },
-        });
       }
       
       // Emit event for other components to react to the new message
@@ -145,6 +144,20 @@ class ActionCableConnector extends BaseActionCableConnector {
     } catch (error) {
       console.error('Error processing new message:', error);
     }
+  };
+
+  // Ensure notification settings are loaded before showing notifications
+  ensureNotificationSettings = () => {
+    // Check if notification settings are already loaded
+    const notificationSettings = this.app.$store.getters['userNotificationSettings/getSelectedPushFlags'];
+    if (notificationSettings) {
+      return Promise.resolve();
+    }
+    
+    // If not loaded, fetch them
+    return this.app.$store.dispatch('userNotificationSettings/get').catch(error => {
+      console.error('Error fetching notification settings:', error);
+    });
   };
 
   // eslint-disable-next-line class-methods-use-this

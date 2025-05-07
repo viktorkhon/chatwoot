@@ -1,22 +1,24 @@
-// Request browser notification permission on app load
-if ('Notification' in window && Notification.permission !== 'granted') {
-  Notification.requestPermission();
-} 
-
-import { requestNotificationPermission } from './helper/browserNotifications';
-
-// Request browser notification permission after app is mounted
+// Load user notification settings on app load
+// This ensures our immediate browser notifications respect the same settings
+// as Chatwoot's existing push notification system
 document.addEventListener('DOMContentLoaded', () => {
-  // Request permissions after a short delay to ensure app is fully loaded
+  // We'll load notification settings after app is mounted
+  // These will be used for our immediate tab notifications
   setTimeout(() => {
-    requestNotificationPermission().then(permission => {
-      if (permission === 'granted') {
-        console.log('Browser notification permission granted');
-      } else if (permission === 'denied') {
-        console.warn('Browser notification permission denied');
-      } else {
-        console.info('Browser notification permission not determined');
-      }
-    });
+    if (window.store) {
+      window.store.dispatch('userNotificationSettings/get').catch(error => {
+        console.error('Error loading notification settings:', error);
+      });
+    }
   }, 2000);
-}); 
+  
+  // Make sure router is accessible for cross-tab navigation
+  document.addEventListener('vue-initialized', () => {
+    if (window.vueApp && window.vueApp.$router) {
+      window.router = window.vueApp.$router;
+    }
+  });
+});
+
+// Note: We don't need to request notification permissions here
+// Chatwoot already has a system for this in settings/profile/NotificationPreferences.vue 

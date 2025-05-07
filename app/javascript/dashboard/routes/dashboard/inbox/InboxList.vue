@@ -179,31 +179,32 @@ export default {
         id,
         primaryActorId,
         primaryActorType,
-        primaryActor: { inboxId },
+        primaryActor: { id: conversationId, inboxId },
         notificationType,
       } = notification;
 
-      if (this.$route.params.notification_id !== id) {
-        useTrack(INBOX_EVENTS.OPEN_CONVERSATION_VIA_INBOX, {
-          notificationType,
+      useTrack(INBOX_EVENTS.OPEN_CONVERSATION_VIA_INBOX, {
+        notificationType,
+      });
+
+      this.$store
+        .dispatch('notifications/read', {
+          id,
+          primaryActorId,
+          primaryActorType,
+          unreadCount: this.meta.unreadCount,
+        })
+        .then(() => {
+          this.$store.dispatch('notifications/unReadCount'); // to update the unread count in the store real time
         });
 
-        this.$store
-          .dispatch('notifications/read', {
-            id,
-            primaryActorId,
-            primaryActorType,
-            unreadCount: this.meta.unreadCount,
-          })
-          .then(() => {
-            this.$store.dispatch('notifications/unReadCount'); // to update the unread count in the store real time
-          });
-
-        this.$router.push({
-          name: 'inbox_view_conversation',
-          params: { inboxId, notification_id: id },
-        });
-      }
+      this.$router.push({
+        name: 'inbox_conversation',
+        params: {
+          accountId: this.$route.params.accountId,
+          conversation_id: conversationId,
+        },
+      });
     },
   },
 };

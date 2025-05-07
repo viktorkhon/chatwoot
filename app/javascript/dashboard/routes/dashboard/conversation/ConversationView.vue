@@ -129,8 +129,15 @@ export default {
   },
 
   methods: {
+    cleanupExistingNotifications() {
+      if (!this.conversationId) return;
+      
+      const conversationId = parseInt(this.conversationId, 10);
+      this.$store.dispatch('notifications/removeNotificationByConversation', conversationId);
+    },
     onConversationLoad() {
       this.fetchConversationIfUnavailable();
+      this.cleanupExistingNotifications();
     },
     initialize() {
       this.$store.dispatch('setActiveInbox', this.inboxId);

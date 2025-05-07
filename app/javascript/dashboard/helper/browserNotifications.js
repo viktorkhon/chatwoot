@@ -28,19 +28,30 @@ try {
     
     // Listen for tab focus requests
     tabChannel.onmessage = event => {
+      console.log('BroadcastChannel message received:', event.data);
+      
       if (event.data && event.data.type === 'FOCUS_REQUEST') {
         // This tab should focus and navigate to the conversation
+        console.log('Focusing window from broadcast request');
         window.focus();
         
         if (event.data.conversationId && window.router) {
           const accountId = store.getters.getCurrentAccountId;
-          window.router.push({
-            name: 'inbox_conversation',
-            params: {
-              accountId,
-              conversation_id: event.data.conversationId
-            }
-          });
+          console.log('Navigating to conversation from broadcast:', accountId, event.data.conversationId);
+          // Use router directly rather than window.router
+          try {
+            window.router.push({
+              name: 'inbox_conversation',
+              params: {
+                accountId,
+                conversation_id: event.data.conversationId
+              }
+            });
+          } catch (error) {
+            console.error('Navigation error:', error);
+          }
+        } else {
+          console.warn('Missing conversationId or router for navigation', event.data);
         }
       }
     };
@@ -64,6 +75,9 @@ try {
  * @param {number} conversationId - The conversation to navigate to
  */
 export function navigateToConversation(conversationId) {
+  // Log for debugging
+  console.log('navigateToConversation called with ID:', conversationId);
+  
   // If we have a broadcast channel, try to focus an existing tab first
   if (tabChannel) {
     // Ask any open tabs to focus
@@ -71,14 +85,19 @@ export function navigateToConversation(conversationId) {
       type: 'FOCUS_REQUEST', 
       conversationId 
     });
+    console.log('FOCUS_REQUEST sent via broadcast channel');
     
-    // Set a small timeout - if no tab responds, we'll focus this one
+    // We're relying on another tab to catch this request
+    // But also set up a fallback just in case
     setTimeout(() => {
+      console.log('Focus timeout triggered - focusing current tab');
       // If we're here, we should focus this tab as a fallback
       window.focus();
       
+      // Try to navigate in this tab as a fallback
       if (window.router) {
         const accountId = store.getters.getCurrentAccountId;
+        console.log('Navigating to conversation in current tab:', accountId, conversationId);
         window.router.push({
           name: 'inbox_conversation',
           params: {
@@ -86,14 +105,18 @@ export function navigateToConversation(conversationId) {
             conversation_id: conversationId
           }
         });
+      } else {
+        console.warn('Router not available to navigate');
       }
     }, 300);
   } else {
     // Fallback if broadcast channel isn't supported
+    console.log('No broadcast channel - focusing current tab');
     window.focus();
     
     if (window.router) {
       const accountId = store.getters.getCurrentAccountId;
+      console.log('Navigating to conversation in current tab:', accountId, conversationId);
       window.router.push({
         name: 'inbox_conversation',
         params: {
@@ -101,6 +124,8 @@ export function navigateToConversation(conversationId) {
           conversation_id: conversationId
         }
       });
+    } else {
+      console.warn('Router not available to navigate');
     }
   }
 }

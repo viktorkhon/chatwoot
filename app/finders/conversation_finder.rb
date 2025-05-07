@@ -107,8 +107,12 @@ class ConversationFinder
     case @assignee_type
     when 'me'
       @conversations = @conversations.assigned_to(current_user)
+      # Show all non-resolved conversations in 'Mine' tab unless a status filter is explicitly specified
+      @conversations = @conversations.where.not(status: Conversation.statuses[:resolved]) unless params[:status].present?
     when 'unassigned'
       @conversations = @conversations.unassigned
+      # Show all non-resolved conversations in 'Unassigned' tab unless a status filter is explicitly specified
+      @conversations = @conversations.where.not(status: Conversation.statuses[:resolved]) unless params[:status].present?
     when 'assigned'
       @conversations = @conversations.assigned
     end
@@ -141,7 +145,13 @@ class ConversationFinder
   def filter_by_status
     return if params[:status] == 'all'
 
-    @conversations = @conversations.where(status: params[:status] || DEFAULT_STATUS)
+    if params[:status].present?
+      # Apply specific status filter if provided
+      @conversations = @conversations.where(status: params[:status])
+    else
+      # By default, show all non-resolved conversations
+      @conversations = @conversations.where.not(status: Conversation.statuses[:resolved])
+    end
   end
 
   def filter_by_team

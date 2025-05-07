@@ -361,7 +361,15 @@ const uniqueInboxes = computed(() => {
 function setFiltersFromUISettings() {
   const { conversations_filter_by: filterBy = {} } = uiSettings.value;
   const { status, order_by: orderBy } = filterBy;
-  activeStatus.value = status || wootConstants.STATUS_TYPE.OPEN;
+  
+  // Only use the UI settings status if explicitly provided, otherwise show all non-resolved
+  if (status) {
+    activeStatus.value = status;
+  } else {
+    // Default to showing all non-resolved conversations
+    activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+  }
+  
   activeSortBy.value = Object.values(wootConstants.SORT_BY_TYPE).includes(
     orderBy
   )
@@ -610,6 +618,13 @@ function updateAssigneeTab(selectedTab) {
     resetBulkActions();
     emitter.emit('clearSearchInput');
     activeAssigneeTab.value = selectedTab;
+    
+    // By default, show all non-resolved conversations
+    if (!hasAppliedFilters.value) {
+      store.dispatch('setChatStatusFilter', wootConstants.STATUS_TYPE.ALL);
+      activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+    }
+    
     if (!currentPage.value) {
       fetchConversations();
     }
@@ -753,6 +768,10 @@ useEventListener(conversationDynamicScroller, 'scroll', handleScroll);
 onMounted(() => {
   store.dispatch('setChatListFilters', conversationFilters.value);
   setFiltersFromUISettings();
+  
+  // By default, show all non-resolved conversations
+  activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+  
   store.dispatch('setChatStatusFilter', activeStatus.value);
   store.dispatch('setChatSortFilter', activeSortBy.value);
   resetAndFetchData();
@@ -804,6 +823,20 @@ watch(conversationFilters, (newVal, oldVal) => {
     store.dispatch('updateChatListFilters', newVal);
   }
 });
+
+function onTabChange(value) {
+  store.dispatch('setChatAssigneeTab', value);
+  activeAssigneeTab.value = value;
+  
+  // By default, show all non-resolved conversations
+  if (!hasAppliedFilters.value) {
+    store.dispatch('setChatStatusFilter', wootConstants.STATUS_TYPE.ALL);
+    activeStatus.value = wootConstants.STATUS_TYPE.ALL;
+  }
+  
+  resetBulkActions();
+  fetchConversations();
+}
 </script>
 
 <template>
@@ -851,7 +884,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       :items="assigneeTabItems"
       :active-tab="activeAssigneeTab"
       is-compact
-      @chat-tab-change="updateAssigneeTab"
+      @chat-tab-change="onTabChange"
     />
 
     <p

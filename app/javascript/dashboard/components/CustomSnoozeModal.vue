@@ -1,5 +1,5 @@
 <script>
-import WootModal from 'dashboard/components/modal/Modal.vue';
+import WootModal from 'dashboard/components/Modal.vue';
 import WootButton from 'dashboard/components-next/button/Button.vue';
 import DateTimePicker from 'dashboard/components/DateTimePicker.vue';
 import { addDays, addHours, startOfTomorrow, startOfDay, addWeeks } from 'date-fns';

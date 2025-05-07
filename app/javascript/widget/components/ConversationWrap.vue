@@ -47,21 +47,27 @@ export default {
     showStatusIndicator() {
       const { status, assignee, team } = this.conversationAttributes;
       const isConversationInPendingStatus = status === 'pending';
-      const isConversationOpen = status === 'open';
-      const isLastMessageIncoming =
+      
+      // In Chatwoot:
+      // MESSAGE_TYPE.INCOMING (0) means a message from agent/bot to user
+      // MESSAGE_TYPE.OUTGOING (1) means a message from user to agent/bot
+      const isLastMessageFromAgent = 
         this.lastMessage && this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
+      const isLastMessageFromUser = 
+        this.lastMessage && this.lastMessage.message_type === MESSAGE_TYPE.OUTGOING;
+      
       const isAssignedToAgentOrTeam = assignee || team;
 
-      // Show typing indicator in these cases:
-      // 1. Agent is actively typing (regardless of assignment)
-      // 2. Conversation is pending, last message was from user, and not assigned to anyone
-      // 3. Do NOT show if assigned to agent/team but no active typing (prevents phantom typing)
-      
+      // Case 1: Real agent is typing - show typing indicator
       if (this.isAgentTyping) {
+        // Note: We rely on ActionCable.js to filter out non-agent typing events
+        // when the conversation is assigned
         return true;
       }
       
-      if (isConversationInPendingStatus && isLastMessageIncoming && !isAssignedToAgentOrTeam) {
+      // Case 2: Unassigned conversation in pending status with last message from user
+      // Show typing animation for automated responses
+      if (isConversationInPendingStatus && isLastMessageFromUser && !isAssignedToAgentOrTeam) {
         return true;
       }
       

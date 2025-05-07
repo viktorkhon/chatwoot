@@ -92,8 +92,21 @@ export default {
   },
   mounted() {
     this.$store.dispatch('agents/get');
+    
+    // Listen for new messages in the current conversation
+    emitter.on(BUS_EVENTS.MESSAGE_CREATED, this.handleNewMessage);
+  },
+  beforeDestroy() {
+    // Clean up event listener
+    emitter.off(BUS_EVENTS.MESSAGE_CREATED, this.handleNewMessage);
   },
   methods: {
+    handleNewMessage(data) {
+      // Only refresh if this is for the current conversation
+      if (data.conversation_id === this.conversationId) {
+        this.fetchConversationById();
+      }
+    },
     async fetchConversationById() {
       if (!this.notificationId || !this.conversationId) return;
       this.$store.dispatch('clearSelectedState');
@@ -153,6 +166,10 @@ export default {
         primaryActorType,
         unreadCount,
       });
+
+      if (this.$route.params.notification_id === id.toString()) {
+        return;
+      }
 
       this.$router.push({
         name: 'inbox_view_conversation',

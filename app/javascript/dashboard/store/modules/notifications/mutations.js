@@ -25,21 +25,27 @@ export const mutations = {
   },
   [types.SET_NOTIFICATIONS]: ($state, data) => {
     data.forEach(notification => {
-      // Find existing notification with same primary_actor_id (primary_actor_id is unique)
+      // Find existing notification with same primary_actor_id and primary_actor_type
       const existingNotification = Object.values($state.records).find(
-        record => record.primary_actor_id === notification.primary_actor_id
+        record => 
+          record.primary_actor_id === notification.primary_actor_id &&
+          record.primary_actor_type === notification.primary_actor_type
       );
-      // This is to handle the case where the same notification is received multiple times
-      // On reconnect, if there is existing notification with same primary_actor_id,
-      // it will be deleted and the new one will be added. So it will solve with duplicate notification
+      
       if (existingNotification) {
-        delete $state.records[existingNotification.id];
+        // Update the existing notification while preserving the ID
+        $state.records[existingNotification.id] = {
+          ...$state.records[existingNotification.id],
+          ...notification,
+          id: existingNotification.id // Keep original ID to maintain conversation continuity
+        };
+      } else {
+        // This is a new notification
+        $state.records[notification.id] = {
+          ...($state.records[notification.id] || {}),
+          ...notification,
+        };
       }
-
-      $state.records[notification.id] = {
-        ...($state.records[notification.id] || {}),
-        ...notification,
-      };
     });
   },
   [types.READ_NOTIFICATION]: ($state, { id, read_at }) => {
@@ -53,20 +59,55 @@ export const mutations = {
 
   [types.ADD_NOTIFICATION]($state, data) {
     const { notification, unread_count: unreadCount, count } = data;
+    
+    // Check if we already have a notification for this conversation (primary_actor_id)
+    const existingNotification = Object.values($state.records).find(
+      record => record.primary_actor_id === notification.primary_actor_id &&
+                record.primary_actor_type === notification.primary_actor_type
+    );
 
-    $state.records[notification.id] = {
-      ...($state.records[notification.id] || {}),
-      ...notification,
-    };
+    if (existingNotification) {
+      // Update the existing notification instead of creating a new one
+      $state.records[existingNotification.id] = {
+        ...$state.records[existingNotification.id],
+        ...notification,
+        id: existingNotification.id // Preserve the original notification ID
+      };
+    } else {
+      // This is a new notification
+      $state.records[notification.id] = {
+        ...($state.records[notification.id] || {}),
+        ...notification,
+      };
+    }
+    
     $state.meta.unreadCount = unreadCount;
     $state.meta.count = count;
   },
   [types.UPDATE_NOTIFICATION]($state, data) {
     const { notification, unread_count: unreadCount, count } = data;
-    $state.records[notification.id] = {
-      ...($state.records[notification.id] || {}),
-      ...notification,
-    };
+    
+    // Check if we already have a notification for this conversation (primary_actor_id)
+    const existingNotification = Object.values($state.records).find(
+      record => record.primary_actor_id === notification.primary_actor_id &&
+                record.primary_actor_type === notification.primary_actor_type
+    );
+
+    if (existingNotification) {
+      // Update the existing notification instead of creating a new one
+      $state.records[existingNotification.id] = {
+        ...$state.records[existingNotification.id],
+        ...notification,
+        id: existingNotification.id // Preserve the original notification ID
+      };
+    } else {
+      // This is a new notification
+      $state.records[notification.id] = {
+        ...($state.records[notification.id] || {}),
+        ...notification,
+      };
+    }
+    
     $state.meta.unreadCount = unreadCount;
     $state.meta.count = count;
   },

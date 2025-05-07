@@ -99,6 +99,10 @@ class ActionCableConnector extends BaseActionCableConnector {
       lastActivityAt,
       conversationId,
     });
+    
+    // Emit an event that a message has been created
+    // This allows components to update without navigation changes
+    emitter.emit(BUS_EVENTS.MESSAGE_CREATED, data);
   };
 
   // eslint-disable-next-line class-methods-use-this

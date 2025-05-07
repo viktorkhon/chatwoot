@@ -1,6 +1,4 @@
 import store from '../store'; // Make sure this path is correct for your project
-import NotificationSubscriptions from '../api/notificationSubscriptions';
-import auth from '../api/auth';
 
 /**
  * Sanitize HTML content to plain text for notifications

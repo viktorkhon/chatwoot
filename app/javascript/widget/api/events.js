@@ -1,12 +1,32 @@
 import { API } from 'widget/helpers/axios';
 import { buildSearchParamsWithLocale } from '../helpers/urlParamsHelper';
 
-export const generateEventParams = () => ({
-  initiated_at: {
-    timestamp: new Date().toString(),
-  },
-  referer: window.referrerURL || '',
-});
+export const generateEventParams = () => {
+  // Get all available page information with clean URLs (no trailing semicolons)
+  const currentPageUrl = (window.location.href || document.URL || '').replace(/;$/, '');
+  const currentPageTitle = document.title || '';
+  const referrerUrl = (window.referrerURL || document.referrer || '').replace(/;$/, '');
+  
+  return {
+    initiated_at: {
+      timestamp: new Date().toString(),
+    },
+    referer: referrerUrl,
+    page_url: currentPageUrl,
+    page_title: currentPageTitle,
+    page_info: {
+      pathname: window.location.pathname || '',
+      hostname: window.location.hostname || '',
+      search: window.location.search || '',
+      hash: window.location.hash || ''
+    },
+    browser_info: {
+      language: navigator.language || '',
+      user_agent: navigator.userAgent || '',
+      screen_resolution: `${window.screen.width}x${window.screen.height}` || ''
+    }
+  };
+};
 
 export default {
   create(name) {

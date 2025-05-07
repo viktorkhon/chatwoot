@@ -180,6 +180,21 @@ class Message < ApplicationRecord
       sender: sender.try(:webhook_data),
       source_id: source_id
     }
+    
+    # Ensure custom_attributes exists
+    data[:custom_attributes] ||= {}
+    
+    # Add frontend URL info to custom_attributes
+    frontend_url = ENV.fetch('FRONTEND_URL', '')
+    host = begin
+      URI.parse(frontend_url).host
+    rescue
+      nil
+    end
+    
+    data[:custom_attributes]['frontend_url'] = frontend_url if frontend_url.present?
+    data[:custom_attributes]['host'] = host if host.present?
+    
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
     data
   end

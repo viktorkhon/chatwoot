@@ -21,6 +21,9 @@ class Webhooks::Trigger
         Rails.logger.debug "Webhooks::Trigger.execute - Content Type: #{payload[:content_type]}, Class: #{payload[:content_type].class}"
       end
       
+      # Ensure page info is at the root level of the payload
+      payload = ensure_page_info_at_root(payload)
+      
       response = perform_request(url, payload)
       Rails.logger.debug "Webhooks::Trigger.execute - Response: Status #{response.status}, Body: #{response.body.to_s[0...500]}"
       
@@ -86,6 +89,63 @@ class Webhooks::Trigger
 
   def self.evaluate_response(response)
     response&.parsed_response.presence || { status: 'delivered' }
+  end
+
+  def self.ensure_page_info_at_root(payload)
+    # Clone the payload to modify it
+    enriched_payload = payload.dup
+    
+    # Add debug logging
+    Rails.logger.debug "Webhooks::Trigger - Ensuring page info for payload: #{enriched_payload[:page_url].present? ? 'Has page_url' : 'No page_url'}, visitor_page: #{enriched_payload[:visitor_page].present? ? (enriched_payload[:visitor_page].empty? ? 'Empty' : 'Has content') : 'Missing'}"
+    
+    # Check if visitor_page is empty and remove it to prevent empty objects in the final payload
+    if enriched_payload[:visitor_page].is_a?(Hash) && enriched_payload[:visitor_page].empty?
+      Rails.logger.debug "Webhooks::Trigger - Removing empty visitor_page object"
+      enriched_payload.delete(:visitor_page)
+    end
+    
+    # Check if page URL exists in visitor_page
+    if payload[:visitor_page].present? && !payload[:visitor_page].empty? && 
+       payload[:visitor_page][:page_url].present? && enriched_payload[:page_url].blank?
+      
+      enriched_payload[:page_url] = payload[:visitor_page][:page_url]
+      Rails.logger.debug "Webhooks::Trigger - Added page_url from visitor_page: #{enriched_payload[:page_url]}"
+      
+      # Include other info if available
+      if payload[:visitor_page][:page_title].present?
+        enriched_payload[:page_title] = payload[:visitor_page][:page_title]
+      end
+      
+      if payload[:visitor_page][:referer_url].present?
+        enriched_payload[:referer_url] = payload[:visitor_page][:referer_url]
+      end
+    end
+    
+    # Check for page_url in conversation's custom_attributes
+    if enriched_payload[:page_url].blank? && payload[:conversation].present? && 
+       payload[:conversation][:custom_attributes].present? && 
+       payload[:conversation][:custom_attributes].is_a?(Hash) &&
+       payload[:conversation][:custom_attributes]['page_url'].present?
+       
+      # We found a URL in conversation attributes
+      enriched_payload[:page_url] = payload[:conversation][:custom_attributes]['page_url']
+      Rails.logger.debug "Webhooks::Trigger - Added page_url from conversation custom_attributes: #{enriched_payload[:page_url]}"
+      
+      # Include other info if available
+      attrs = payload[:conversation][:custom_attributes]
+      enriched_payload[:page_title] = attrs['page_title'] if attrs['page_title'].present?
+      enriched_payload[:referer_url] = attrs['referer_url'] if attrs['referer_url'].present?
+    end
+    
+    # Remove empty objects at the root level
+    [:visitor_page].each do |key|
+      if enriched_payload[key].is_a?(Hash) && enriched_payload[key].empty?
+        enriched_payload.delete(key)
+        Rails.logger.debug "Webhooks::Trigger - Removed empty #{key} from payload"
+      end
+    end
+    
+    enriched_payload
   end
 
   def execute

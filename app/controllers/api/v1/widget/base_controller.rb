@@ -38,10 +38,13 @@ class Api::V1::Widget::BaseController < ApplicationController
       additional_attributes: {
         browser_language: browser.accept_language&.first&.code,
         browser: browser_params,
-        initiated_at: timestamp_params,
-        referer: permitted_params[:message][:referer_url]
+        initiated_at: timestamp_params
       },
-      custom_attributes: permitted_params[:custom_attributes].presence || {}
+      custom_attributes: {
+        referer_url: permitted_params[:message][:referer_url],
+        page_url: permitted_params[:message][:page_url],
+        page_title: permitted_params[:message][:page_title]
+      }.merge(permitted_params[:custom_attributes].presence || {})
     }
   end
 
@@ -80,7 +83,12 @@ class Api::V1::Widget::BaseController < ApplicationController
       content: permitted_params[:message][:content],
       inbox_id: conversation.inbox_id,
       content_attributes: {
-        in_reply_to: permitted_params[:message][:reply_to]
+        in_reply_to: permitted_params[:message][:reply_to],
+        page_info: {
+          page_url: permitted_params[:message][:page_url],
+          page_title: permitted_params[:message][:page_title],
+          referer_url: permitted_params[:message][:referer_url]
+        }
       },
       echo_id: permitted_params[:message][:echo_id],
       message_type: :incoming

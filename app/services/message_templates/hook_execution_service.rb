@@ -5,6 +5,11 @@ class MessageTemplates::HookExecutionService
     return if conversation.campaign.present?
     return if conversation.last_incoming_message.blank?
 
+    # For outgoing messages, add page information from the conversation
+    if message.outgoing? && message.content_attributes['page_info'].blank? && conversation.present?
+      add_page_info_to_message
+    end
+
     trigger_templates
   end
 
@@ -72,6 +77,21 @@ class MessageTemplates::HookExecutionService
     return if conversation.messages.where(content_type: :input_csat).present?
 
     true
+  end
+
+  def add_page_info_to_message
+    if conversation.custom_attributes.present?
+      page_info = {
+        'page_url' => conversation.custom_attributes['page_url'],
+        'page_title' => conversation.custom_attributes['page_title'],
+        'referer_url' => conversation.custom_attributes['referer_url']
+      }
+      
+      message.content_attributes = message.content_attributes.merge(
+        page_info: page_info
+      )
+      message.save
+    end
   end
 end
 MessageTemplates::HookExecutionService.prepend_mod_with('MessageTemplates::HookExecutionService')

@@ -44,9 +44,29 @@ class AgentBotListener < BaseListener
     inbox = contact_inbox.inbox
     return unless connected_agent_bot_exist?(inbox)
 
+    # Extract event info with page URL data
+    event_info = event.data[:event_info]
+    
+    # Store page URL information in Redis for future use
+    if event_info.present? && event_info[:page_url].present?
+      # Create a Redis key using the contact_inbox source_id
+      redis_key = "contact_inbox:#{contact_inbox.source_id}:page_info"
+      page_info = {
+        page_url: event_info[:page_url],
+        page_title: event_info[:page_title],
+        referer_url: event_info[:referer]
+      }
+      
+      # Store in Redis with a 30 minute expiration
+      $alfred.with do |conn|
+        conn.set(redis_key, page_info.to_json)
+        conn.expire(redis_key, 30.minutes.to_i)
+      end
+    end
+
     event_name = __method__.to_s
     payload = contact_inbox.webhook_data.merge(event: event_name)
-    payload[:event_info] = event.data[:event_info]
+    payload[:event_info] = event_info
     process_webhook_bot_event(inbox.agent_bot, payload)
   end
 
@@ -62,6 +82,28 @@ class AgentBotListener < BaseListener
   def process_message_event(method_name, agent_bot, message, _event)
     # Only webhook bots are supported
     payload = message.webhook_data.merge(event: method_name)
+    
+    # Ensure custom_attributes exists
+    payload[:custom_attributes] ||= {}
+    
+    # Copy page URL info from conversation custom_attributes if available
+    if message.conversation.present? && message.conversation.custom_attributes.present?
+      conversation = message.conversation
+      
+      if conversation.custom_attributes['page_url'].present?
+        # Only add to custom_attributes, not to root or visitor_page
+        payload[:custom_attributes]['page_url'] = conversation.custom_attributes['page_url']
+        payload[:custom_attributes]['page_title'] = conversation.custom_attributes['page_title'] if conversation.custom_attributes['page_title'].present?
+        payload[:custom_attributes]['referer_url'] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
+      end
+    end
+    
+    # Remove any duplicate data formats we might have added previously
+    payload.delete(:visitor_page)
+    payload.delete(:page_url)
+    payload.delete(:page_title)
+    payload.delete(:referer_url)
+    
     process_webhook_bot_event(agent_bot, payload)
   end
 

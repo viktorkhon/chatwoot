@@ -183,6 +183,14 @@ class Conversation < ApplicationRecord
     dispatcher_dispatch(CONVERSATION_UPDATED, previous_changes)
   end
 
+  def webhook_data
+    data = {
+      **Conversations::EventDataPresenter.new(self).push_data,
+      id: self.id,
+      account_id: self.account_id,
+    }
+    data
+    
   def open!
     # Keep track of the flag before the status change
     preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']
@@ -241,7 +249,23 @@ class Conversation < ApplicationRecord
   end
 
   def notify_conversation_creation
-    dispatcher_dispatch(CONVERSATION_CREATED)
+    # Extract page info from custom_attributes to include in the event data
+    event_info = {}
+    
+    # Add page URL data to custom_attributes if present
+    if custom_attributes.present? && custom_attributes['page_url'].present?
+      # URL information is already in custom_attributes, which is included in webhook data
+      # We don't need to duplicate it in event_info
+    end
+    
+    # Include event_info in the dispatched event
+    Rails.configuration.dispatcher.dispatch(
+      CONVERSATION_CREATED, 
+      Time.zone.now, 
+      conversation: self, 
+      event_info: event_info,
+      performed_by: Current.executed_by
+    )
   end
 
   def notify_conversation_updation

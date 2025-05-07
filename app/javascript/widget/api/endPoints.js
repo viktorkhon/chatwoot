@@ -2,7 +2,9 @@ import { buildSearchParamsWithLocale } from '../helpers/urlParamsHelper';
 import { generateEventParams } from './events';
 
 const createConversation = params => {
-  const referrerURL = window.referrerURL || '';
+  const referrerURL = (window.referrerURL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
   return {
     url: `/api/v1/widget/conversations${search}`,
@@ -16,6 +18,15 @@ const createConversation = params => {
         content: params.message,
         timestamp: new Date().toString(),
         referer_url: referrerURL,
+        page_url: pageURL,
+        page_title: pageTitle,
+        content_attributes: {
+          page_info: {
+            referer_url: referrerURL,
+            page_url: pageURL,
+            page_title: pageTitle
+          }
+        }
       },
       custom_attributes: params.customAttributes,
     },
@@ -23,7 +34,9 @@ const createConversation = params => {
 };
 
 const sendMessage = (content, replyTo) => {
-  const referrerURL = window.referrerURL || '';
+  const referrerURL = (window.referrerURL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
   return {
     url: `/api/v1/widget/messages${search}`,
@@ -33,13 +46,24 @@ const sendMessage = (content, replyTo) => {
         reply_to: replyTo,
         timestamp: new Date().toString(),
         referer_url: referrerURL,
+        page_url: pageURL,
+        page_title: pageTitle,
+        content_attributes: {
+          page_info: {
+            referer_url: referrerURL,
+            page_url: pageURL,
+            page_title: pageTitle
+          }
+        }
       },
     },
   };
 };
 
 const sendAttachment = ({ attachment, replyTo = null }) => {
-  const { referrerURL = '' } = window;
+  const referrerURL = (window.referrerURL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageTitle = document.title || '';
   const timestamp = new Date().toString();
   const { file } = attachment;
 
@@ -51,7 +75,18 @@ const sendAttachment = ({ attachment, replyTo = null }) => {
   }
 
   formData.append('message[referer_url]', referrerURL);
+  formData.append('message[page_url]', pageURL);
+  formData.append('message[page_title]', pageTitle);
   formData.append('message[timestamp]', timestamp);
+  
+  const pageInfoJson = JSON.stringify({
+    referer_url: referrerURL,
+    page_url: pageURL,
+    page_title: pageTitle
+  });
+  
+  formData.append('message[content_attributes][page_info]', pageInfoJson);
+  
   if (replyTo !== null) {
     formData.append('message[reply_to]', replyTo);
   }

@@ -190,7 +190,8 @@ class Conversation < ApplicationRecord
       account_id: self.account_id,
     }
     data
-    
+  end
+
   def open!
     # Keep track of the flag before the status change
     preserve_explicitly_unassigned_flag = additional_attributes.is_a?(Hash) && additional_attributes['explicitly_unassigned']

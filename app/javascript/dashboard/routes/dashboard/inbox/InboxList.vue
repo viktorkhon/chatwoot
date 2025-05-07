@@ -179,7 +179,7 @@ export default {
         id,
         primaryActorId,
         primaryActorType,
-        primaryActor: { inboxId },
+        primaryActor: { id: conversationId, inboxId },
         notificationType,
       } = notification;
 
@@ -202,7 +202,7 @@ export default {
         name: 'inbox_conversation',
         params: {
           accountId: this.$route.params.accountId,
-          conversation_id: primaryActorId,
+          conversation_id: conversationId,
         },
       });
     },

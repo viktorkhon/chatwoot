@@ -57,6 +57,7 @@ export default {
     },
     openConversation(notification) {
       const {
+        id,
         primary_actor_id: primaryActorId,
         primary_actor_type: primaryActorType,
         primary_actor: { id: conversationId },

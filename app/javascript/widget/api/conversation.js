@@ -25,10 +25,13 @@ const getConversationAPI = async () => {
   return API.get(`/api/v1/widget/conversations${window.location.search}`);
 };
 
-const toggleTyping = async ({ typingStatus }) => {
+const toggleTyping = async ({ typingStatus, sourceType = 'user' }) => {
   return API.post(
     `/api/v1/widget/conversations/toggle_typing${window.location.search}`,
-    { typing_status: typingStatus }
+    { 
+      typing_status: typingStatus,
+      source_type: sourceType
+    }
   );
 };
 

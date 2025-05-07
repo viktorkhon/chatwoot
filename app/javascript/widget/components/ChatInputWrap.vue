@@ -105,7 +105,10 @@ export default {
       this.toggleTyping('on');
     },
     toggleTyping(typingStatus) {
-      this.$store.dispatch('conversation/toggleUserTyping', { typingStatus });
+      this.$store.dispatch('conversation/toggleUserTyping', { 
+        typingStatus,
+        sourceType: 'user' 
+      });
     },
     focusInput() {
       this.$refs.chatInput.focus();

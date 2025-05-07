@@ -29,9 +29,10 @@ class Public::Api::V1::Inboxes::ConversationsController < Public::Api::V1::Inbox
   def toggle_typing
     case params[:typing_status]
     when 'on'
-      trigger_typing_event(CONVERSATION_TYPING_ON)
+      # Include the source type in the typing event data
+      trigger_typing_event(CONVERSATION_TYPING_ON, params[:source_type])
     when 'off'
-      trigger_typing_event(CONVERSATION_TYPING_OFF)
+      trigger_typing_event(CONVERSATION_TYPING_OFF, params[:source_type])
     end
     head :ok
   end
@@ -57,8 +58,14 @@ class Public::Api::V1::Inboxes::ConversationsController < Public::Api::V1::Inbox
     ConversationBuilder.new(params: conversation_params, contact_inbox: @contact_inbox).perform
   end
 
-  def trigger_typing_event(event)
-    Rails.configuration.dispatcher.dispatch(event, Time.zone.now, conversation: @conversation, user: @conversation.contact)
+  def trigger_typing_event(event, source_type = nil)
+    # Pass the source type along with the event
+    event_data = { 
+      conversation: @conversation, 
+      user: Current.contact,
+      source_type: source_type
+    }
+    Rails.configuration.dispatcher.dispatch(event, Time.zone.now, event_data)
   end
 
   def conversation_params

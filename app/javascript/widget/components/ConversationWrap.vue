@@ -45,11 +45,29 @@ export default {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
     showStatusIndicator() {
-      return this.isAgentTyping && 
-             this.conversationAttributes && 
-             (this.conversationAttributes.assignee_id || this.conversationAttributes.team_id);
+      // Always show if an agent is actually typing
+      if (this.isAgentTyping) {
+        return true;
+      }
+
+      // Safety checks
+      if (!this.conversationAttributes || !this.lastMessage) {
+        return false;
+      }
+
+      const { status } = this.conversationAttributes;
+      const isConversationInPendingStatus = status === 'pending';
+      const isLastMessageIncoming =
+        this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
+
+      if (isConversationInPendingStatus && isLastMessageIncoming) {
+        return true;
+      }
+
+      return false;
     },
   },
+  
   watch: {
     allMessagesLoaded() {
       this.previousScrollHeight = 0;

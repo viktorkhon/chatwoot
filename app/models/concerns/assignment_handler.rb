@@ -34,6 +34,15 @@ module AssignmentHandler
     }.each do |event, condition|
       condition.call && dispatcher_dispatch(event, previous_changes)
     end
+
+    # If the conversation was pending and an agent or team is assigned, open it.
+    if pending?
+      if saved_change_to_assignee_id? && assignee_id.present?
+        bot_handoff!
+      elsif saved_change_to_team_id? && team_id.present?
+        bot_handoff!
+      end
+    end
   end
 
   def process_assignment_changes

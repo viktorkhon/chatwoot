@@ -81,7 +81,10 @@ export default {
   },
   mounted() {
     // Log items when component mounts for debugging
-    this.logItemsInfo();
+    // this.logItemsInfo(); // Commented out: this method is not defined
+    if (this.isDebugMode) {
+      console.log('CustomCard mounted. Items received:', JSON.parse(JSON.stringify(this.items)));
+    }
   },
   methods: {
     /**
@@ -128,20 +131,30 @@ export default {
      * - For 'postback' type: Emit event to be handled elsewhere
      */
     handleAction(action) {
-      console.log('Button clicked!', action); // Debug logging
+      console.log('--- CustomCard handleAction CALLED --- Action object:', JSON.parse(JSON.stringify(action))); // Ensure this is the VERY FIRST line
       
       if (!action || !action.type) {
-        console.error('Invalid action or missing action type', action);
+        console.error('CustomCard: Invalid action or missing action type', action);
         return;
       }
       
+      // Replace "Select" button text with "More Details" if present
+      // This is a visual change only if the source data still contains 'Select'
+      // Best practice is to change 'Select' to 'More Details' in the source data itself.
+      if (action.text === 'Select') {
+        console.warn("CustomCard: Action text 'Select' found. Consider changing this in the source data to 'More Details'.");
+        // action.text = 'More Details'; // Temporarily disabled to prefer source data change
+      }
+      
       if (action.type === 'link') {
+        console.log('CustomCard: Handling link action. Opening URI:', action.uri);
         // Open external links in new tab with security attributes
         window.open(action.uri, '_blank', 'noopener,noreferrer');
       } else if (action.type === 'postback') {
+        console.log('CustomCard: Handling postback action. Payload:', JSON.parse(JSON.stringify(action.payload)));
         // Attempt to get the global N8N URL (assuming it's set on the window object by Rails)
         const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
-        console.log('N8N URL:', n8nProductInfoUrl); // Debug logging
+        console.log('CustomCard: N8N URL from window.chatwootConfig:', n8nProductInfoUrl);
         
         // If we have product data in the payload, send it to n8n webhook
         if (n8nProductInfoUrl && action.payload) {
@@ -153,13 +166,14 @@ export default {
             } : null);
           
           if (!productData) {
-            console.error('No product data found in payload', action.payload);
-            // Still emit the event as fallback
+            console.error('CustomCard: No product data found in payload for N8N call. Payload was:', JSON.parse(JSON.stringify(action.payload)));
+            // Still emit the event as fallback for other postback types
+            console.log('CustomCard: Falling back to default postback event emission (BUS_EVENTS.CARD_ACTION).');
             emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
             return;
           }
           
-          console.log('Sending data to N8N:', productData); // Debug logging
+          console.log('CustomCard: Sending data to N8N webhook. URL:', n8nProductInfoUrl, 'Data:', JSON.parse(JSON.stringify(productData)));
           
           fetch(n8nProductInfoUrl, {
             method: 'POST',
@@ -169,27 +183,30 @@ export default {
             body: JSON.stringify(productData),
           })
             .then(response => {
+              console.log('CustomCard: N8N webhook fetch response received. Status:', response.status);
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
               }
-              console.log('N8N webhook response received!');
               // Assuming n8n responds with JSON. Adjust if it's text or other content type.
               return response.json(); 
             })
             .then(data => {
-              // You might want to do something with the n8n response here
-              // For example, log it, or emit another event if Chatwoot needs to react to the response
-              console.log('N8N webhook response data:', data);
-              
+              console.log('CustomCard: N8N webhook response data:', data);
               // Optionally, you could emit an event to notify other parts of the app
               emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
             })
             .catch(error => {
-              console.error('Error calling N8N webhook for product details:', error);
+              console.error('CustomCard: Error calling N8N webhook for product details:', error);
               // Optionally, provide user feedback about the error
             });
         } else {
-          console.log('Falling back to default postback behavior');
+          if (!n8nProductInfoUrl) {
+            console.warn('CustomCard: N8N Product Info URL (window.chatwootConfig.n8nRetrieveProductUrl) is not configured.');
+          }
+          if (!action.payload) {
+            console.warn('CustomCard: Action payload is missing for postback.');
+          }
+          console.log('CustomCard: Conditions for N8N call not met. Falling back to default postback event emission (BUS_EVENTS.CARD_ACTION).');
           // Fallback for other types of postback actions
           emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
         }

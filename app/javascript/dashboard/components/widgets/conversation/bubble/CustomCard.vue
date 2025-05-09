@@ -33,15 +33,27 @@
         
         <!-- Card action buttons -->
         <div v-if="item.actions && item.actions.length" class="card-actions">
-          <button
-            v-for="(action, actionIndex) in item.actions"
-            :key="actionIndex"
-            class="card-action-button"
-            :class="{ 'is-link': action.type === 'link', 'is-postback': action.type === 'postback' }"
-            @click="handleAction(action)"
-          >
-            {{ action.text }}
-          </button>
+          <template v-for="(action, actionIndex) in item.actions" :key="actionIndex">
+            <a
+              v-if="action.type === 'link'"
+              :href="action.uri"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="card-action-button"
+              :class="{ 'is-link': true }" 
+            >
+              {{ action.text }}
+            </a>
+            <button
+              v-else
+              type="button" 
+              class="card-action-button"
+              :class="{ 'is-postback': action.type === 'postback' }"
+              @click="handleAction(action)"
+            >
+              {{ action.text }}
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -131,85 +143,65 @@ export default {
      * - For 'postback' type: Emit event to be handled elsewhere
      */
     handleAction(action) {
-      console.log('--- CustomCard handleAction CALLED --- Action object:', JSON.parse(JSON.stringify(action))); // Ensure this is the VERY FIRST line
-      
+      console.log('--- CustomCard.vue (widgets/conversation/bubble) handleAction CALLED --- Action object:', JSON.parse(JSON.stringify(action)));
+
       if (!action || !action.type) {
         console.error('CustomCard: Invalid action or missing action type', action);
         return;
       }
-      
-      // Replace "Select" button text with "More Details" if present
-      // This is a visual change only if the source data still contains 'Select'
-      // Best practice is to change 'Select' to 'More Details' in the source data itself.
+
+      // Note: Text change from 'Select' to 'More Details' should ideally happen at data source.
       if (action.text === 'Select') {
-        console.warn("CustomCard: Action text 'Select' found. Consider changing this in the source data to 'More Details'.");
-        // action.text = 'More Details'; // Temporarily disabled to prefer source data change
+        console.warn("CustomCard: Action text 'Select' found. Source data should provide 'More Details'.");
       }
-      
-      if (action.type === 'link') {
-        console.log('CustomCard: Handling link action. Opening URI:', action.uri);
-        // Open external links in new tab with security attributes
-        window.open(action.uri, '_blank', 'noopener,noreferrer');
-      } else if (action.type === 'postback') {
+
+      // This method now only handles postback, as links are rendered as <a> tags.
+      if (action.type === 'postback') {
         console.log('CustomCard: Handling postback action. Payload:', JSON.parse(JSON.stringify(action.payload)));
-        // Attempt to get the global N8N URL (assuming it's set on the window object by Rails)
         const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
         console.log('CustomCard: N8N URL from window.chatwootConfig:', n8nProductInfoUrl);
-        
-        // If we have product data in the payload, send it to n8n webhook
+
         if (n8nProductInfoUrl && action.payload) {
-          // If product_data doesn't exist but we have product information directly in payload
           const productData = action.payload.product_data || 
             (action.payload.product_id ? {
               product_id: action.payload.product_id,
               product_name: action.payload.product_name || 'Unknown Product'
             } : null);
-          
+
           if (!productData) {
-            console.error('CustomCard: No product data found in payload for N8N call. Payload was:', JSON.parse(JSON.stringify(action.payload)));
-            // Still emit the event as fallback for other postback types
-            console.log('CustomCard: Falling back to default postback event emission (BUS_EVENTS.CARD_ACTION).');
+            console.error('CustomCard: No product data in payload for N8N call. Payload:', JSON.parse(JSON.stringify(action.payload)));
+            console.log('CustomCard: Emitting BUS_EVENTS.CARD_ACTION as fallback.');
             emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
             return;
           }
-          
+
           console.log('CustomCard: Sending data to N8N webhook. URL:', n8nProductInfoUrl, 'Data:', JSON.parse(JSON.stringify(productData)));
-          
           fetch(n8nProductInfoUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(productData),
           })
             .then(response => {
-              console.log('CustomCard: N8N webhook fetch response received. Status:', response.status);
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              // Assuming n8n responds with JSON. Adjust if it's text or other content type.
-              return response.json(); 
+              console.log('CustomCard: N8N fetch response. Status:', response.status);
+              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+              return response.json();
             })
             .then(data => {
-              console.log('CustomCard: N8N webhook response data:', data);
-              // Optionally, you could emit an event to notify other parts of the app
+              console.log('CustomCard: N8N response data:', data);
               emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
             })
             .catch(error => {
-              console.error('CustomCard: Error calling N8N webhook for product details:', error);
-              // Optionally, provide user feedback about the error
+              console.error('CustomCard: Error calling N8N webhook:', error);
             });
         } else {
-          if (!n8nProductInfoUrl) {
-            console.warn('CustomCard: N8N Product Info URL (window.chatwootConfig.n8nRetrieveProductUrl) is not configured.');
-          }
-          if (!action.payload) {
-            console.warn('CustomCard: Action payload is missing for postback.');
-          }
-          console.log('CustomCard: Conditions for N8N call not met. Falling back to default postback event emission (BUS_EVENTS.CARD_ACTION).');
-          // Fallback for other types of postback actions
+          if (!n8nProductInfoUrl) console.warn('CustomCard: N8N URL not configured.');
+          if (!action.payload) console.warn('CustomCard: Postback action payload is missing.');
+          console.log('CustomCard: N8N conditions not met. Emitting BUS_EVENTS.CARD_ACTION.');
           emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
         }
+      } else {
+        // This case should ideally not be reached if links are <a> tags
+        console.warn('CustomCard: handleAction called for non-postback action type:', action.type, 'This might be unexpected.');
       }
     },
     

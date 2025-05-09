@@ -45,14 +45,28 @@ export default {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
     showStatusIndicator() {
-      const { status } = this.conversationAttributes;
-      const isConversationInPendingStatus = status === 'pending';
+      // Always show if an agent is actually typing (covers human agents and bots that send typing signals)
+      if (this.isAgentTyping) {
+        return true;
+      }
+
+      // For unassigned/bot conversations (pending status and no specific human assignee),
+      // show typing indicator after user sends a message (mimics bot "thinking")
+      // Ensure lastMessage and conversationAttributes are available to prevent errors
+      if (!this.lastMessage || Object.keys(this.lastMessage).length === 0 || !this.conversationAttributes) {
+        return false;
+      }
+
+      const { status, assignee_id } = this.conversationAttributes;
+      const isConversationPendingAndUnassigned = status === 'pending' && !assignee_id;
       const isLastMessageIncoming =
         this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
-      return (
-        this.isAgentTyping ||
-        (isConversationInPendingStatus && isLastMessageIncoming)
-      );
+
+      if (isConversationPendingAndUnassigned && isLastMessageIncoming) {
+        return true;
+      }
+
+      return false;
     },
   },
   watch: {

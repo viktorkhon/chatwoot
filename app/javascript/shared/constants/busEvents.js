@@ -15,4 +15,9 @@ export const BUS_EVENTS = {
   NEW_CONVERSATION_MODAL: 'newConversationModal',
   INSERT_INTO_RICH_EDITOR: 'insertIntoRichEditor',
   INSERT_INTO_NORMAL_EDITOR: 'insertIntoNormalEditor',
+  
+  // Adding constants for custom card actions
+  CARD_ACTION: 'CARD_ACTION',
+  CUSTOM_CARD_ACTION: 'CUSTOM_CARD_ACTION',
+  N8N_RESPONSE_RECEIVED: 'N8N_RESPONSE_RECEIVED'
 };

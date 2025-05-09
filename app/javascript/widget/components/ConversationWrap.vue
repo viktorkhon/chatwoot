@@ -44,34 +44,26 @@ export default {
     colorSchemeClass() {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
-    showStatusIndicator() {
-      const { status, assignee, team } = this.conversationAttributes;
-      const isConversationInPendingStatus = status === 'pending';
-      
-      // In Chatwoot:
-      // MESSAGE_TYPE.INCOMING (0) means a message from agent/bot to user
-      // MESSAGE_TYPE.OUTGOING (1) means a message from user to agent/bot
-      const isLastMessageFromAgent = 
-        this.lastMessage && this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
-      const isLastMessageFromUser = 
-        this.lastMessage && this.lastMessage.message_type === MESSAGE_TYPE.OUTGOING;
-      
-      const isAssignedToAgentOrTeam = assignee || team;
-
-      // Case 1: Real agent is typing - show typing indicator
+    showStatusIndicator() {      
+      // Always show if an agent is actually typing
       if (this.isAgentTyping) {
-        // Note: We rely on ActionCable.js to filter out non-agent typing events
-        // when the conversation is assigned
         return true;
       }
-      
-      // Case 2: Unassigned conversation in pending status with last message from user
-      // Show typing animation for automated responses
-      if (isConversationInPendingStatus && isLastMessageFromUser && !isAssignedToAgentOrTeam) {
+
+      // Safety checks
+      if (!this.conversationAttributes || !this.lastMessage) {
+        return false;
+      }
+
+      const { status } = this.conversationAttributes;
+      const isConversationInPendingStatus = status === 'pending';
+      const isLastMessageIncoming =
+        this.lastMessage.message_type === MESSAGE_TYPE.INCOMING;
+
+      if (isConversationInPendingStatus && isLastMessageIncoming) {
         return true;
       }
-      
-      // For all other cases, don't show the typing indicator
+
       return false;
     },
   },

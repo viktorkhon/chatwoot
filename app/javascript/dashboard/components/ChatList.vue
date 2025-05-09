@@ -263,13 +263,10 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
-  const statusFilter = activeStatus.value === 'default_filter' ? 
-    'open_and_pending' : activeStatus.value;
-
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,
     assigneeType: activeAssigneeTab.value,
-    status: statusFilter,
+    status: activeStatus.value,
     sortBy: activeSortBy.value,
     page: conversationListPagination.value,
     labels: props.label ? [props.label] : undefined,
@@ -364,17 +361,7 @@ const uniqueInboxes = computed(() => {
 function setFiltersFromUISettings() {
   const { conversations_filter_by: filterBy = {} } = uiSettings.value;
   const { status, order_by: orderBy } = filterBy;
-  
-  // Only use the UI settings status if explicitly provided, otherwise default to showing open and pending
-  if (status) {
-    // If status is already set in UI settings, respect that choice
-    activeStatus.value = status;
-  } else {
-    // Default behavior for initial page load - only show open and pending via custom filter
-    // We use a special value to indicate our default filter in updateAssigneeTab
-    activeStatus.value = 'default_filter'; 
-  }
-  
+  activeStatus.value = status || wootConstants.STATUS_TYPE.OPEN;
   activeSortBy.value = Object.values(wootConstants.SORT_BY_TYPE).includes(
     orderBy
   )
@@ -623,16 +610,9 @@ function updateAssigneeTab(selectedTab) {
     resetBulkActions();
     emitter.emit('clearSearchInput');
     activeAssigneeTab.value = selectedTab;
-    
-    // Use our default filter unless the user has explicitly chosen a different one
-    // This ensures we show only open and pending by default but respect user choices
-    if (!hasAppliedFilters.value) {
-      activeStatus.value = 'default_filter';
+    if (!currentPage.value) {
+      fetchConversations();
     }
-    
-    store.dispatch('setChatAssigneeTab', selectedTab);
-    store.dispatch('setChatStatusFilter', activeStatus.value);
-    resetAndFetchData();
   }
 }
 
@@ -773,10 +753,6 @@ useEventListener(conversationDynamicScroller, 'scroll', handleScroll);
 onMounted(() => {
   store.dispatch('setChatListFilters', conversationFilters.value);
   setFiltersFromUISettings();
-  
-  // By default, show all non-resolved conversations
-  activeStatus.value = wootConstants.STATUS_TYPE.ALL;
-  
   store.dispatch('setChatStatusFilter', activeStatus.value);
   store.dispatch('setChatSortFilter', activeSortBy.value);
   resetAndFetchData();
@@ -828,20 +804,6 @@ watch(conversationFilters, (newVal, oldVal) => {
     store.dispatch('updateChatListFilters', newVal);
   }
 });
-
-function onTabChange(value) {
-  store.dispatch('setChatAssigneeTab', value);
-  activeAssigneeTab.value = value;
-  
-  // By default, show only open and pending conversations
-  if (!hasAppliedFilters.value) {
-    activeStatus.value = 'default_filter';
-    store.dispatch('setChatStatusFilter', activeStatus.value);
-  }
-  
-  resetBulkActions();
-  fetchConversations();
-}
 </script>
 
 <template>
@@ -889,7 +851,7 @@ function onTabChange(value) {
       :items="assigneeTabItems"
       :active-tab="activeAssigneeTab"
       is-compact
-      @chat-tab-change="onTabChange"
+      @chat-tab-change="updateAssigneeTab"
     />
 
     <p

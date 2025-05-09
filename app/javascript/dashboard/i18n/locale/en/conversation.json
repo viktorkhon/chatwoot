@@ -92,7 +92,8 @@
         "TITLE": "Snooze until",
         "NEXT_REPLY": "Next reply",
         "TOMORROW": "Tomorrow",
-        "NEXT_WEEK": "Next week"
+        "NEXT_WEEK": "Next week",
+        "CUSTOM": "Custom time"
       }
     },
     "CUSTOM_SNOOZE": {

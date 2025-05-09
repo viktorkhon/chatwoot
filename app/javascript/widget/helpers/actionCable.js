@@ -104,12 +104,47 @@ class ActionCableConnector extends BaseActionCableConnector {
     const activeConversationId =
       this.app.$store.getters['conversationAttributes/getConversationParams']
         .id;
+    const conversationAttributes = 
+      this.app.$store.getters['conversationAttributes/getConversationParams'];
     const isUserTypingOnAnotherConversation =
       data.conversation && data.conversation.id !== activeConversationId;
 
     if (isUserTypingOnAnotherConversation || data.is_private) {
       return;
     }
+
+    // Get the conversation's status and assignment information
+    const { assignee, team } = conversationAttributes;
+    const isAssignedToAgentOrTeam = assignee || team;
+    
+    // Check if typing event is from an automated source (like n8n)
+    const isAutomatedSource = data.user && (
+      data.user.bot || 
+      data.user.type === 'automation' || 
+      data.user.type === 'agent_bot'
+    );
+    
+    // Get the last message's sender type - In Chatwoot:
+    // message_type = 0 (INCOMING) means message from agent/bot to user
+    // message_type = 1 (OUTGOING) means message from user to agent/bot
+    const lastMessage = this.app.$store.getters['conversation/getLastMessage'];
+    const isLastMessageFromUser = lastMessage && lastMessage.message_type === 1;
+    
+    // If conversation is assigned to agent/team AND typing event is from an automated source,
+    // don't show the typing indicator
+    if (isAssignedToAgentOrTeam && isAutomatedSource) {
+      return;
+    }
+    
+    // If conversation is assigned to an agent and last message was from user,
+    // only show typing indicator if the typing event is from the assigned agent
+    if (isAssignedToAgentOrTeam && isLastMessageFromUser && data.user) {
+      const isAssignedAgentTyping = assignee && data.user.id === assignee.id;
+      if (!isAssignedAgentTyping) {
+        return;
+      }
+    }
+    
     this.clearTimer();
     this.app.$store.dispatch('conversation/toggleAgentTyping', {
       status: 'on',

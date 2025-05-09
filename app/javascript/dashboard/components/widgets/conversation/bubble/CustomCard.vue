@@ -128,45 +128,68 @@ export default {
      * - For 'postback' type: Emit event to be handled elsewhere
      */
     handleAction(action) {
-      if (!action || !action.type) return;
+      console.log('Button clicked!', action); // Debug logging
+      
+      if (!action || !action.type) {
+        console.error('Invalid action or missing action type', action);
+        return;
+      }
       
       if (action.type === 'link') {
         // Open external links in new tab with security attributes
         window.open(action.uri, '_blank', 'noopener,noreferrer');
       } else if (action.type === 'postback') {
         // Attempt to get the global N8N URL (assuming it's set on the window object by Rails)
-        const n8nProductInfoUrl = window.N8N_RETRIEVE_PRODUCT_URL;
-
-        if (n8nProductInfoUrl && action.payload && action.payload.product_data) {
-          // This is our specific postback for product details to n8n
+        const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
+        console.log('N8N URL:', n8nProductInfoUrl); // Debug logging
+        
+        // If we have product data in the payload, send it to n8n webhook
+        if (n8nProductInfoUrl && action.payload) {
+          // If product_data doesn't exist but we have product information directly in payload
+          const productData = action.payload.product_data || 
+            (action.payload.product_id ? {
+              product_id: action.payload.product_id,
+              product_name: action.payload.product_name || 'Unknown Product'
+            } : null);
+          
+          if (!productData) {
+            console.error('No product data found in payload', action.payload);
+            // Still emit the event as fallback
+            emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
+            return;
+          }
+          
+          console.log('Sending data to N8N:', productData); // Debug logging
+          
           fetch(n8nProductInfoUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(action.payload.product_data),
+            body: JSON.stringify(productData),
           })
             .then(response => {
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
               }
+              console.log('N8N webhook response received!');
               // Assuming n8n responds with JSON. Adjust if it's text or other content type.
               return response.json(); 
             })
             .then(data => {
               // You might want to do something with the n8n response here
               // For example, log it, or emit another event if Chatwoot needs to react to the response
-              if (this.isDebugMode) {
-                console.log('N8N webhook response:', data);
-              }
+              console.log('N8N webhook response data:', data);
+              
               // Optionally, you could emit an event to notify other parts of the app
-              // emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
+              emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
             })
             .catch(error => {
               console.error('Error calling N8N webhook for product details:', error);
               // Optionally, provide user feedback about the error
             });
         } else {
+          console.log('Falling back to default postback behavior');
           // Fallback for other types of postback actions
           emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
         }

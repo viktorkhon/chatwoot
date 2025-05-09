@@ -12,16 +12,6 @@ export default {
       default: () => {},
     },
   },
-  data() {
-    return {
-      isDebug: process.env.NODE_ENV !== 'production',
-    };
-  },
-  mounted() {
-    if (this.isDebug) {
-      console.log('CustomCardButton mounted. Action:', JSON.parse(JSON.stringify(this.action)));
-    }
-  },
   computed: {
     ...mapGetters({
       widgetColor: 'appConfig/getWidgetColor',
@@ -41,20 +31,11 @@ export default {
   },
   methods: {
     onClick() {
-      console.log('🔴 BUTTON CLICKED: CustomCardButton.onClick() called with action:', 
-                 JSON.parse(JSON.stringify(this.action)));
-                 
       if (this.isPostback) {
-        console.log('📱 Handling postback action: ', this.action.text);
-        
-        // Try to get n8n URL from window config
+        // Process n8n webhook if configured
         const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
-        console.log('🌐 N8N URL:', n8nProductInfoUrl);
         
-        // Check if we have the n8n webhook URL configured
         if (n8nProductInfoUrl) {
-          console.log('✅ N8N URL found. Processing webhook call...');
-          
           // Prepare payload - handle both string and object cases
           let productData;
           if (typeof this.action.payload === 'string') {
@@ -69,13 +50,9 @@ export default {
           } else if (typeof this.action.payload === 'object' && this.action.payload !== null) {
             // If payload is an object, use it directly
             productData = this.action.payload;
-          } else {
-            console.warn('⚠️ No usable product data in payload');
           }
           
           if (productData) {
-            console.log('📦 Sending data to n8n:', productData);
-            
             // Make the actual API call to n8n
             fetch(n8nProductInfoUrl, {
               method: 'POST',
@@ -83,41 +60,36 @@ export default {
               body: JSON.stringify(productData)
             })
             .then(response => {
-              console.log(`📣 n8n response status: ${response.status}`);
               if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
               }
               return response.json();
             })
             .then(data => {
-              console.log('🎉 n8n response data:', data);
               // Emit event with response data if needed
-              emitter.emit('N8N_RESPONSE_RECEIVED', data);
+              emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
             })
             .catch(error => {
-              console.error('❌ Error calling n8n webhook:', error);
+              console.error('Error calling n8n webhook:', error);
             });
           }
         }
         
-        // Send message to parent iframe (original behavior)
+        // Standard iframe postback behavior (keep original functionality)
         if (IFrameHelper.isIFrame()) {
-          console.log('📤 Sending postback to parent iframe');
           IFrameHelper.sendMessage({
             event: 'postback',
             data: { payload: this.action.payload },
           });
         } else {
-          console.log('🔄 Not in iframe, emitting CUSTOM_CARD_ACTION event');
-          // If not in iframe, emit the event locally (for dashboard view)
-          emitter.emit(BUS_EVENTS.CUSTOM_CARD_ACTION || 'CUSTOM_CARD_ACTION', {
+          // If not in iframe, emit the event locally
+          emitter.emit(BUS_EVENTS.CUSTOM_CARD_ACTION, {
             action: this.action,
             card: this.$parent.$props,
           });
         }
       } else if (this.isCustom) {
-        console.log('🔧 Handling custom action type');
-        emitter.emit(BUS_EVENTS.CUSTOM_CARD_ACTION || 'CUSTOM_CARD_ACTION', {
+        emitter.emit(BUS_EVENTS.CUSTOM_CARD_ACTION, {
           action: this.action,
           card: this.$parent.$props,
         });

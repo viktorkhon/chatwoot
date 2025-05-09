@@ -85,18 +85,9 @@ export default {
   },
   data() {
     return {
-      // Enable debug mode for troubleshooting - set to false for production
-      isDebugMode: process.env.NODE_ENV !== 'production',
       loadedImages: 0,
       errorImages: 0,
     };
-  },
-  mounted() {
-    // Log items when component mounts for debugging
-    // this.logItemsInfo(); // Commented out: this method is not defined
-    if (this.isDebugMode) {
-      console.log('CustomCard mounted. Items received:', JSON.parse(JSON.stringify(this.items)));
-    }
   },
   methods: {
     /**
@@ -135,7 +126,7 @@ export default {
     handleImageError(e) {
       e.target.classList.add('image-error');
       this.errorImages++;
-     },
+    },
     
     /**
      * Handle actions when a card button is clicked
@@ -143,65 +134,12 @@ export default {
      * - For 'postback' type: Emit event to be handled elsewhere
      */
     handleAction(action) {
-      console.log('--- CustomCard.vue (widgets/conversation/bubble) handleAction CALLED --- Action object:', JSON.parse(JSON.stringify(action)));
+      if (!action || !action.type) return;
 
-      if (!action || !action.type) {
-        console.error('CustomCard: Invalid action or missing action type', action);
-        return;
-      }
-
-      // Note: Text change from 'Select' to 'More Details' should ideally happen at data source.
-      if (action.text === 'Select') {
-        console.warn("CustomCard: Action text 'Select' found. Source data should provide 'More Details'.");
-      }
-
-      // This method now only handles postback, as links are rendered as <a> tags.
+      // This component now only handles postback events
+      // Links are handled by <a> tags directly
       if (action.type === 'postback') {
-        console.log('CustomCard: Handling postback action. Payload:', JSON.parse(JSON.stringify(action.payload)));
-        const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
-        console.log('CustomCard: N8N URL from window.chatwootConfig:', n8nProductInfoUrl);
-
-        if (n8nProductInfoUrl && action.payload) {
-          const productData = action.payload.product_data || 
-            (action.payload.product_id ? {
-              product_id: action.payload.product_id,
-              product_name: action.payload.product_name || 'Unknown Product'
-            } : null);
-
-          if (!productData) {
-            console.error('CustomCard: No product data in payload for N8N call. Payload:', JSON.parse(JSON.stringify(action.payload)));
-            console.log('CustomCard: Emitting BUS_EVENTS.CARD_ACTION as fallback.');
-            emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
-            return;
-          }
-
-          console.log('CustomCard: Sending data to N8N webhook. URL:', n8nProductInfoUrl, 'Data:', JSON.parse(JSON.stringify(productData)));
-          fetch(n8nProductInfoUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(productData),
-          })
-            .then(response => {
-              console.log('CustomCard: N8N fetch response. Status:', response.status);
-              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-              return response.json();
-            })
-            .then(data => {
-              console.log('CustomCard: N8N response data:', data);
-              emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
-            })
-            .catch(error => {
-              console.error('CustomCard: Error calling N8N webhook:', error);
-            });
-        } else {
-          if (!n8nProductInfoUrl) console.warn('CustomCard: N8N URL not configured.');
-          if (!action.payload) console.warn('CustomCard: Postback action payload is missing.');
-          console.log('CustomCard: N8N conditions not met. Emitting BUS_EVENTS.CARD_ACTION.');
-          emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
-        }
-      } else {
-        // This case should ideally not be reached if links are <a> tags
-        console.warn('CustomCard: handleAction called for non-postback action type:', action.type, 'This might be unexpected.');
+        emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
       }
     },
     

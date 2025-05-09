@@ -45,7 +45,9 @@ export default {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
     showStatusIndicator() {
-      return this.isAgentTyping;
+      return this.isAgentTyping && 
+             this.conversationAttributes && 
+             (this.conversationAttributes.assignee_id || this.conversationAttributes.team_id);
     },
   },
   watch: {

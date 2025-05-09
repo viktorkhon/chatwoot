@@ -35,6 +35,10 @@ export default {
         // Process n8n webhook if configured
         const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
         
+        if (!n8nProductInfoUrl) {
+          console.warn('⚠️ Webhook URL is missing in window.chatwootConfig.n8nRetrieveProductUrl');
+        }
+        
         if (n8nProductInfoUrl) {
           // Prepare payload - handle both string and object cases
           let productData;
@@ -53,6 +57,10 @@ export default {
           }
           
           if (productData) {
+            // Log exact URL and data being sent
+            console.log('🔗 Webhook URL:', n8nProductInfoUrl);
+            console.log('📦 Sending data:', JSON.stringify(productData, null, 2));
+            
             // Make the actual API call to n8n
             fetch(n8nProductInfoUrl, {
               method: 'POST',
@@ -63,14 +71,16 @@ export default {
               if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
               }
+              console.log('✅ Webhook response status:', response.status);
               return response.json();
             })
             .then(data => {
               // Emit event with response data if needed
+              console.log('📬 Webhook response data:', data);
               emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
             })
             .catch(error => {
-              console.error('Error calling n8n webhook:', error);
+              console.error('❌ Error calling n8n webhook:', error.message);
             });
           }
         }

@@ -134,8 +134,42 @@ export default {
         // Open external links in new tab with security attributes
         window.open(action.uri, '_blank', 'noopener,noreferrer');
       } else if (action.type === 'postback') {
-        // Emit event for postback actions to be handled by parent components
-        emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
+        // Attempt to get the global N8N URL (assuming it's set on the window object by Rails)
+        const n8nProductInfoUrl = window.N8N_RETRIEVE_PRODUCT_URL;
+
+        if (n8nProductInfoUrl && action.payload && action.payload.product_data) {
+          // This is our specific postback for product details to n8n
+          fetch(n8nProductInfoUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(action.payload.product_data),
+          })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              // Assuming n8n responds with JSON. Adjust if it's text or other content type.
+              return response.json(); 
+            })
+            .then(data => {
+              // You might want to do something with the n8n response here
+              // For example, log it, or emit another event if Chatwoot needs to react to the response
+              if (this.isDebugMode) {
+                console.log('N8N webhook response:', data);
+              }
+              // Optionally, you could emit an event to notify other parts of the app
+              // emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
+            })
+            .catch(error => {
+              console.error('Error calling N8N webhook for product details:', error);
+              // Optionally, provide user feedback about the error
+            });
+        } else {
+          // Fallback for other types of postback actions
+          emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
+        }
       }
     },
     

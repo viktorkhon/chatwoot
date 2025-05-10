@@ -13,6 +13,8 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import V4Button from 'dashboard/components-next/button/Button.vue';
 import WootConfirmDeleteModal from 'dashboard/components/widgets/modal/ConfirmDeleteModal.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import alertMixin from 'shared/mixins/alertMixin';
+import WootTabs from 'dashboard/components/widgets/tabs/Tabs.vue';
 
 export default {
   components: {
@@ -21,6 +23,7 @@ export default {
     WootConfirmDeleteModal,
     NextButton,
   },
+  mixins: [alertMixin],
   setup() {
     const { updateUISettings } = useUISettings();
     const { enabledLanguages } = useConfig();
@@ -180,19 +183,40 @@ export default {
         return;
       }
       try {
-        await this.$store.dispatch('accounts/update', {
+        // Track previous values for logging
+        const previousShopifyName = this.$store.getters['accounts/getAccount'].shopify_name;
+        
+        const response = await this.$store.dispatch('accounts/update', {
           locale: this.locale,
           name: this.name,
           domain: this.domain,
           support_email: this.supportEmail,
-          auto_resolve_duration: this.autoResolveDuration,
+          auto_resolve_duration: Number(this.autoResolveDuration),
           shopify_name: this.shopifyName,
           vector_database_namespace: this.vectorDatabaseNamespace,
         });
-        this.$root.$i18n.locale = this.locale;
-        this.getAccount(this.id).locale = this.locale;
-        this.updateDirectionView(this.locale);
-        useAlert(this.$t('GENERAL_SETTINGS.UPDATE.SUCCESS'));
+        
+        // Log changes to Shopify Name
+        if (previousShopifyName !== this.shopifyName) {
+          console.log('🔔 Shopify Name updated from', 
+            previousShopifyName || 'empty', 
+            'to', 
+            this.shopifyName || 'empty'
+          );
+          
+          // Show notification
+          this.showAlert(
+            this.$t('GENERAL_SETTINGS.SHOPIFY_NAME_UPDATED_TITLE'),
+            this.$t('GENERAL_SETTINGS.SHOPIFY_NAME_UPDATED_MESSAGE', {
+              webhookUrl: 'N8N_SHOPIFY_WEBHOOK_URL'
+            })
+          );
+        }
+
+        this.showAlert(
+          this.$t('GENERAL_SETTINGS.UPDATE_SUCCESSFUL_TITLE'),
+          this.$t('GENERAL_SETTINGS.UPDATE_SUCCESSFUL_MESSAGE')
+        );
       } catch (error) {
         useAlert(this.$t('GENERAL_SETTINGS.UPDATE.ERROR'));
       }

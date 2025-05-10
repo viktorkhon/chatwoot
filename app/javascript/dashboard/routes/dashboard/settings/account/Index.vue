@@ -14,7 +14,6 @@ import V4Button from 'dashboard/components-next/button/Button.vue';
 import WootConfirmDeleteModal from 'dashboard/components/widgets/modal/ConfirmDeleteModal.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import alertMixin from 'shared/mixins/alertMixin';
-import WootTabs from 'dashboard/components/widgets/tabs/Tabs.vue';
 
 export default {
   components: {

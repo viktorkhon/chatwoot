@@ -12,6 +12,13 @@ export default {
       default: () => {},
     },
   },
+  mounted() {
+    // Debug log to check configuration on component mount
+    console.log('CustomCardButton mounted with:');
+    console.log('- window.chatwootConfig:', window.chatwootConfig);
+    console.log('- n8n URL:', window.chatwootConfig?.n8nRetrieveProductUrl);
+    console.log('- Action:', this.action);
+  },
   computed: {
     ...mapGetters({
       widgetColor: 'appConfig/getWidgetColor',

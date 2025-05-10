@@ -33,15 +33,27 @@
         
         <!-- Card action buttons -->
         <div v-if="item.actions && item.actions.length" class="card-actions">
-          <button
-            v-for="(action, actionIndex) in item.actions"
-            :key="actionIndex"
-            class="card-action-button"
-            :class="{ 'is-link': action.type === 'link', 'is-postback': action.type === 'postback' }"
-            @click="handleAction(action)"
-          >
-            {{ action.text }}
-          </button>
+          <template v-for="(action, actionIndex) in item.actions" :key="actionIndex">
+            <a
+              v-if="action.type === 'link'"
+              :href="action.uri"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="card-action-button"
+              :class="{ 'is-link': true }" 
+            >
+              {{ action.text }}
+            </a>
+            <button
+              v-else
+              type="button" 
+              class="card-action-button"
+              :class="{ 'is-postback': action.type === 'postback' }"
+              @click="handleAction(action)"
+            >
+              {{ action.text }}
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -73,15 +85,9 @@ export default {
   },
   data() {
     return {
-      // Enable debug mode for troubleshooting - set to false for production
-      isDebugMode: process.env.NODE_ENV !== 'production',
       loadedImages: 0,
       errorImages: 0,
     };
-  },
-  mounted() {
-    // Log items when component mounts for debugging
-    this.logItemsInfo();
   },
   methods: {
     /**
@@ -120,7 +126,7 @@ export default {
     handleImageError(e) {
       e.target.classList.add('image-error');
       this.errorImages++;
-     },
+    },
     
     /**
      * Handle actions when a card button is clicked
@@ -129,12 +135,10 @@ export default {
      */
     handleAction(action) {
       if (!action || !action.type) return;
-      
-      if (action.type === 'link') {
-        // Open external links in new tab with security attributes
-        window.open(action.uri, '_blank', 'noopener,noreferrer');
-      } else if (action.type === 'postback') {
-        // Emit event for postback actions to be handled by parent components
+
+      // This component now only handles postback events
+      // Links are handled by <a> tags directly
+      if (action.type === 'postback') {
         emitter.emit(BUS_EVENTS.CARD_ACTION, action.payload);
       }
     },

@@ -1,5 +1,6 @@
 class DevToolsController < ApplicationController
-  skip_before_action :authenticate_user!, only: [:check_env]
+  skip_before_action :authenticate_user!, raise: false
+  skip_before_action :require_no_authentication, raise: false
   
   def check_env
     raise ActionController::RoutingError.new('Not Found') if Rails.env.production?

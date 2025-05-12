@@ -548,4 +548,11 @@ Rails.application.routes.draw do
   # ----------------------------------------------------------------------
   # Routes for testing
   resources :widget_tests, only: [:index] unless Rails.env.production?
+
+  # Development-only routes
+  unless Rails.env.production?
+    scope :dev_tools do
+      get 'check_env/:var_name', to: 'dev_tools#check_env'
+    end
+  end
 end

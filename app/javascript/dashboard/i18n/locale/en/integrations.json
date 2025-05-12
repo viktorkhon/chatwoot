@@ -41,7 +41,8 @@
             "MESSAGE_UPDATED": "Message updated",
             "WEBWIDGET_TRIGGERED": "Live chat widget opened by the user",
             "CONTACT_CREATED": "Contact created",
-            "CONTACT_UPDATED": "Contact updated"
+            "CONTACT_UPDATED": "Contact updated",
+            "SHOPIFY_NAME_UPDATED": "Shopify Name updated"
           }
         },
         "END_POINT": {

@@ -86,6 +86,9 @@ class Account < ApplicationRecord
   before_validation :validate_limit_keys
   after_create_commit :notify_creation
   after_destroy :remove_account_sequences
+  
+  # Track shopify_name changes
+  after_update :notify_shopify_name_update, if: -> { saved_change_to_shopify_name? }
 
   def agents
     users.where(account_users: { role: :agent })
@@ -140,6 +143,15 @@ class Account < ApplicationRecord
 
   def notify_creation
     Rails.configuration.dispatcher.dispatch(ACCOUNT_CREATED, Time.zone.now, account: self)
+  end
+  
+  def notify_shopify_name_update
+    Rails.configuration.dispatcher.dispatch(
+      Events::Types::SHOPIFY_NAME_UPDATED,
+      Time.zone.now,
+      account: self,
+      shopify_name_change: saved_change_to_shopify_name
+    )
   end
 
   trigger.after(:insert).for_each(:row) do

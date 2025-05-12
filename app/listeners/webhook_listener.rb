@@ -101,34 +101,26 @@ class WebhookListener < BaseListener
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
 
-    # Extract event info with page URL
-    event_info = event.data[:event_info] || {}
-    
-    payload = contact_inbox.webhook_data.merge(event: __method__.to_s)
-    
-    # Ensure custom_attributes exists
-    payload[:custom_attributes] ||= {}
-    
-    # Add page URL to custom_attributes for easier access in webhooks
-    if event_info.present?
-      # Make sure URLs don't have trailing semicolons
-      referer = event_info[:referer]&.gsub(/;$/, '')
-      page_url = event_info[:page_url]&.gsub(/;$/, '')
-      
-      # Add to custom_attributes
-      payload[:custom_attributes]['page_url'] = page_url if page_url.present?
-      payload[:custom_attributes]['page_title'] = event_info[:page_title] if event_info[:page_title].present?
-      payload[:custom_attributes]['referer_url'] = referer if referer.present?
-    end
-    
-    # Keep event_info in the payload for backwards compatibility
-    # but remove any URL data from it
-    if event_info.present?
-      event_info = event_info.except(:page_url, :page_title, :referer)
-      payload[:event_info] = event_info unless event_info.empty?
-    end
-    
-    deliver_webhook_payloads(payload, inbox)
+    # We are transforming contact inbox based payload to conversation based payload for simplicty of clients
+    payload = {
+      id: SecureRandom.uuid,
+      event: __method__.to_s,
+      website: {
+        url: event.data[:url].present? ? event.data[:url] : contact_inbox.associated_contact&.referer
+      },
+      visitor: contact_inbox.webhook_data,
+      browser: {
+        browser_name: event.data[:browser_attributes]['browser_name'],
+        browser_version: event.data[:browser_attributes]['browser_version'],
+        platform_name: event.data[:browser_attributes]['platform_name'],
+        platform_version: event.data[:browser_attributes]['platform_version']
+      }.compact,
+      triggered_at: Time.now
+    }
+
+    # Setup business level sources like referer etc in custom_attributes payload
+    page_enriched_payload = add_page_enrichment_to_payload(payload, event)
+    deliver_webhook_payloads(page_enriched_payload, inbox)
   end
 
   def contact_created(event)
@@ -176,6 +168,31 @@ class WebhookListener < BaseListener
 
     inbox_webhook_data = Inbox::EventDataPresenter.new(inbox).push_data
     payload = inbox_webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
+    deliver_account_webhooks(payload, account)
+  end
+
+  def shopify_name_updated(event)
+    account = event.data[:account]
+    shopify_name_change = event.data[:shopify_name_change]
+    
+    # Only proceed if we have valid data
+    return if account.blank? || shopify_name_change.blank?
+    
+    # Get previous and current values
+    previous_value = shopify_name_change[0]
+    current_value = shopify_name_change[1]
+    
+    # Create the payload
+    payload = {
+      event: __method__.to_s,
+      account: account.webhook_data,
+      shopify_name: {
+        previous_value: previous_value,
+        current_value: current_value
+      }
+    }
+    
+    # Deliver to subscribed webhooks
     deliver_account_webhooks(payload, account)
   end
 
@@ -274,5 +291,25 @@ class WebhookListener < BaseListener
         payload[:custom_attributes]['referer_url'] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
       end
     end
+  end
+
+  def add_page_enrichment_to_payload(payload, event)
+    # This method takes the payload which is already having referer
+    # And enrich it with more business level information
+    visitor_page = {
+      url: event.data[:url],
+      referer: event.data[:referer_url]
+    }.compact
+
+    return payload if visitor_page.blank?
+
+    payload[:visitor] ||= {}
+    payload[:visitor][:custom_attributes] ||= {}
+    payload[:visitor][:custom_attributes][:page] = visitor_page
+
+    # Add for backward compatibility
+    payload[:visitor_page] = visitor_page
+
+    payload
   end
 end

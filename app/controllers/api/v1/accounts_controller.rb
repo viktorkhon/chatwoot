@@ -44,10 +44,26 @@ class Api::V1::AccountsController < Api::BaseController
   end
 
   def update
+    # Check if shopify_name is being updated
+    shopify_name_changing = account_params[:shopify_name].present? && 
+                            account_params[:shopify_name] != @account.shopify_name
+
+    # Store the old value
+    old_shopify_name = @account.shopify_name
+
     @account.assign_attributes(account_params.slice(:name, :locale, :domain, :support_email, :auto_resolve_duration, :shopify_name, :vector_database_namespace))
     @account.custom_attributes.merge!(custom_attributes_params)
     @account.custom_attributes['onboarding_step'] = 'invite_team' if @account.custom_attributes['onboarding_step'] == 'account_update'
-    @account.save!
+    
+    if @account.save!
+      # Log about shopify_name changes
+      if shopify_name_changing
+        Rails.logger.info "🔔 Shopify Name changed from '#{old_shopify_name}' to '#{@account.shopify_name}'"
+        
+        # Create a flash notice that can be shown in the UI
+        flash[:success] = "Shopify Name updated successfully. Webhook notification sent to n8n."
+      end
+    end
   end
 
   def update_active_at

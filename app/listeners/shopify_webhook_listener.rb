@@ -1,11 +1,6 @@
 class ShopifyWebhookListener < BaseListener
   include Singleton
   
-  # This method matches the event name after conversion from 'shopify_name.updated' to 'shopify_name_updated'
-  def shopify_name_updated(event)
-    account_shopify_name_updated(event)
-  end
-  
   def account_shopify_name_updated(event)
     Rails.logger.info "DEBUG: Entered ShopifyWebhookListener#account_shopify_name_updated with event: \\#{event.inspect}"
     shopify_name_change = event.data[:shopify_name_change]

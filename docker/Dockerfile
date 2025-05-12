@@ -1,157 +1,70 @@
-# pre-build stage
-FROM node:23-alpine as node
-FROM ruby:3.3.3-alpine3.19 AS pre-builder
+# Dockerfile (for Railway CI/CD)
 
-ARG NODE_VERSION="23.7.0"
-ARG PNPM_VERSION="10.2.0"
-ENV NODE_VERSION=${NODE_VERSION}
-ENV PNPM_VERSION=${PNPM_VERSION}
+# --- Build Arguments ---
+# These allow you to specify your Docker Hub username and base image tag during build.
+# Railway doesn't directly use these for *its* build, but they are good for local testing.
+# For Railway, the FROM line will be used as is.
+ARG YOUR_DOCKERHUB_USERNAME="yourdockerhubusername" # Replace with your Docker Hub username
+ARG BASE_IMAGE_TAG="latest" # Replace with your specific tag, e.g., v1.0.0
 
-# ARG default to production settings
-# For development docker-compose file overrides ARGS
-ARG BUNDLE_WITHOUT="development:test"
-ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
-ENV BUNDLER_VERSION=2.5.11
+# --- Base Image ---
+FROM ${YOUR_DOCKERHUB_USERNAME}/my-chatwoot-base:${BASE_IMAGE_TAG}
 
-ARG RAILS_SERVE_STATIC_FILES=true
-ENV RAILS_SERVE_STATIC_FILES ${RAILS_SERVE_STATIC_FILES}
+# --- Environment Arguments and Variables ---
+# These can be overridden by Railway's service environment variables at runtime.
+# RAILS_ENV is crucial for asset precompilation.
+ARG RAILS_ENV_ARG="production"
+ARG RAILS_SERVE_STATIC_FILES_ARG="true"
+ARG EXECJS_RUNTIME_ARG="Disabled" # From your original final stage
+ARG BUNDLE_FORCE_RUBY_PLATFORM_ARG="1" # From your original final stage
 
-ARG RAILS_ENV=production
-ENV RAILS_ENV ${RAILS_ENV}
-
-ARG NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
-ENV NODE_OPTIONS ${NODE_OPTIONS}
-
-ENV BUNDLE_PATH="/gems"
-
-RUN apk update && apk add --no-cache \
-  openssl \
-  tar \
-  build-base \
-  tzdata \
-  postgresql-dev \
-  postgresql-client \
-  git \
-  curl \
-  xz \
-  && mkdir -p /var/app \
-  && gem install bundler
-
-COPY --from=node /usr/local/bin/node /usr/local/bin/
-COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-  && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-
-RUN npm install -g pnpm@${PNPM_VERSION}
-
-RUN echo 'export PNPM_HOME="/root/.local/share/pnpm"' >> /root/.shrc \
-  && echo 'export PATH="$PNPM_HOME:$PATH"' >> /root/.shrc \
-  && export PNPM_HOME="/root/.local/share/pnpm" \
-  && export PATH="$PNPM_HOME:$PATH" \
-  && pnpm --version
-
-# Persist the environment variables in Docker
-ENV PNPM_HOME="/root/.local/share/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+ENV RAILS_ENV=${RAILS_ENV_ARG}
+ENV NODE_ENV=${RAILS_ENV_ARG} # Keep NODE_ENV consistent
+ENV RAILS_SERVE_STATIC_FILES=${RAILS_SERVE_STATIC_FILES_ARG}
+ENV EXECJS_RUNTIME=${EXECJS_RUNTIME_ARG}
+ENV BUNDLE_FORCE_RUBY_PLATFORM=${BUNDLE_FORCE_RUBY_PLATFORM_ARG}
+# BUNDLE_PATH, PNPM_HOME, PATH, etc., are inherited from the base image.
 
 WORKDIR /app
 
-COPY Gemfile Gemfile.lock ./
+# --- Copy Application Code ---
+# Ensure you have a good .dockerignore file to exclude .git, tmp, local .env,
+# node_modules (already in base), vendor/bundle (already in base), etc.
+COPY . .
 
-# natively compile grpc and protobuf to support alpine musl (dialogflow-docker workflow)
-# adding xz as nokogiri was failing to build libxml
-RUN apk update && apk add --no-cache build-base musl ruby-full ruby-dev gcc make musl-dev openssl openssl-dev g++ linux-headers xz vips
-RUN bundle config set --local force_ruby_platform true
-
-# Do not install development or test gems in production
+# --- Asset Precompilation ---
+# This step runs if RAILS_ENV is production.
+# A dummy SECRET_KEY_BASE is sufficient for assets:precompile.
+# RAILS_LOG_TO_STDOUT=true helps in debugging asset compilation.
 RUN if [ "$RAILS_ENV" = "production" ]; then \
-  bundle config set without 'development test'; bundle install -j 4 -r 3; \
-  else bundle install -j 4 -r 3; \
+    echo "Precompiling assets for production..." && \
+    SECRET_KEY_BASE_DUMMY= blanchâtre RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace && \
+    echo "Asset precompilation complete." && \
+    # Clean up files not needed in the final production image after precompilation
+    # Be CAREFUL with removing ./node_modules. If any runtime JS execution (not frontend)
+    # depends on it, do not remove it. For Chatwoot, assets are typically self-contained.
+    rm -rf ./tmp/cache/* ./node_modules ./spec ./app/assets/builds/*.*; \
   fi
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm i
+# --- Generate .git_sha ---
+# RAILWAY_GIT_COMMIT_SHA is automatically provided by Railway's build environment.
+# For local builds, you might want to pass it as a build-arg or let it default.
+ARG RAILWAY_GIT_COMMIT_SHA_ARG=${RAILWAY_GIT_COMMIT_SHA:-unknown}
+RUN echo "${RAILWAY_GIT_COMMIT_SHA_ARG}" > /app/.git_sha
 
-COPY . /app
+# --- Final Cleanup (if any specific to app code) ---
+# Most heavy cleanup (gem caches etc) is done in the base image.
+# Remove .git directory and .gitignore if they were copied by `COPY . .`
+RUN rm -rf .git .gitignore
 
-# Creating a log directory so that image won't fail when RAILS_LOG_TO_STDOUT is false.
-RUN mkdir -p /app/log
-
-# Generate production assets if production environment
-RUN if [ "$RAILS_ENV" = "production" ]; then \
-  SECRET_KEY_BASE=precompile_placeholder RAILS_LOG_TO_STDOUT=enabled bundle exec rake assets:precompile --trace \
-  && rm -rf spec node_modules tmp/cache; \
-  fi
-
-# Generate .git_sha file using the commit hash provided by the build environment
-RUN echo ${RAILWAY_GIT_COMMIT_SHA:-unknown} > /app/.git_sha
-
-# Remove unnecessary files
-RUN rm -rf /gems/ruby/3.3.0/cache/*.gem \
-  && find /gems/ruby/3.3.0/gems/ \( -name "*.c" -o -name "*.o" \) -delete \
-  && rm -rf .git \
-  && rm .gitignore
-
-# final build stage
-FROM ruby:3.3.3-alpine3.19
-
-ARG NODE_VERSION="23.7.0"
-ARG PNPM_VERSION="10.2.0"
-ENV NODE_VERSION=${NODE_VERSION}
-ENV PNPM_VERSION=${PNPM_VERSION}
-
-ARG BUNDLE_WITHOUT="development:test"
-ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
-ENV BUNDLER_VERSION=2.5.11
-
-ARG EXECJS_RUNTIME="Disabled"
-ENV EXECJS_RUNTIME ${EXECJS_RUNTIME}
-
-ARG RAILS_SERVE_STATIC_FILES=true
-ENV RAILS_SERVE_STATIC_FILES ${RAILS_SERVE_STATIC_FILES}
-
-ARG BUNDLE_FORCE_RUBY_PLATFORM=1
-ENV BUNDLE_FORCE_RUBY_PLATFORM ${BUNDLE_FORCE_RUBY_PLATFORM}
-
-ARG RAILS_ENV=production
-ENV RAILS_ENV ${RAILS_ENV}
-ENV BUNDLE_PATH="/gems"
-
-RUN apk update && apk add --no-cache \
-  build-base \
-  openssl \
-  tzdata \
-  postgresql-client \
-  imagemagick \
-  git \
-  vips \
-  && gem install bundler
-
-COPY --from=node /usr/local/bin/node /usr/local/bin/
-COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
-
-RUN if [ "$RAILS_ENV" != "production" ]; then \
-  apk add --no-cache curl \
-  && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-  && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-  && npm install -g pnpm@${PNPM_VERSION} \
-  && pnpm --version; \
-  fi
-
-COPY --from=pre-builder /gems/ /gems/
-COPY --from=pre-builder /app /app
-
-# Copy .git_sha file from pre-builder stage
-COPY --from=pre-builder /app/.git_sha /app/.git_sha
-
-WORKDIR /app
-
+# --- Port Exposure ---
 EXPOSE 3000
 
-# Copy and set up the rails.sh script as the entrypoint
+# --- Entrypoint & CMD ---
+# Ensure 'docker/entrypoints/rails.sh' exists in your repository at this path.
 COPY docker/entrypoints/rails.sh /usr/bin/rails.sh
 RUN chmod +x /usr/bin/rails.sh
 
 ENTRYPOINT ["/usr/bin/rails.sh"]
-
+# Default command, often overridden by the entrypoint script or Procfile.
 CMD ["bundle", "exec", "foreman", "start"]

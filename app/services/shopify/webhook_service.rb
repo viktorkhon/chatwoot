@@ -3,11 +3,12 @@ class Shopify::WebhookService
   pattr_initialize [:account]
 
   def send_shopify_name_update(previous_value = nil)
+    # Rails.logger.info "DEBUG: Entered WebhookService#send_shopify_name_update with previous_value: #{previous_value}"
     log_environment_info
     return if webhook_url.blank?
 
     # Log webhook URL for verification
-    Rails.logger.info "🔔 Shopify Webhook: Using webhook URL from ENV: #{webhook_url}"
+    # Rails.logger.info "🔔 Shopify Webhook: Using webhook URL from ENV: #{webhook_url}"
 
     payload = {
       event: Events::Types::SHOPIFY_NAME_UPDATED,
@@ -23,6 +24,9 @@ class Shopify::WebhookService
       frontend_url: ENV.fetch('FRONTEND_URL', ''),
       timestamp: Time.now.to_i
     }
+
+    # # Log the payload for debugging
+    # Rails.logger.info "🔔 Shopify Webhook: Sending payload: #{payload.to_json}"
 
     begin
       response = HTTParty.post(
@@ -51,11 +55,20 @@ class Shopify::WebhookService
 
   private
 
-  def webhook_url
-    url = ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', nil)
-    Rails.logger.info "🔔 Shopify Webhook: Retrieved URL from ENV: #{url || 'nil'}"
-    @webhook_url ||= url
-  end
+  # def webhook_url
+  #   begin
+  #     url = ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', nil)
+  #     Rails.logger.info "🔔 Shopify Webhook: Retrieved URL from ENV: #{url || 'nil'}"
+  #     Rails.logger.info "🔔 Shopify Webhook: ENV inspection: N8N_SHOPIFY_WEBHOOK_URL defined? #{ENV.key?('N8N_SHOPIFY_WEBHOOK_URL')}"
+  #     if url.blank?
+  #       Rails.logger.info "🔔 Shopify Webhook: WARNING - N8N_SHOPIFY_WEBHOOK_URL is empty or not set!"
+  #     end
+  #     @webhook_url ||= url
+  #   rescue => e
+  #     Rails.logger.error "🔔 Shopify Webhook: Error fetching URL from ENV: #{e.message}"
+  #     nil
+  #   end
+  # end
 
   def generate_signature(payload)
     OpenSSL::HMAC.hexdigest(
@@ -63,11 +76,5 @@ class Shopify::WebhookService
       OpenSSL::Digest.new('sha256').hexdigest(account.id.to_s),
       payload.to_json
     )
-  end
-
-  def log_environment_info
-    Rails.logger.info "🔔 Shopify Webhook: Environment Details"
-    Rails.logger.info "🔔 Rails Environment: #{Rails.env}"
-    Rails.logger.info "🔔 N8N_SHOPIFY_WEBHOOK_URL: #{ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', 'not set')}"
   end
 end 

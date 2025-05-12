@@ -104,7 +104,7 @@ class WebhookListener < BaseListener
     page_url_from_event = event.data[:url]
     referer_url_from_event = event.data[:referer_url]
 
-    actual_page_url = page_url_from_event.present? ? page_url_from_event : contact_inbox.contact&.referer
+    actual_page_url = page_url_from_event
 
     payload = {
       id: SecureRandom.uuid,

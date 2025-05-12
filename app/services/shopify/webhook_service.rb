@@ -3,6 +3,7 @@ class Shopify::WebhookService
   pattr_initialize [:account]
 
   def send_shopify_name_update(previous_value = nil)
+    Rails.logger.info "DEBUG: Entered WebhookService#send_shopify_name_update with previous_value: #{previous_value}"
     log_environment_info
     return if webhook_url.blank?
 
@@ -55,9 +56,18 @@ class Shopify::WebhookService
   private
 
   def webhook_url
-    url = ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', nil)
-    Rails.logger.info "🔔 Shopify Webhook: Retrieved URL from ENV: #{url || 'nil'}"
-    @webhook_url ||= url
+    begin
+      url = ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', nil)
+      Rails.logger.info "🔔 Shopify Webhook: Retrieved URL from ENV: #{url || 'nil'}"
+      Rails.logger.info "🔔 Shopify Webhook: ENV inspection: N8N_SHOPIFY_WEBHOOK_URL defined? #{ENV.key?('N8N_SHOPIFY_WEBHOOK_URL')}"
+      if url.blank?
+        Rails.logger.info "🔔 Shopify Webhook: WARNING - N8N_SHOPIFY_WEBHOOK_URL is empty or not set!"
+      end
+      @webhook_url ||= url
+    rescue => e
+      Rails.logger.error "🔔 Shopify Webhook: Error fetching URL from ENV: #{e.message}"
+      nil
+    end
   end
 
   def generate_signature(payload)

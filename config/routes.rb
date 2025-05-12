@@ -8,6 +8,12 @@ Rails.application.routes.draw do
     omniauth_callbacks: 'devise_overrides/omniauth_callbacks'
   }, via: [:get, :post]
 
+  # DevTools routes (non-production only)
+  unless Rails.env.production?
+    get 'dev_tools/check_env', to: 'dev_tools#check_env'
+    get 'dev_tools/test_shopify_webhook', to: 'dev_tools#test_shopify_webhook'
+  end
+
   ## renders the frontend paths only if its not an api only server
   if ActiveModel::Type::Boolean.new.cast(ENV.fetch('CW_API_ONLY_SERVER', false))
     root to: 'api#index'

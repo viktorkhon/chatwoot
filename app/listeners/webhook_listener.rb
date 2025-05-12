@@ -101,10 +101,15 @@ class WebhookListener < BaseListener
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
 
-    page_url_from_event = event.data[:url]
-    referer_url_from_event = event.data[:referer_url]
+    # Correctly access nested event data using .dig for safety
+    event_info = event.data[:event_info] || {}
+
+    page_url_from_event = event_info[:page_url] # Corresponds to event.data.dig(:event_info, :page_url)
+    referer_url_from_event = event_info[:referer]    # Corresponds to event.data.dig(:event_info, :referer)
 
     actual_page_url = page_url_from_event
+
+    browser_details = event_info[:browser] || {} # Corresponds to event.data.dig(:event_info, :browser)
 
     payload = {
       id: SecureRandom.uuid,
@@ -114,10 +119,10 @@ class WebhookListener < BaseListener
       },
       visitor: contact_inbox.webhook_data, # Contains contact's custom_attributes
       browser: {
-        browser_name: event.data[:browser_attributes]['browser_name'],
-        browser_version: event.data[:browser_attributes]['browser_version'],
-        platform_name: event.data[:browser_attributes]['platform_name'],
-        platform_version: event.data[:browser_attributes]['platform_version']
+        browser_name: browser_details['browser_name'],
+        browser_version: browser_details['browser_version'],
+        platform_name: browser_details['platform_name'],
+        platform_version: browser_details['platform_version']
       }.compact,
       triggered_at: Time.now,
       custom_attributes: {} # Initialize custom_attributes for this payload

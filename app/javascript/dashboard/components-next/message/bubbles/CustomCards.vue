@@ -37,7 +37,7 @@ const props = defineProps({
 });
 
 onMounted(() => {
-  console.log('components-next/CustomCards.vue MOUNTED. Props received:', JSON.parse(JSON.stringify(props)));
+  // Component mounted
 });
 
 /**
@@ -82,32 +82,21 @@ const items = computed(() => {
   const sourceItems = camelCaseItems.length ? camelCaseItems : snakeCaseItems;
   
   // Process the items to ensure they have all required fields in the right format
-  const processed = processItems(sourceItems);
-  console.log('components-next/CustomCards.vue Computed items:', JSON.parse(JSON.stringify(processed)));
-  return processed;
+  return processItems(sourceItems);
 });
 </script>
 
 <template>
-  <div style="border: 2px solid red; padding: 5px; margin: 5px;">
-    <p style="color: red; font-weight: bold;">DEBUG: components-next/CustomCards.vue WRAPPER ACTIVE</p>
-    <!-- Wrapper div for the custom cards -->
-    <div class="custom-cards-wrapper">
-      <!-- Render the shared CustomCard component, passing the extracted items -->
-      <!-- The CustomCard component handles the display logic for each item in the array -->
-      <CustomCard :items="items" />
-    </div>
+  <!-- Wrapper div for the custom cards -->
+  <div class="custom-cards-wrapper">
+    <!-- Render the shared CustomCard component, passing the extracted items -->
+    <!-- The CustomCard component handles the display logic for each item in the array -->
+    <CustomCard :items="items" />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .custom-cards-wrapper {
   @apply flex flex-col gap-2 w-full;
-  
-  /* Add a subtle visual indicator when in dev mode */
-  &::before {
-    content: '';
-    @apply h-1 w-full bg-gradient-to-r from-transparent via-green-100 to-transparent;
-  }
 }
 </style> 

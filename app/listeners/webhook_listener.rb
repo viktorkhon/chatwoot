@@ -101,26 +101,43 @@ class WebhookListener < BaseListener
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
 
-    # We are transforming contact inbox based payload to conversation based payload for simplicty of clients
+    event_info = event.data[:event_info] || {}
+    page_url_from_event = event_info[:page_url]
+    referer_url_from_event = event_info[:referer]
+    actual_page_url = page_url_from_event
+    browser_details = event_info[:browser] || {}
+
+    # Prepare the data from ContactInbox that will be merged at the top level
+    contact_inbox_payload_data = contact_inbox.webhook_data
+
     payload = {
-      id: SecureRandom.uuid,
+      # id: SecureRandom.uuid, # This will be overwritten by contact_inbox_payload_data[:id]
       event: __method__.to_s,
-      website: {
-        url: event.data[:url].present? ? event.data[:url] : contact_inbox.associated_contact&.referer
+      # 'account' key will come from contact_inbox_payload_data after merge
+      website: { 
+        url: actual_page_url
       },
-      visitor: contact_inbox.webhook_data,
+      # 'visitor' key is removed as its contents will be merged.
       browser: {
-        browser_name: event.data[:browser_attributes]['browser_name'],
-        browser_version: event.data[:browser_attributes]['browser_version'],
-        platform_name: event.data[:browser_attributes]['platform_name'],
-        platform_version: event.data[:browser_attributes]['platform_version']
+        browser_name: browser_details['browser_name'],
+        browser_version: browser_details['browser_version'],
+        platform_name: browser_details['platform_name'],
+        platform_version: browser_details['platform_version']
       }.compact,
-      triggered_at: Time.now
+      triggered_at: Time.now,
+      custom_attributes: {} # Initialize event-specific custom_attributes
     }
 
-    # Setup business level sources like referer etc in custom_attributes payload
-    page_enriched_payload = add_page_enrichment_to_payload(payload, event)
-    deliver_webhook_payloads(page_enriched_payload, inbox)
+    payload[:custom_attributes]['page_url'] = actual_page_url if actual_page_url.present?
+    payload[:custom_attributes]['referer_url'] = referer_url_from_event if referer_url_from_event.present?
+    # Note: page_title is not directly available from event.data for webwidget_triggered.
+
+    # Merge contact_inbox_payload_data into the main payload.
+    # This will add keys like 'id', 'contact', 'inbox', 'account', 'source_id' to the top level,
+    # overwriting 'id' and providing 'account' from contact_inbox context.
+    payload.merge!(contact_inbox_payload_data)
+    
+    deliver_webhook_payloads(payload, inbox)
   end
 
   def contact_created(event)
@@ -291,25 +308,5 @@ class WebhookListener < BaseListener
         payload[:custom_attributes]['referer_url'] = conversation.custom_attributes['referer_url'] if conversation.custom_attributes['referer_url'].present?
       end
     end
-  end
-
-  def add_page_enrichment_to_payload(payload, event)
-    # This method takes the payload which is already having referer
-    # And enrich it with more business level information
-    visitor_page = {
-      url: event.data[:url],
-      referer: event.data[:referer_url]
-    }.compact
-
-    return payload if visitor_page.blank?
-
-    payload[:visitor] ||= {}
-    payload[:visitor][:custom_attributes] ||= {}
-    payload[:visitor][:custom_attributes][:page] = visitor_page
-
-    # Add for backward compatibility
-    payload[:visitor_page] = visitor_page
-
-    payload
   end
 end

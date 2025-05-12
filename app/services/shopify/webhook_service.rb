@@ -53,6 +53,7 @@ class Shopify::WebhookService
 
   def webhook_url
     url = ENV.fetch('N8N_SHOPIFY_WEBHOOK_URL', nil)
+    Rails.logger.info "🔔 Shopify Webhook: Retrieved URL from ENV: #{url || 'nil'}"
     @webhook_url ||= url
   end
 

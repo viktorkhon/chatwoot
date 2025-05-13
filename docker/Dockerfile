@@ -17,7 +17,7 @@ COPY . .
 # If my-chatwoot-base only contains dependencies, and not app code + assets, then run it here:
 RUN if [ "$RAILS_ENV" = "production" ]; then \
     echo "Precompiling assets for production..." && \
-    SECRET_KEY_BASE_DUMMY=temporarykey RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace && \
+    SECRET_KEY_BASE=temporarykey_for_assets_precompile RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace && \
     echo "Asset precompilation complete." && \
     rm -rf ./tmp/cache/* ./node_modules ./spec ./app/assets/builds/*.*; \
   fi

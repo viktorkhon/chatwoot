@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  # Health check route - should be one of the first routes
+  # This ensures it's not caught by other wildcard routes and is easily accessible
+  get '/healthz', to: proc { [200, {}, ['OK']] }
+  
   # AUTH STARTS
   mount_devise_token_auth_for 'User', at: 'auth', controllers: {
     confirmations: 'devise_overrides/confirmations',

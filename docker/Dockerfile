@@ -11,7 +11,7 @@ ENV RAILS_LOG_TO_STDOUT="true"
 
 WORKDIR /app
 
-COPY . . # Copy your application code on top of the base image
+COPY . .
 
 # Asset Precompilation (should already be done in my-chatwoot-base IF it was built from the full app source)
 # If my-chatwoot-base only contains dependencies, and not app code + assets, then run it here:

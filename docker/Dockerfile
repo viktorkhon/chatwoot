@@ -26,7 +26,7 @@ ARG RAILWAY_GIT_COMMIT_SHA_ARG=${RAILWAY_GIT_COMMIT_SHA:-unknown}
 RUN echo "${RAILWAY_GIT_COMMIT_SHA_ARG}" > /app/.git_sha
 
 # Copy your production entrypoint script
-COPY entrypoints/rails.sh /usr/bin/rails.sh # Assuming this is the rails.sh you provided
+COPY entrypoints/rails.sh /usr/bin/rails.sh
 RUN chmod +x /usr/bin/rails.sh
 
 EXPOSE 3000

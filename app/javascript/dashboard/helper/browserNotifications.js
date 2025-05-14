@@ -35,23 +35,22 @@ try {
         console.log('Focusing window from broadcast request');
         window.focus();
         
-        if (event.data.conversationId && window.router) {
+        if (event.data.conversationId) {
           const accountId = store.getters.getCurrentAccountId;
           console.log('Navigating to conversation from broadcast:', accountId, event.data.conversationId);
-          // Use router directly rather than window.router
-          try {
-            window.router.push({
-              name: 'inbox_conversation',
-              params: {
-                accountId,
-                conversation_id: event.data.conversationId
-              }
+          
+          // Respond that this tab will handle the focus request
+          if (event.data.messageId) {
+            tabChannel.postMessage({
+              type: 'FOCUS_RESPONSE',
+              messageId: event.data.messageId
             });
-          } catch (error) {
-            console.error('Navigation error:', error);
           }
+          
+          // Navigate to the conversation
+          navigateWithRouter(event.data.conversationId);
         } else {
-          console.warn('Missing conversationId or router for navigation', event.data);
+          console.warn('Missing conversationId for navigation', event.data);
         }
       }
     };
@@ -78,54 +77,111 @@ export function navigateToConversation(conversationId) {
   // Log for debugging
   console.log('navigateToConversation called with ID:', conversationId);
   
+  // Ensure conversationId is a number
+  const numericConversationId = parseInt(conversationId, 10);
+  
+  // Track if a response has been received from another tab
+  let responseReceived = false;
+  
   // If we have a broadcast channel, try to focus an existing tab first
   if (tabChannel) {
+    // Create a unique message ID for this request
+    const messageId = `focus-${Date.now()}`;
+    
+    // Function to handle responses from other tabs
+    const handleResponse = event => {
+      if (event.data && event.data.type === 'FOCUS_RESPONSE' && event.data.messageId === messageId) {
+        console.log('Received focus confirmation from another tab');
+        responseReceived = true;
+        // Clean up listener after receiving a response
+        tabChannel.removeEventListener('message', handleResponse);
+      }
+    };
+    
+    // Listen for responses
+    tabChannel.addEventListener('message', handleResponse);
+    
     // Ask any open tabs to focus
     tabChannel.postMessage({ 
       type: 'FOCUS_REQUEST', 
-      conversationId 
+      conversationId: numericConversationId,
+      messageId
     });
     console.log('FOCUS_REQUEST sent via broadcast channel');
     
-    // We're relying on another tab to catch this request
-    // But also set up a fallback just in case
+    // Set a timeout to navigate in the current tab if no other tab responds
     setTimeout(() => {
-      console.log('Focus timeout triggered - focusing current tab');
-      // If we're here, we should focus this tab as a fallback
-      window.focus();
+      // Remove the temporary listener
+      tabChannel.removeEventListener('message', handleResponse);
       
-      // Try to navigate in this tab as a fallback
-      if (window.router) {
-        const accountId = store.getters.getCurrentAccountId;
-        console.log('Navigating to conversation in current tab:', accountId, conversationId);
-        window.router.push({
-          name: 'inbox_conversation',
-          params: {
-            accountId,
-            conversation_id: conversationId
-          }
-        });
-      } else {
-        console.warn('Router not available to navigate');
+      if (!responseReceived) {
+        console.log('No response from other tabs - focusing current tab');
+        // If we're here, we need to focus this tab as a fallback
+        window.focus();
+        
+        // Try to navigate in this tab as a fallback
+        navigateWithRouter(numericConversationId);
       }
-    }, 300);
+    }, 500); // Increased timeout to allow for response
   } else {
     // Fallback if broadcast channel isn't supported
     console.log('No broadcast channel - focusing current tab');
     window.focus();
-    
-    if (window.router) {
+    navigateWithRouter(numericConversationId);
+  }
+}
+
+/**
+ * Helper function to navigate using the router
+ * @param {number} conversationId - The conversation ID to navigate to
+ * @private
+ */
+function navigateWithRouter(conversationId) {
+  // Try multiple ways to get the router
+  const routerInstance = window.router;
+  
+  if (routerInstance) {
+    try {
       const accountId = store.getters.getCurrentAccountId;
-      console.log('Navigating to conversation in current tab:', accountId, conversationId);
-      window.router.push({
+      console.log('Navigating to conversation:', accountId, conversationId);
+      
+      // Ensure we're using the route name recognized by the router
+      routerInstance.push({
         name: 'inbox_conversation',
         params: {
           accountId,
           conversation_id: conversationId
         }
+      }).catch(error => {
+        // Handle navigation errors, e.g., if already on the same route
+        console.warn('Navigation warning (non-critical):', error.message);
       });
-    } else {
-      console.warn('Router not available to navigate');
+    } catch (error) {
+      console.error('Router navigation error:', error);
+      
+      // As a last resort, try direct URL navigation
+      try {
+        const accountId = store.getters.getCurrentAccountId;
+        const conversationUrl = `/app/accounts/${accountId}/conversations/${conversationId}`;
+        console.log('Attempting direct URL navigation to:', conversationUrl);
+        window.location.href = conversationUrl;
+      } catch (urlError) {
+        console.error('URL fallback navigation failed:', urlError);
+      }
+    }
+  } else {
+    console.error('Router not available for navigation');
+    
+    // Try direct URL navigation as last resort
+    try {
+      const accountId = store.getters.getCurrentAccountId;
+      if (accountId) {
+        const conversationUrl = `/app/accounts/${accountId}/conversations/${conversationId}`;
+        console.log('Router unavailable, using direct URL navigation:', conversationUrl);
+        window.location.href = conversationUrl;
+      }
+    } catch (error) {
+      console.error('Direct URL navigation failed:', error);
     }
   }
 }

@@ -61,6 +61,10 @@ export default defineConfig({
             }
           : {}),
         inlineDynamicImports: isLibraryMode, // Disable code-splitting for SDK
+        // Add manualChunks to separate dashboard-icons.json into its own chunk
+        manualChunks: isLibraryMode ? undefined : {
+          'dashboard-icons': ['./app/javascript/shared/components/FluentIcon/dashboard-icons.json'],
+        },
       },
     },
     lib: isLibraryMode

@@ -110,4 +110,12 @@ initalizeRouter();
 
 window.onload = () => {
   app.mount('#app');
+  
+  // Make router and Vue app globally accessible for cross-tab notifications
+  window.vueApp = app;
+  window.router = router;
+  
+  // Dispatch an event when Vue is fully initialized
+  const vueInitializedEvent = new Event('vue-initialized');
+  document.dispatchEvent(vueInitializedEvent);
 };

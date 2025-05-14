@@ -12,11 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 2000);
   
-  // Make sure router is accessible for cross-tab navigation
-  // Use MutationObserver to detect when Vue app is mounted
+  // Watch for the Vue initialized event from entrypoints/dashboard.js
+  document.addEventListener('vue-initialized', () => {
+    console.log('Vue initialization detected, router should now be available');
+  });
+  
+  // Fallback router detection in case the router isn't set from entrypoints/dashboard.js
   const observer = new MutationObserver((mutations) => {
-    if (window.vueApp && window.vueApp.$router) {
-      console.log('Router detected and set globally');
+    // Only set window.router if it hasn't been set already
+    if (!window.router && window.vueApp && window.vueApp.$router) {
+      console.log('Router detected by observer and set globally');
       window.router = window.vueApp.$router;
       observer.disconnect();
     }
@@ -26,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   observer.observe(document.body, { childList: true, subtree: true });
   
   // Also try to set it immediately if already available
-  if (window.vueApp && window.vueApp.$router) {
+  if (!window.router && window.vueApp && window.vueApp.$router) {
     console.log('Router detected immediately');
     window.router = window.vueApp.$router;
   }

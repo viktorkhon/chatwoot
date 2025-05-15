@@ -16,9 +16,7 @@ module Redis::Config
         ssl_params: { verify_mode: Chatwoot.redis_ssl_verify_mode },
         reconnect_attempts: 2,
         timeout: 1,
-        driver: :ruby,
-        # Enable keyspace notifications for expired events
-        keyspace_notifications: ENV.fetch('REDIS_KEYSPACE_NOTIFICATIONS', 'Ex')
+        driver: :ruby
       }
     end
 

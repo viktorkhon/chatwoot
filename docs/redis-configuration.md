@@ -4,15 +4,16 @@ This document covers Redis configuration settings used in Chatwoot.
 
 ## Keyspace Notifications
 
-Chatwoot uses Redis keyspace notifications for tracking expired events. This is configured in the `lib/redis/config.rb` file.
+Chatwoot uses Redis keyspace notifications for tracking expired events. This is configured in the `config/initializers/02_redis_keyspace.rb` initializer.
 
 ### Configuration
 
 By default, Chatwoot enables keyspace notifications for expired events (`Ex`). This is controlled by the `REDIS_KEYSPACE_NOTIFICATIONS` environment variable.
 
 ```ruby
-# In lib/redis/config.rb
-keyspace_notifications: ENV.fetch('REDIS_KEYSPACE_NOTIFICATIONS', 'Ex')
+# In config/initializers/02_redis_keyspace.rb
+keyspace_setting = ENV.fetch('REDIS_KEYSPACE_NOTIFICATIONS', 'Ex')
+redis.config('SET', 'notify-keyspace-events', keyspace_setting)
 ```
 
 ### Setting up in your environment
@@ -24,12 +25,12 @@ If you're using Valkey (or Redis), ensure your configuration has keyspace notifi
    notify-keyspace-events Ex
    ```
 
-2. If you're using environment variables, you can set:
+2. If you're using environment variables with Chatwoot, you can set:
    ```
    REDIS_KEYSPACE_NOTIFICATIONS=Ex
    ```
 
-3. Make sure to restart your Redis/Valkey instance after changing configurations.
+3. Make sure to restart your Redis/Valkey instance after changing configurations directly in the configuration file.
 
 ### Available Notification Options
 

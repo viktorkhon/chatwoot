@@ -3,18 +3,12 @@ set -x # Keep for debugging on Railway for now
 
 # Remove any pre-existing server.pid and clear cache.
 rm -rf /app/tmp/pids/server.pid
-# rm -rf /app/tmp/cache/* # Clearing cache here might be too aggressive if assets are precompiled
 
-echo "Waiting for postgres to become ready...."
 if [ -n "$DATABASE_URL" ]; then
   export POSTGRES_HOST=$(echo "$DATABASE_URL" | sed -n 's#.*@\([^:/]\+\).*#\1#p')
   export POSTGRES_PORT=$(echo "$DATABASE_URL" | sed -n 's#.*:\([0-9]\+\)/.*#\1#p')
   export POSTGRES_USERNAME=$(echo "$DATABASE_URL" | sed -n 's#.*//\([^:]*\):.*#\1#p')
 fi
-
-echo "Parsed POSTGRES_HOST: $POSTGRES_HOST"
-echo "Parsed POSTGRES_PORT: $POSTGRES_PORT"
-echo "Parsed POSTGRES_USERNAME: $POSTGRES_USERNAME"
 
 if [ -n "$POSTGRES_HOST" ] && [ -n "$POSTGRES_PORT" ] && [ -n "$POSTGRES_USERNAME" ]; then
   PG_READY="pg_isready -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USERNAME"

@@ -4,6 +4,7 @@ import { getContrastingTextColor } from '@chatwoot/utils';
 import { IFrameHelper } from 'widget/helpers/utils';
 import { emitter } from 'shared/helpers/mitt';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
+import { sendMessageAPI } from 'widget/api/conversation';
 
 export default {
   props: {
@@ -39,57 +40,34 @@ export default {
   methods: {
     onClick() {
       if (this.isPostback) {
-        // Process n8n webhook if configured
+        // Get the n8n webhook URL from the config
         const n8nProductInfoUrl = window.chatwootConfig?.n8nRetrieveProductUrl;
         
         if (!n8nProductInfoUrl) {
           console.warn('⚠️ Webhook URL is missing in window.chatwootConfig.n8nRetrieveProductUrl');
         }
         
-        if (n8nProductInfoUrl) {
-          // Prepare payload - handle both string and object cases
-          let productData;
-          if (typeof this.action.payload === 'string') {
-            // If payload is a string, use it as both ID and name
-            productData = {
-              product_id: this.action.payload,
-              product_name: this.action.payload
-            };
-          } else if (this.action.payload?.product_data) {
-            // If payload has explicit product_data object
-            productData = this.action.payload.product_data;
-          } else if (typeof this.action.payload === 'object' && this.action.payload !== null) {
-            // If payload is an object, use it directly
-            productData = this.action.payload;
-          }
+        // Prepare payload - handle both string and object cases
+        let productData;
+        if (typeof this.action.payload === 'string') {
+          // If payload is a string, use it as both ID and name
+          productData = {
+            product_id: this.action.payload,
+            product_name: this.action.payload
+          };
+        } else if (this.action.payload?.product_data) {
+          // If payload has explicit product_data object
+          productData = this.action.payload.product_data;
+        } else if (typeof this.action.payload === 'object' && this.action.payload !== null) {
+          // If payload is an object, use it directly
+          productData = this.action.payload;
+        }
+        
+        if (productData) {
+          console.log('📦 Product data:', JSON.stringify(productData, null, 2));
           
-          if (productData) {
-            // Log exact URL and data being sent
-            console.log('🔗 Webhook URL:', n8nProductInfoUrl);
-            console.log('📦 Sending data:', JSON.stringify(productData, null, 2));
-            
-            // Make the actual API call to n8n
-            fetch(n8nProductInfoUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(productData)
-            })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-              }
-              console.log('✅ Webhook response status:', response.status);
-              return response.json();
-            })
-            .then(data => {
-              // Emit event with response data if needed
-              console.log('📬 Webhook response data:', data);
-              emitter.emit(BUS_EVENTS.N8N_RESPONSE_RECEIVED, data);
-            })
-            .catch(error => {
-              console.error('❌ Error calling n8n webhook:', error.message);
-            });
-          }
+          // Create a standard user message when product is selected
+          this.sendProductInfoMessage(productData, n8nProductInfoUrl);
         }
         
         // Standard iframe postback behavior (keep original functionality)
@@ -112,6 +90,38 @@ export default {
         });
       }
     },
+    sendProductInfoMessage(productData, targetUrl) {
+      // Format a user-friendly message but include the product data
+      // The 'product_data' field in content_attributes will be available in webhooks
+      const content = `Show me more Details for ': ${productData.product_name || productData.product_id}`;
+      
+      // Check if we're in the widget context with Vuex store
+      if (this.$store && this.$store.dispatch) {
+        // Use the store to send the message
+        this.$store.dispatch('conversation/sendMessage', {
+          content: content,
+          contentAttributes: {
+            product_data: productData,
+            target_webhook: targetUrl
+          }
+        }).then(() => {
+          console.log('✅ Message sent successfully');
+        }).catch(error => {
+          console.error('❌ Error sending message:', error);
+        });
+      } else {
+        // Fall back to direct API call without store
+        try {
+          sendMessageAPI(content, null).then(() => {
+            console.log('✅ Message sent successfully');
+          }).catch(error => {
+            console.error('❌ Error sending message:', error);
+          });
+        } catch (error) {
+          console.error('❌ Error sending message:', error);
+        }
+      }
+    }
   },
 };
 </script>

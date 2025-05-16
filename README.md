@@ -107,6 +107,16 @@ This version includes enhanced webhook functionality for better tracking visitor
 
 Detailed documentation is available at [chatwoot.com/help-center](https://www.chatwoot.com/help-center).
 
+### Redis Configuration
+
+Chatwoot uses Redis for caching, background jobs, and real-time features. For proper functionality, ensure your Redis/Valkey instance has keyspace notifications enabled for expired events:
+
+```
+notify-keyspace-events Ex
+```
+
+See [Redis Configuration](docs/redis-configuration.md) for more details.
+
 ## Translation process
 
 The translation process for Chatwoot web and mobile app is managed at [https://translate.chatwoot.com](https://translate.chatwoot.com) using Crowdin. Please read the [translation guide](https://www.chatwoot.com/docs/contributing/translating-chatwoot-to-your-language) for contributing to Chatwoot.

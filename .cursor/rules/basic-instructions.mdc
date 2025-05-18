@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Do not give me instructions on what to do or what to fix, instead you always take initiative, find all files, make all fixes, and give me a summary of what was done and why.
+
+
+At the end, give me a separate text file with the name for the commit, and the summary of the changes, that I can copy and paste into github branch.

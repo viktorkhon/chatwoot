@@ -1,0 +1,10 @@
+Fix: Railway deployment database migration issues
+
+This commit fixes issues with Railway deployment by:
+1. Modifying the Rails entrypoint script to handle existing databases properly
+2. Updating the database migration approach to try 'db:migrate' first before 'db:chatwoot_prepare'
+3. Adding essential environment variables to the Dockerfile
+4. Updating the Railway configuration with appropriate restart policies
+
+These changes ensure that when Railway deploys the app with an existing database,
+migrations will run correctly instead of failing when attempting to create an already existing database. 

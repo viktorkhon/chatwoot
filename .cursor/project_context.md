@@ -4,6 +4,13 @@
 
 <!-- New sessions will be added at the top -->
 
+### Account Settings Field Visibility Fix - [Date: 2024-07-04]
+- Fixed issue where Support Email and Incoming Email Domain fields were missing from Account Settings UI
+- Identified that these fields are conditionally displayed based on specific feature flags
+- Created migration to enable required feature flags (`inbound_emails`, `custom_reply_email`, `custom_reply_domain`)
+- Updated default feature configuration to ensure new accounts have these fields visible by default
+- Added documentation explaining the issue and solution
+
 ### Railway Deployment Fix - [Date: 2025-05-17]
 - Fixed database migration issues for Railway.com deployment
 - Modified Rails entrypoint script to handle existing databases properly
@@ -21,6 +28,7 @@
 ## Current Focus
 - Successfully deploying the application to Railway.com
 - Improving context retention between Cursor AI chat sessions
+- Ensuring all account settings fields are properly visible in the UI
 
 ## Project Overview
 - Chatwoot is an open-source customer engagement suite

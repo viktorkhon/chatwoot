@@ -8,3 +8,24 @@ This commit fixes issues with Railway deployment by:
 
 These changes ensure that when Railway deploys the app with an existing database,
 migrations will run correctly instead of failing when attempting to create an already existing database. 
+
+fix: enable feature flags to display email settings fields in UI
+
+This commit addresses the issue where two important fields are missing from the Account Settings UI:
+1. Support Email (support_email)
+2. Incoming Email Domain (domain)
+
+The issue occurs because these fields are only displayed in the UI when specific feature flags
+are enabled:
+- inbound_emails (base requirement)
+- custom_reply_email (for Support Email field)
+- custom_reply_domain (for Incoming Email Domain field)
+
+The fix includes:
+1. A migration that enables these feature flags for all existing accounts
+2. Updates to the default feature flags configuration to ensure they're enabled by default
+   for new accounts
+3. Documentation explaining the issue and solution
+
+These fields are essential for email functionality in Chatwoot, including email replies,
+conversation continuity, custom domains, and message threading. 

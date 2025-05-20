@@ -4,6 +4,14 @@
 
 <!-- New sessions will be added at the top -->
 
+### Shopify Integration Environment Variables Fix - [Date: 2025-05-20]
+- Fixed issue where Shopify integration was not visible despite environment variables being set in Railway.com
+- Created migration to properly sync environment variables to database configuration:
+  - Copies `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` from environment to `InstallationConfig`
+  - Ensures proper caching and configuration loading
+- Added documentation for Railway.com deployment configuration
+- This complements the previous Shopify integration default fix to ensure both feature flags and credentials are properly configured
+
 ### Shopify Integration Default Fix - [Date: 2025-05-20]
 - Addressed issue where Shopify integration was not enabled by default for new accounts or existing accounts.
 - Identified that `ACCOUNT_LEVEL_FEATURE_DEFAULTS` in `InstallationConfig` was not automatically enabling `shopify_integration`.

@@ -4,7 +4,15 @@
 
 <!-- New sessions will be added at the top -->
 
-### Account Settings Field Visibility Fix - [Date: 2024-07-04]
+### Shopify Integration Default Fix - [Date: 2025-05-20]
+- Addressed issue where Shopify integration was not enabled by default for new accounts or existing accounts.
+- Identified that `ACCOUNT_LEVEL_FEATURE_DEFAULTS` in `InstallationConfig` was not automatically enabling `shopify_integration`.
+- Created a migration to:
+  - Enable `shopify_integration` for all existing accounts.
+  - Update `ACCOUNT_LEVEL_FEATURE_DEFAULTS` to include `shopify_integration` as enabled by default for new accounts.
+- This ensures Shopify integration is active for the user's current account and all future accounts.
+
+### Account Settings Field Visibility Fix - [Date: 2025-05-20]
 - Fixed issue where Support Email and Incoming Email Domain fields were missing from Account Settings UI
 - Identified that these fields are conditionally displayed based on specific feature flags
 - Created migration to enable required feature flags (`inbound_emails`, `custom_reply_email`, `custom_reply_domain`)
@@ -28,7 +36,7 @@
 ## Current Focus
 - Successfully deploying the application to Railway.com
 - Improving context retention between Cursor AI chat sessions
-- Ensuring all account settings fields are properly visible in the UI
+- Ensuring all account settings fields and integrations (like Shopify) are properly visible and enabled in the UI by default where appropriate.
 
 ## Project Overview
 - Chatwoot is an open-source customer engagement suite

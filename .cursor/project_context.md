@@ -4,6 +4,17 @@
 
 <!-- New sessions will be added at the top -->
 
+### Shopify Integration 404 Error Fix - [Date: 2025-05-21]
+- Fixed 404 error when accessing Shopify integration despite having environment variables set
+- Identified that `check_cloud_env` filter was blocking access because it specifically checks database config
+- Discovered that Chatwoot uses `InstallationConfig` database records rather than direct ENV variables for some settings
+- Created migration to update `DEPLOYMENT_ENV` to 'cloud' in the database (not just environment variables)
+- Documented three alternative solutions:
+  1. Database migration to set the deployment environment to 'cloud'
+  2. Direct database update through SQL
+  3. Adding environment variable (with caveat that it still requires application to be restarted)
+- Added explanation of how Chatwoot's enterprise features are gated by deployment environment settings that must be in the database
+
 ### Shopify Integration Environment Variables Fix - [Date: 2025-05-20]
 - Fixed issue where Shopify integration was not visible despite environment variables being set in Railway.com
 - Created migration to properly sync environment variables to database configuration:

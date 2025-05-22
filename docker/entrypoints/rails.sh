@@ -35,7 +35,14 @@ fi
 echo "Running database migrations (db:chatwoot_prepare)..."
 bundle exec rails db:chatwoot_prepare
 
-# mkdir -p /app/tmp/pids # This should already exist or be created by puma/foreman
+# Ensure all directories exist and have proper permissions
+mkdir -p /app/tmp/pids /app/public/assets /app/public/packs /app/app/assets/builds/images
+
+# Verify assets were correctly compiled
+if [ ! -d "/app/public/assets" ] || [ ! "$(ls -A /app/public/assets 2>/dev/null)" ]; then
+  echo "Warning: Assets directory appears to be empty or missing. Attempting to recompile..."
+  SECRET_KEY_BASE=temporarykey_for_assets_precompile RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace
+fi
 
 # Finally, execute the main process (passed as CMD)
 echo "Executing CMD: $@"

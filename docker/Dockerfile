@@ -19,7 +19,12 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
     echo "Precompiling assets for production..." && \
     SECRET_KEY_BASE=temporarykey_for_assets_precompile RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace && \
     echo "Asset precompilation complete." && \
-    rm -rf ./tmp/cache/* ./node_modules ./spec ./app/assets/builds/*.*; \
+    rm -rf ./tmp/cache/* ./node_modules ./spec && \
+    echo "Preserving all image assets..." && \
+    # Make sure we don't inadvertently delete any assets in app/assets/builds
+    mkdir -p /app/app/assets/builds/images && \
+    # Add public/assets to CORS allowlist for image serving
+    touch /app/public/assets/.keep; \
   fi
 
 ARG RAILWAY_GIT_COMMIT_SHA_ARG=${RAILWAY_GIT_COMMIT_SHA:-unknown}

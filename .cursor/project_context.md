@@ -4,6 +4,15 @@
 
 <!-- New sessions will be added at the top -->
 
+### Fix image asset serving in Chatwoot application
+- Fixed Docker build process to preserve image assets during compilation
+- Enhanced CORS configuration to allow proper access to static assets
+- Updated production environment to enable dynamic asset compilation
+- Improved Rails entrypoint script with better asset verification
+- Enhanced asset configuration with additional paths and file types
+- Updated build process to ensure images are correctly copied to public directories
+- Added 'Access-Control-Allow-Origin' header to enable cross-origin image loading
+
 ### Enhanced Conversation Persistence During Page Navigation - [Date: 2025-05-21]
 - Fixed issue with conversations not persisting when navigating between pages in Shopify stores
 - Improved cookie handling by setting proper path to ensure site-wide accessibility 

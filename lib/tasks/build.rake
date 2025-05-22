@@ -8,6 +8,19 @@ task before_assets_precompile: :environment do
   system('echo "-------------- Bulding App for Production --------------"')
 end
 
+# Task to ensure all image paths are properly created
+task ensure_image_paths: :environment do
+  system('echo "-------------- Ensuring Image Paths Exist --------------"')
+  system('mkdir -p public/assets/images')
+  system('mkdir -p app/assets/builds/images')
+  system('mkdir -p public/packs/images')
+  # Copy app images to ensure they're available in multiple paths
+  system('cp -r app/javascript/dashboard/assets/images/* public/assets/images/ 2>/dev/null || :')
+  system('cp -r app/javascript/shared/assets/images/* public/assets/images/ 2>/dev/null || :')
+  system('cp -r app/javascript/widget/assets/images/* public/assets/images/ 2>/dev/null || :')
+  system('echo "-------------- Image Paths Created --------------"')
+end
+
 # every time you execute 'rake assets:precompile'
 # run 'before_assets_precompile' first
-Rake::Task['assets:precompile'].enhance %w[before_assets_precompile]
+Rake::Task['assets:precompile'].enhance %w[before_assets_precompile ensure_image_paths]

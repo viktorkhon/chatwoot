@@ -7,6 +7,10 @@ Rails.application.config.assets.version = '1.0'
 # Rails.application.config.assets.paths << Emoji.images_path
 # Add Yarn node_modules folder to the asset load path.
 Rails.application.config.assets.paths << Rails.root.join('node_modules')
+Rails.application.config.assets.paths << Rails.root.join('app/javascript/dashboard/assets')
+Rails.application.config.assets.paths << Rails.root.join('app/javascript/shared/assets')
+Rails.application.config.assets.paths << Rails.root.join('app/javascript/widget/assets')
+Rails.application.config.assets.paths << Rails.root.join('public')
 
 # Precompile additional assets.
 # application.js, application.css, and all non-JS/CSS in the app/assets
@@ -17,4 +21,4 @@ Rails.application.config.assets.precompile += %w[dashboardChart.js]
 # to take care of fonts in assets pre-compiling
 # Ref: https://stackoverflow.com/questions/56960709/rails-font-cors-policy
 # https://github.com/rails/sprockets/issues/632#issuecomment-551324428
-Rails.application.config.assets.precompile << ['*.svg', '*.eot', '*.woff', '*.ttf']
+Rails.application.config.assets.precompile << ['*.svg', '*.eot', '*.woff', '*.ttf', '*.png', '*.jpg', '*.jpeg', '*.gif', '*.ico']

@@ -4,7 +4,7 @@
 
 <!-- New sessions will be added at the top -->
 
-### Fix image asset serving in Chatwoot application
+### Fix image asset serving in Chatwoot application [Date: 2025-05-21]
 - Fixed Docker build process to preserve image assets during compilation
 - Enhanced CORS configuration to allow proper access to static assets
 - Updated production environment to enable dynamic asset compilation
@@ -27,6 +27,20 @@
 - Added redundant storage using both localStorage and cookies
 - Enhanced API requests to include visitor identifier headers
 - Improved cross-page conversation tracking beyond cookies
+
+## Redis Debugging and Railway Integration (Current Session)
+
+* Added a Redis debug endpoint at `/api/v1/widget/debug/redis` to diagnose Redis connectivity issues
+* Enhanced Redis configuration to handle Railway's Valkey service with special settings:
+  * Increased timeout to 5 seconds (from 1)
+  * Increased reconnect attempts to 3 (from 2)
+  * Added special detection for Railway environment
+* Debug controller provides comprehensive diagnostics:
+  * Connection status
+  * Port reachability test
+  * Redis server information
+  * Configuration details
+  * Railway-specific environment information 
 
 ### Fix Chatwoot widget persistence across page navigation - [Date: 2025-05-21]
 - Fixed issue with duplicate webhook firing during page navigation
@@ -106,4 +120,4 @@
 ## Notes
 - This file is automatically referenced by Cursor AI at the start of each session
 - Recent sessions are kept at the top for relevance
-- Older sessions may be archived or summarized to maintain manageable context size 
+- Older sessions may be archived or summarized to maintain manageable context size

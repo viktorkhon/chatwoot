@@ -309,6 +309,7 @@ Rails.application.routes.draw do
         resources :campaigns, only: [:index]
         resources :events, only: [:create]
         resources :messages, only: [:index, :create, :update]
+        get 'debug/redis', to: 'debug#redis'
         resources :conversations, only: [:index, :create] do
           collection do
             post :destroy_custom_attributes

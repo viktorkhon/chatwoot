@@ -6,7 +6,7 @@ module Redis::Config
     end
 
     def config
-      @config ||= sentinel? ? sentinel_config : base_config
+      @config ||= sentinel? ? sentinel_config : (railway_valkey? ? railway_config : base_config)
     end
 
     def base_config
@@ -18,6 +18,23 @@ module Redis::Config
         timeout: 1,
         driver: :ruby
       }
+    end
+
+    def railway_valkey?
+      ENV.fetch('RAILWAY_ENVIRONMENT', nil).present? && ENV.fetch('REDIS_URL', '').include?('railway.app')
+    end
+
+    def railway_config
+      # Special handling for Railway's Valkey service
+      # Valkey is a Redis-compatible service used by Railway
+      config = base_config.dup
+      config[:timeout] = 5 # Increase timeout for Railway
+      config[:reconnect_attempts] = 3 # More reconnect attempts for Railway
+      
+      # Log that we're using Railway Valkey config
+      Rails.logger.info 'Using Railway Valkey Redis configuration' if defined?(Rails)
+      
+      config
     end
 
     def sentinel?

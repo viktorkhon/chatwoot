@@ -210,4 +210,19 @@ export const actions = {
       // IgnoreError
     }
   },
+  
+  // New action to maintain conversation ID across page navigations
+  updateConversationId: async ({ commit, dispatch }, { conversationCookie }) => {
+    if (!conversationCookie) return;
+    
+    try {
+      // Store the conversation cookie to maintain the conversation
+      commit('setConversationCookie', conversationCookie);
+      
+      // Re-fetch messages for this conversation to ensure we have the latest data
+      dispatch('fetchOldConversations');
+    } catch (error) {
+      console.error('Error updating conversation ID:', error);
+    }
+  },
 };

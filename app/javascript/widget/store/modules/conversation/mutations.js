@@ -116,4 +116,8 @@ export const mutations = {
     const { id } = lastMessage;
     $state.lastMessageId = id;
   },
+
+  setConversationCookie($state, conversationCookie) {
+    $state.meta.conversationCookie = conversationCookie;
+  },
 };

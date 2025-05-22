@@ -4,8 +4,16 @@
 
 <!-- New sessions will be added at the top -->
 
-### Fix Chatwoot widget persistence across page navigation - [Date: 2025-05-21]
+### Enhanced Conversation Persistence During Page Navigation - [Date: 2025-05-21]
+- Fixed issue with conversations not persisting when navigating between pages in Shopify stores
+- Improved cookie handling by setting proper path to ensure site-wide accessibility 
+- Enhanced axios configuration to properly maintain cookies during requests
+- Added explicit conversation ID handling during page navigation events
+- Implemented store-based conversation state persistence
+- Prevented creation of new conversations when navigating between pages
+- Modified URL parameter handling to consistently include conversation context
 
+### Fix Chatwoot widget persistence across page navigation - [Date: 2025-05-21]
 - Fixed issue with duplicate webhook firing during page navigation
 - Added conversation context preservation across pages
 - Improved cookie handling to ensure site-wide accessibility
@@ -65,6 +73,7 @@
 - Successfully deploying the application to Railway.com
 - Improving context retention between Cursor AI chat sessions
 - Ensuring all account settings fields and integrations (like Shopify) are properly visible and enabled in the UI by default where appropriate.
+- Fixing Chatwoot widget issues, particularly around conversation persistence during navigation.
 
 ## Project Overview
 - Chatwoot is an open-source customer engagement suite

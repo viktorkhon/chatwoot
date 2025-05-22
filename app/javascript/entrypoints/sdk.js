@@ -44,6 +44,19 @@ const runSDK = ({ baseUrl, websiteToken }) => {
   const chatwootSettings = window.chatwootSettings || {};
   let locale = chatwootSettings.locale;
   let baseDomain = chatwootSettings.baseDomain;
+  
+  // If baseDomain isn't explicitly set, default to the current hostname
+  // This ensures cookies work across different pages on the same domain
+  if (!baseDomain && window.location.hostname !== 'localhost') {
+    // Extract the base domain from the hostname (e.g. store.example.com -> example.com)
+    const hostParts = window.location.hostname.split('.');
+    if (hostParts.length > 1) {
+      // For domain.com or subdomain.domain.com, we want to use domain.com
+      baseDomain = hostParts.slice(-2).join('.');
+    } else {
+      baseDomain = window.location.hostname;
+    }
+  }
 
   if (chatwootSettings.useBrowserLanguage) {
     locale = window.navigator.language.replace('-', '_');
@@ -53,6 +66,7 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     baseUrl,
     baseDomain,
     hasLoaded: false,
+    isReturningUser: false,
     hideMessageBubble: chatwootSettings.hideMessageBubble || false,
     isOpen: false,
     position: chatwootSettings.position === 'left' ? 'left' : 'right',

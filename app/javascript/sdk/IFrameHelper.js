@@ -63,9 +63,14 @@ export const IFrameHelper = {
     const iframe = document.createElement('iframe');
     const cwCookie = Cookies.get('cw_conversation');
     let widgetUrl = IFrameHelper.getUrl({ baseUrl, websiteToken });
+    
     if (cwCookie) {
       widgetUrl = `${widgetUrl}&cw_conversation=${cwCookie}`;
+      if (!window.$chatwoot.hasLoaded) {
+        window.$chatwoot.isReturningUser = true;
+      }
     }
+    
     iframe.src = widgetUrl;
     iframe.allow =
       'camera;microphone;fullscreen;display-capture;picture-in-picture;clipboard-write;';
@@ -165,6 +170,7 @@ export const IFrameHelper = {
         darkMode: window.$chatwoot.darkMode,
         showUnreadMessagesDialog: window.$chatwoot.showUnreadMessagesDialog,
         campaignsSnoozedTill,
+        isReturningUser: window.$chatwoot.isReturningUser,
       });
       IFrameHelper.onLoad({
         widgetColor: message.config.channelConfig.widgetColor,
@@ -181,7 +187,7 @@ export const IFrameHelper = {
         document.addEventListener(e, IFrameHelper.setupAudioListeners, false);
       });
 
-      if (!window.$chatwoot.resetTriggered) {
+      if (!window.$chatwoot.resetTriggered && !window.$chatwoot.isReturningUser) {
         dispatchWindowEvent({ eventName: CHATWOOT_READY });
       }
     },
@@ -246,6 +252,7 @@ export const IFrameHelper = {
       IFrameHelper.sendMessage('change-url', {
         referrerURL,
         referrerHost,
+        preserveSession: true,
       });
     },
     updateIframeHeight: message => {

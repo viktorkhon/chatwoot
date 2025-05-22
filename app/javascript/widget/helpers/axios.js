@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { APP_BASE_URL } from 'widget/helpers/constants';
 import Cookies from 'js-cookie';
+import { getVisitorId, addVisitorIdToRequests } from '../../sdk/visitorIdentification';
 
 // Create axios instance with credentials
 export const API = axios.create({
@@ -26,6 +27,12 @@ API.interceptors.request.use(
     // Fallback to the actual cookie
     else if (conversationCookie && !config.url.includes('cw_conversation=')) {
       config.headers['X-Chatwoot-Conversation'] = conversationCookie;
+    }
+    
+    // Add visitor ID to all requests
+    const visitorId = getVisitorId();
+    if (visitorId) {
+      config.headers['X-Visitor-ID'] = visitorId;
     }
     
     return config;

@@ -86,6 +86,7 @@
     "tinykeys": "^3.0.0",
     "turbolinks": "^5.2.0",
     "urlpattern-polyfill": "^10.0.0",
+    "uuid": "^11.1.0",
     "video.js": "7.18.1",
     "videojs-record": "4.5.0",
     "videojs-wavesurfer": "3.8.0",

@@ -12,6 +12,12 @@
 - Implemented store-based conversation state persistence
 - Prevented creation of new conversations when navigating between pages
 - Modified URL parameter handling to consistently include conversation context
+- Added stable visitor identification using browser fingerprinting + UUID
+- Created Redis-backed visitor-to-conversation mapping with 30-day persistence
+- Modified controller to check for existing conversations by visitor ID
+- Added redundant storage using both localStorage and cookies
+- Enhanced API requests to include visitor identifier headers
+- Improved cross-page conversation tracking beyond cookies
 
 ### Fix Chatwoot widget persistence across page navigation - [Date: 2025-05-21]
 - Fixed issue with duplicate webhook firing during page navigation

@@ -1,18 +1,35 @@
 class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   include Events::Types
   before_action :render_not_found_if_empty, only: [:toggle_typing, :toggle_status, :set_custom_attributes, :destroy_custom_attributes]
+  before_action :check_visitor_id, only: [:index, :create]
 
   def index
     @conversation = conversation
   end
 
   def create
-    ActiveRecord::Base.transaction do
-      process_update_contact
-      @conversation = create_conversation
+    # Check if visitor already has a conversation in Redis
+    existing_conversation_id = VisitorConversationMapping.get_conversation_id(visitor_id) if visitor_id
+    
+    if existing_conversation_id && Conversation.where(id: existing_conversation_id).exists?
+      # Use existing conversation if found
+      @conversation = Conversation.find(existing_conversation_id)
       conversation.messages.create!(message_params)
-      # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
       conversation.reload
+    else
+      # Create new conversation and store mapping
+      ActiveRecord::Base.transaction do
+        process_update_contact
+        @conversation = create_conversation
+        conversation.messages.create!(message_params)
+        # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
+        conversation.reload
+        
+        # Store visitor-conversation mapping if visitor ID is present
+        if visitor_id
+          VisitorConversationMapping.set_mapping(visitor_id, conversation.id)
+        end
+      end
     end
   end
 
@@ -63,9 +80,10 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
       conversation.custom_attributes = {}
       conversation.save!
       
-      # Clear any existing cookies
+      # Clear any existing cookies and Redis mappings
       cookies.delete(:cw_conversation)
       cookies.delete(:cw_contact)
+      VisitorConversationMapping.delete_mapping(visitor_id) if visitor_id
     end
     head :ok
   end
@@ -88,6 +106,18 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
 
   def render_not_found_if_empty
     return head :not_found if conversation.nil?
+  end
+  
+  def visitor_id
+    request.headers['X-Visitor-ID']
+  end
+  
+  def check_visitor_id
+    # If we have a visitor ID but no conversation cookie, try to find by visitor ID
+    if visitor_id && !cookies[:cw_conversation]
+      conversation_id = VisitorConversationMapping.get_conversation_id(visitor_id)
+      cookies[:cw_conversation] = conversation_id if conversation_id
+    end
   end
 
   def permitted_params

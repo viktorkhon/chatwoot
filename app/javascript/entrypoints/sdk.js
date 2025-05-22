@@ -17,12 +17,16 @@ import {
 } from '../sdk/DOMHelpers';
 import { setCookieWithDomain } from '../sdk/cookieHelpers';
 import { SDK_SET_BUBBLE_VISIBILITY } from 'shared/constants/sharedFrameEvents';
+import { getVisitorId } from '../sdk/visitorIdentification';
 
 const runSDK = ({ baseUrl, websiteToken }) => {
   if (window.$chatwoot) {
     return;
   }
 
+  // Set up visitor ID
+  const visitorId = getVisitorId();
+  
   if (window.Turbo) {
     // if this is a Rails Turbo app
     document.addEventListener('turbo:before-render', event =>

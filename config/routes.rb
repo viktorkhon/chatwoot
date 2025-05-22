@@ -498,6 +498,16 @@ Rails.application.routes.draw do
   get '.well-known/microsoft-identity-association.json' => 'microsoft#identity_association'
 
   # ----------------------------------------------------------------------
+  # Route for app/accounts path image files
+  get 'app/accounts/:account_id/settings/inboxes/*path' => redirect { |params, _req|
+    if params[:path].match?(/\.(jpg|jpeg|png|gif|svg|webp)$/i)
+      "/assets/images/#{File.basename(params[:path])}"
+    else
+      "/app/accounts/#{params[:account_id]}/settings/inboxes/#{params[:path]}"
+    end
+  }, constraints: lambda { |req| req.path.match?(/\.(jpg|jpeg|png|gif|svg|webp)$/i) }
+
+  # ----------------------------------------------------------------------
   # Internal Monitoring Routes
   require 'sidekiq/web'
   require 'sidekiq/cron/web'
@@ -559,4 +569,10 @@ Rails.application.routes.draw do
       get 'check_env/:var_name', to: 'dev_tools#check_env'
     end
   end
+
+  # Direct route to serve images from various path patterns
+  get "assets/images/*path", to: "images#show"
+  get "images/*path", to: "images#show"
+  get "app/accounts/:account_id/settings/inboxes/*path", to: "images#show", 
+      constraints: lambda { |req| req.path.match?(/\.(jpg|jpeg|png|gif|svg|webp)$/i) }
 end

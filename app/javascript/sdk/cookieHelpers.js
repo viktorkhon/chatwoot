@@ -32,7 +32,6 @@ export const setCookieWithDomain = (
     expires,
     sameSite: 'Lax',
     domain: baseDomain,
-    path: '/',
   };
 
   // if type of value is object, stringify it

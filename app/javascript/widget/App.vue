@@ -233,19 +233,12 @@ export default {
     createWidgetEvents(message) {
       const { eventName } = message;
       const isWidgetTriggerEvent = eventName === 'webwidget.triggered';
-      
-      // Prevent triggering webwidget.triggered event if:
-      // 1. We're in unread-messages or campaigns routes
-      // 2. We are a returning user (navigating between pages)
       if (
-        isWidgetTriggerEvent && (
-          ['unread-messages', 'campaigns'].includes(this.$route.name) ||
-          window.$chatwoot?.isReturningUser
-        )
+        isWidgetTriggerEvent &&
+        ['unread-messages', 'campaigns'].includes(this.$route.name)
       ) {
         return;
       }
-      
       this.$store.dispatch('events/create', { name: eventName });
     },
     registerListeners() {
@@ -263,27 +256,15 @@ export default {
           this.setAppConfig(message);
           this.$store.dispatch('contacts/get');
           this.setCampaignReadData(message.campaignsSnoozedTill);
-          
-          if (!message.isReturningUser) {
-            this.initCampaigns({
-              currentURL: window.referrerURL || window.location.href,
-              websiteToken,
-              isInBusinessHours: this.isInBusinessHours,
-            });
-          }
         } else if (message.event === 'widget-visible') {
           this.scrollConversationToBottom();
         } else if (message.event === 'change-url') {
-          const { referrerURL, referrerHost, preserveSession } = message;
-          
-          if (!preserveSession) {
-            this.initCampaigns({
-              currentURL: referrerURL,
-              websiteToken,
-              isInBusinessHours: this.isInBusinessHours,
-            });
-          }
-          
+          const { referrerURL, referrerHost } = message;
+          this.initCampaigns({
+            currentURL: referrerURL,
+            websiteToken,
+            isInBusinessHours: this.isInBusinessHours,
+          });
           window.referrerURL = referrerURL;
           this.setReferrerHost(referrerHost);
         } else if (message.event === 'toggle-close-button') {

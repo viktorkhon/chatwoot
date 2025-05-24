@@ -7,7 +7,7 @@ param(
 )
 
 function Show-Help {
-    Write-Host "🛠️  Chatwoot Development Helper Commands" -ForegroundColor Green
+    Write-Host "CHATWOOT: Development Helper Commands" -ForegroundColor Green
     Write-Host ""
     Write-Host "Usage: .\dev-helpers.ps1 <command>" -ForegroundColor Yellow
     Write-Host ""
@@ -47,37 +47,37 @@ function Open-Console {
 }
 
 function Run-Migrations {
-    Write-Host "🔄 Running database migrations..." -ForegroundColor Yellow
+    Write-Host "MIGRATE: Running database migrations..." -ForegroundColor Yellow
     docker-compose exec rails bundle exec rails db:migrate
 }
 
 function Run-Seeds {
-    Write-Host "🌱 Running database seeds..." -ForegroundColor Yellow
+    Write-Host "SEED: Running database seeds..." -ForegroundColor Yellow
     docker-compose exec rails bundle exec rails db:seed
 }
 
 function Reset-Database {
-    Write-Host "🔄 Resetting database..." -ForegroundColor Yellow
+    Write-Host "RESET: Resetting database..." -ForegroundColor Yellow
     docker-compose exec rails bundle exec rails db:reset
 }
 
 function Restart-Services {
-    Write-Host "🔄 Restarting all services..." -ForegroundColor Yellow
+    Write-Host "RESTART: Restarting all services..." -ForegroundColor Yellow
     docker-compose restart
 }
 
 function Restart-Rails {
-    Write-Host "🔄 Restarting Rails service..." -ForegroundColor Yellow
+    Write-Host "RESTART: Restarting Rails service..." -ForegroundColor Yellow
     docker-compose restart rails
 }
 
 function Stop-Services {
-    Write-Host "⏹️  Stopping all services..." -ForegroundColor Yellow
+    Write-Host "STOP: Stopping all services..." -ForegroundColor Yellow
     docker-compose down
 }
 
 function Show-Status {
-    Write-Host "📊 Service Status:" -ForegroundColor Yellow
+    Write-Host "STATUS: Service Status:" -ForegroundColor Yellow
     docker-compose ps
 }
 
@@ -86,19 +86,19 @@ function Open-Shell {
 }
 
 function Run-Tests {
-    Write-Host "🧪 Running test suite..." -ForegroundColor Yellow
+    Write-Host "TEST: Running test suite..." -ForegroundColor Yellow
     docker-compose exec rails bundle exec rspec
 }
 
 function Clean-Environment {
-    Write-Host "🧹 Cleaning up development environment..." -ForegroundColor Yellow
+    Write-Host "CLEAN: Cleaning up development environment..." -ForegroundColor Yellow
     docker-compose down -v
     docker system prune -f
-    Write-Host "✅ Cleanup complete!" -ForegroundColor Green
+    Write-Host "SUCCESS: Cleanup complete!" -ForegroundColor Green
 }
 
 function Open-MailHog {
-    Write-Host "📧 Opening MailHog web interface..." -ForegroundColor Yellow
+    Write-Host "MAILHOG: Opening MailHog web interface..." -ForegroundColor Yellow
     Start-Process "http://localhost:8025"
 }
 

@@ -1,4 +1,13 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-sh bin/validate_push
+# Check if we're on Windows and adjust accordingly
+if command -v cmd.exe >/dev/null 2>&1; then
+  # Windows environment - run validation script directly
+  echo "Running pre-push validation on Windows..."
+  sh bin/validate_push
+else
+  # Unix/Linux environment
+  echo "Running pre-push validation on Unix/Linux..."
+  sh bin/validate_push
+fi

@@ -7,12 +7,58 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def create
-    ActiveRecord::Base.transaction do
-      process_update_contact
-      @conversation = create_conversation
-      conversation.messages.create!(message_params)
-      # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
-      conversation.reload
+    begin
+      ActiveRecord::Base.transaction do
+        process_update_contact
+        
+        # Check if we already have a conversation - if so, don't create a new one or fire webhook
+        if has_existing_conversation?
+          @conversation = conversation
+          
+          # Add the message to existing conversation if message content provided
+          if permitted_params[:message].present? && permitted_params[:message][:content].present?
+            begin
+              @conversation.messages.create!(message_params)
+            rescue => e
+              Rails.logger.error "[ConversationsController] Failed to add message to existing conversation: #{e.message}"
+              raise e
+            end
+          end
+        else
+          # Store page info in Redis before creating conversation (for incognito users)
+          if visitor_id.present? && permitted_params[:message].present?
+            page_info = {
+              page_url: permitted_params[:message][:page_url],
+              page_title: permitted_params[:message][:page_title],
+              referer_url: permitted_params[:message][:referer_url]
+            }.compact
+            
+            if page_info.any?
+              VisitorConversationMapping.set_page_info_for_visitor(visitor_id, @web_widget.website_token, page_info)
+            end
+          end
+          
+          # Create new conversation (this will trigger webhook)
+          @conversation = create_conversation
+          
+          # Add the message to new conversation if message content provided
+          if permitted_params[:message].present? && permitted_params[:message][:content].present?
+            begin
+              @conversation.messages.create!(message_params)
+            rescue => e
+              Rails.logger.error "[ConversationsController] Failed to add message to new conversation: #{e.message}"
+              raise e
+            end
+          end
+        end
+        
+        # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
+        @conversation.reload
+      end
+    rescue => e
+      Rails.logger.error "[ConversationsController] Error in conversation creation: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      render json: { error: 'Conversation creation failed' }, status: :internal_server_error
     end
   end
 
@@ -45,11 +91,14 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def toggle_typing
-    case permitted_params[:typing_status]
-    when 'on'
-      trigger_typing_event(CONVERSATION_TYPING_ON)
-    when 'off'
-      trigger_typing_event(CONVERSATION_TYPING_OFF)
+    # Allow toggle_typing to work even without an active conversation
+    if conversation.present?
+      case permitted_params[:typing_status]
+      when 'on'
+        trigger_typing_event(CONVERSATION_TYPING_ON)
+      when 'off'
+        trigger_typing_event(CONVERSATION_TYPING_OFF)
+      end
     end
 
     head :ok
@@ -58,9 +107,12 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   def toggle_status
     unless conversation.resolved?
       conversation.status = :resolved
-      # Clear conversation state when ending chat
-      conversation.messages.destroy_all
-      conversation.custom_attributes = {}
+      
+      # Clear Redis mapping when conversation is resolved
+      if visitor_id.present?
+        VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
+      end
+      
       conversation.save!
       
       # Clear any existing cookies
@@ -91,8 +143,8 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def permitted_params
-    params.permit(:id, :typing_status, :website_token, :email, contact: [:name, :email, :phone_number],
-                                                               message: [:content, :referer_url, :timestamp, :echo_id],
+    params.permit(:id, :typing_status, :website_token, :email, :visitor_id, contact: [:name, :email, :phone_number],
+                                                               message: [:content, :referer_url, :page_url, :page_title, :timestamp, :echo_id],
                                                                custom_attributes: {})
   end
 end

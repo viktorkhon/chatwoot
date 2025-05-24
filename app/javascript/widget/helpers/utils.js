@@ -12,6 +12,29 @@ export const sendMessage = msg => {
   );
 };
 
+// Generate a visitor ID for incognito users
+export const generateVisitorId = () => {
+  // Try to get existing visitor ID from sessionStorage first
+  let visitorId = sessionStorage.getItem('cw_visitor_id');
+
+  if (!visitorId) {
+    // Generate a new visitor ID using timestamp and random number
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    visitorId = `visitor_${timestamp}_${random}`;
+
+    // Store in sessionStorage so it persists across page navigation in the same session
+    sessionStorage.setItem('cw_visitor_id', visitorId);
+  }
+
+  return visitorId;
+};
+
+// Get the current visitor ID
+export const getVisitorId = () => {
+  return sessionStorage.getItem('cw_visitor_id') || generateVisitorId();
+};
+
 export const IFrameHelper = {
   isIFrame: () => window.self !== window.top,
   sendMessage,

@@ -1,14 +1,21 @@
 import { buildSearchParamsWithLocale } from '../helpers/urlParamsHelper';
 import { generateEventParams } from './events';
+import { getVisitorId } from '../helpers/utils';
 
 const createConversation = params => {
   const referrerURL = (window.referrerURL || '').replace(/;$/, '');
-  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(
+    /;$/,
+    ''
+  );
   const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+
   return {
     url: `/api/v1/widget/conversations${search}`,
     params: {
+      visitor_id: visitorId,
       contact: {
         name: params.fullName,
         email: params.emailAddress,
@@ -24,9 +31,9 @@ const createConversation = params => {
           page_info: {
             referer_url: referrerURL,
             page_url: pageURL,
-            page_title: pageTitle
-          }
-        }
+            page_title: pageTitle,
+          },
+        },
       },
       custom_attributes: params.customAttributes,
     },
@@ -35,12 +42,18 @@ const createConversation = params => {
 
 const sendMessage = (content, replyTo) => {
   const referrerURL = (window.referrerURL || '').replace(/;$/, '');
-  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(
+    /;$/,
+    ''
+  );
   const pageTitle = document.title || '';
   const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+
   return {
     url: `/api/v1/widget/messages${search}`,
     params: {
+      visitor_id: visitorId,
       message: {
         content,
         reply_to: replyTo,
@@ -52,9 +65,9 @@ const sendMessage = (content, replyTo) => {
           page_info: {
             referer_url: referrerURL,
             page_url: pageURL,
-            page_title: pageTitle
-          }
-        }
+            page_title: pageTitle,
+          },
+        },
       },
     },
   };
@@ -62,9 +75,13 @@ const sendMessage = (content, replyTo) => {
 
 const sendAttachment = ({ attachment, replyTo = null }) => {
   const referrerURL = (window.referrerURL || '').replace(/;$/, '');
-  const pageURL = (window.location.href || document.URL || '').replace(/;$/, '');
+  const pageURL = (window.location.href || document.URL || '').replace(
+    /;$/,
+    ''
+  );
   const pageTitle = document.title || '';
   const timestamp = new Date().toString();
+  const visitorId = getVisitorId();
   const { file } = attachment;
 
   const formData = new FormData();
@@ -74,19 +91,20 @@ const sendAttachment = ({ attachment, replyTo = null }) => {
     formData.append('message[attachments][]', file, file.name);
   }
 
+  formData.append('visitor_id', visitorId);
   formData.append('message[referer_url]', referrerURL);
   formData.append('message[page_url]', pageURL);
   formData.append('message[page_title]', pageTitle);
   formData.append('message[timestamp]', timestamp);
-  
+
   const pageInfoJson = JSON.stringify({
     referer_url: referrerURL,
     page_url: pageURL,
-    page_title: pageTitle
+    page_title: pageTitle,
   });
-  
+
   formData.append('message[content_attributes][page_info]', pageInfoJson);
-  
+
   if (replyTo !== null) {
     formData.append('message[reply_to]', replyTo);
   }

@@ -22,7 +22,6 @@ import {
 import { useDarkMode } from 'widget/composables/useDarkMode';
 import { SDK_SET_BUBBLE_VISIBILITY } from '../shared/constants/sharedFrameEvents';
 import { emitter } from 'shared/helpers/mitt';
-import Cookies from 'js-cookie';
 
 export default {
   name: 'App',
@@ -81,16 +80,6 @@ export default {
     this.setLocale(locale);
     this.setWidgetColor(widgetColor);
     setHeader(window.authToken);
-    
-    // Check for existing conversation cookie and initialize store with it
-    const urlParams = new URLSearchParams(window.location.search);
-    const cwConversation = urlParams.get('cw_conversation') || Cookies.get('cw_conversation');
-    
-    if (cwConversation) {
-      // Store the conversation cookie to maintain the conversation
-      this.$store.commit('conversation/setConversationCookie', cwConversation);
-    }
-    
     if (this.isIFrame) {
       this.registerListeners();
       this.sendLoadedEvent();
@@ -285,17 +274,8 @@ export default {
         } else if (message.event === 'widget-visible') {
           this.scrollConversationToBottom();
         } else if (message.event === 'change-url') {
-          const { referrerURL, referrerHost, preserveSession, cw_conversation } = message;
+          const { referrerURL, referrerHost, preserveSession } = message;
           
-          // Update the conversation store with the current conversation ID if provided
-          if (preserveSession && cw_conversation) {
-            // Ensure we're using the same conversation across page navigations
-            this.$store.dispatch('conversation/updateConversationId', { 
-              conversationCookie: cw_conversation 
-            });
-          }
-          
-          // Only reinitialize campaigns if we're not preserving the session
           if (!preserveSession) {
             this.initCampaigns({
               currentURL: referrerURL,

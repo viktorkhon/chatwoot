@@ -5,7 +5,7 @@ alwaysApply: true
 ---
 Before working on any solution, please review the project context file at `.cursor/project_context.md`. This file contains information about the project's history, current focus, and important notes from previous sessions.
 
-The context file is updated after each session to maintain continuity between chats. Use this information to understand the project's current state and recent work that has been done. Include information about the files that were fixed, and summary of changes performed, so it would be easy to use this information in the future for reference.
+The context file is updated after each session to maintain continuity between chats. Use this information to understand the project's current state and recent work that has been done.
 
 Avoid repeating work that has already been completed as documented in the context file.
 

@@ -249,13 +249,10 @@ export const IFrameHelper = {
       }
     },
     onLocationChange: ({ referrerURL, referrerHost }) => {
-      const cwCookie = Cookies.get('cw_conversation');
-      
       IFrameHelper.sendMessage('change-url', {
         referrerURL,
         referrerHost,
         preserveSession: true,
-        cw_conversation: cwCookie,
       });
     },
     updateIframeHeight: message => {

@@ -4,6 +4,15 @@
 
 <!-- New sessions will be added at the top -->
 
+### Windows Husky Pre-commit Hook Fix - [Date: 2025-01-27]
+- Fixed WSL-related error when using Husky pre-commit hooks on Windows with GitHub Desktop
+- Updated `.husky/pre-commit` script to be more Windows-compatible with error handling and fallbacks
+- Enhanced `.husky/_/husky.sh` to detect WSL environments and handle missing bash gracefully
+- Created alternative Windows batch file `.husky/pre-commit.bat` for Windows users
+- Added `precommit` npm script as manual alternative to automatic hooks
+- Created `WINDOWS_HUSKY_FIX.md` documentation with multiple solutions for Windows users
+- Resolved "CreateProcessCommon:640: execvpe(/bin/bash) failed" error
+
 ### Railway Deployment Fix - [Date: 2025-05-17]
 - Fixed database migration issues for Railway.com deployment
 - Modified Rails entrypoint script to handle existing databases properly

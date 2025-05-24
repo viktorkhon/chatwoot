@@ -1,10 +1,21 @@
-Fix: Railway deployment database migration issues
+fix: remove shell commands from docker-compose.yaml causing GitHub Desktop WSL issue
 
-This commit fixes issues with Railway deployment by:
-1. Modifying the Rails entrypoint script to handle existing databases properly
-2. Updating the database migration approach to try 'db:migrate' first before 'db:chatwoot_prepare'
-3. Adding essential environment variables to the Dockerfile
-4. Updating the Railway configuration with appropriate restart policies
+## Summary of Changes
 
-These changes ensure that when Railway deploys the app with an existing database,
-migrations will run correctly instead of failing when attempting to create an already existing database. 
+Fixed GitHub Desktop WSL error by removing shell commands from docker-compose.yaml. The Redis service was using `["sh", "-c", "..."]` command format which triggered GitHub Desktop to attempt WSL execution for Git operations.
+
+### Root Cause:
+- docker-compose.yaml contained shell commands that made GitHub Desktop think it needed WSL
+- This caused the "execvpe(/bin/bash) failed: No such file or directory" error
+
+### Files Modified:
+- `docker-compose.yaml` - Removed shell command from Redis service
+- Reverted unnecessary Husky modifications back to original state
+
+### Technical Details:
+- Simplified Redis service to run without password for local development
+- Removed all unnecessary workarounds and complications
+- Restored original Husky pre-commit hook functionality
+
+### User Impact:
+GitHub Desktop should now work normally without WSL errors when committing changes. 

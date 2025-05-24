@@ -1,7 +1,7 @@
 # Dockerfile (for Railway, using your pushed base image)
 
 # Directly specify the base image you pushed to Docker Hub
-FROM vkhon00/my-chatwoot-base:v1.0.1
+FROM vkhon00/my-chatwoot-base:latest
 
 ENV RAILS_ENV="production"
 ENV NODE_ENV="production"

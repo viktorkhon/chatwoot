@@ -19,9 +19,13 @@ class Api::V1::Widget::BaseController < ApplicationController
   def conversation
     return @conversation if @conversation
 
+    Rails.logger.info "[BaseController] Looking for conversation. Visitor ID: #{visitor_id}, Auth token present: #{auth_token_params.present?}"
+
     # First try to get conversation from Redis mapping for incognito users
     if visitor_id.present?
       conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
+      Rails.logger.info "[BaseController] Redis conversation token for visitor #{visitor_id}: #{conversation_token.present? ? 'found' : 'not found'}"
+      
       if conversation_token.present?
         # Decode the conversation token to get the contact inbox
         begin
@@ -52,7 +56,25 @@ class Api::V1::Widget::BaseController < ApplicationController
     end
 
     # Fall back to the original logic - get the last conversation from conversations scope
-    @conversation = conversations.where(status: [:open, :pending]).last
+    Rails.logger.info "[BaseController] Falling back to original conversation lookup. Contact present: #{@contact.present?}, Contact inbox present: #{@contact_inbox.present?}"
+    
+    if @contact_inbox.present?
+      # Get conversation count for debugging
+      open_conversations = conversations.where(status: [:open, :pending])
+      all_conversations = conversations
+      Rails.logger.info "[BaseController] Found #{open_conversations.count} open conversations out of #{all_conversations.count} total conversations"
+      
+      @conversation = open_conversations.last
+      if @conversation
+        Rails.logger.info "[BaseController] Found conversation #{@conversation.id} using original method"
+      else
+        Rails.logger.warn "[BaseController] No open conversations found for contact inbox #{@contact_inbox.id}"
+      end
+    else
+      Rails.logger.error "[BaseController] No contact inbox available for conversation lookup"
+    end
+
+    @conversation
   end
 
   def has_existing_conversation?

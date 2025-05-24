@@ -105,13 +105,21 @@ export const actions = {
     console.log('[Chatwoot Debug] Store: Fetching old conversations with before:', before);
     try {
       commit('setConversationListLoading', true);
-      const {
-        data: { payload, meta },
-      } = await getMessagesAPI({ before });
-      const { contact_last_seen_at: lastSeen } = meta;
+      const { data } = await getMessagesAPI({ before });
+      
+      // Handle both old and new API response formats
+      const payload = data.payload || data;
+      const meta = data.meta || {};
+      const lastSeen = meta.contact_last_seen_at;
+      
+      console.log('[Chatwoot Debug] Store: API response structure:', { hasPayload: !!data.payload, hasMeta: !!data.meta, lastSeen });
+      
       const formattedMessages = getNonDeletedMessages({ messages: payload });
       console.log('[Chatwoot Debug] Store: Fetched', formattedMessages.length, 'old messages');
-      commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      
+      if (lastSeen) {
+        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      }
       commit('setMessagesInConversation', formattedMessages);
       commit('setConversationListLoading', false);
     } catch (error) {
@@ -125,11 +133,15 @@ export const actions = {
     try {
       const { lastMessageId, conversations } = state;
 
-      const {
-        data: { payload, meta },
-      } = await getMessagesAPI({ after: lastMessageId });
+      const { data } = await getMessagesAPI({ after: lastMessageId });
 
-      const { contact_last_seen_at: lastSeen } = meta;
+      // Handle both old and new API response formats
+      const payload = data.payload || data;
+      const meta = data.meta || {};
+      const lastSeen = meta.contact_last_seen_at;
+      
+      console.log('[Chatwoot Debug] Store: Sync API response structure:', { hasPayload: !!data.payload, hasMeta: !!data.meta, lastSeen });
+
       const formattedMessages = getNonDeletedMessages({ messages: payload });
       const missingMessages = formattedMessages.filter(
         message => conversations?.[message.id] === undefined
@@ -145,7 +157,9 @@ export const actions = {
           (a, b) => a[1].created_at - b[1].created_at
         )
       );
-      commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      if (lastSeen) {
+        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      }
       commit('setMissingMessagesInConversation', updatedConversation);
     } catch (error) {
       console.error('[Chatwoot Debug] Store: Failed to sync latest messages:', error);

@@ -1,7 +1,45 @@
-Fix conversation persistence and add debug logging for widget
+Fix conversation persistence issues and add comprehensive debugging
 
-This commit resolves critical issues with conversation persistence across page navigation
-and adds comprehensive debug logging to help monitor widget behavior.
+This commit resolves critical issues with conversation persistence across page navigation,
+fixes frontend destructuring errors, and adds comprehensive logging for debugging.
+
+**Frontend Fixes:**
+• Fixed destructuring errors in fetchOldConversations by adding proper null checks for meta property
+• Enhanced error handling in syncLatestMessages to prevent meta destructuring issues  
+• Fixed conversationAttributes module to handle undefined contact_last_seen_at gracefully
+• Added comprehensive debug logging throughout widget lifecycle and API calls
+• Enhanced visitor ID persistence using sessionStorage for page navigation support
+
+**Backend Debugging & Fixes:**
+• Added extensive logging to conversation lookup logic in BaseController
+• Enhanced contact lookup debugging in WebsiteTokenHelper with Redis mapping tracing
+• Improved conversation index controller with better error handling and logging
+• Fixed message creation with proper null checks and error recovery
+• Enhanced conversation persistence by checking open/pending status vs last conversation
+
+**Key Improvements:**
+• Eliminates "Cannot destructure property 'contact_last_seen_at' of 'n' as it is undefined" errors
+• Comprehensive logging helps identify conversation state issues, lookup failures, and persistence problems
+• Proper handling of API response structures that may not include meta property
+• Enhanced visitor ID persistence and Redis mapping debugging
+• Graceful error handling when API responses don't match expected structure
+
+**Debug Logging Added:**
+• Conversation lookup flow with Redis and auth token fallback
+• Contact resolution via auth tokens vs visitor ID mapping
+• API response structure validation and meta property checking
+• Visitor ID generation, retrieval, and sessionStorage persistence
+• Full widget lifecycle from page load to conversation creation
+
+**Files Modified:**
+• app/javascript/widget/store/modules/conversation/actions.js - fixed destructuring errors
+• app/javascript/widget/store/modules/conversationAttributes.js - enhanced error handling
+• app/controllers/api/v1/widget/base_controller.rb - added conversation lookup debugging
+• app/controllers/concerns/website_token_helper.rb - enhanced contact lookup logging
+• app/controllers/api/v1/widget/conversations_controller.rb - improved index method logging
+
+This update resolves the navigation errors and provides comprehensive debugging information
+to troubleshoot conversation persistence issues across page navigation.
 
 **Backend Fixes:**
 • Fixed 500 errors in message creation with proper null checks in message_params

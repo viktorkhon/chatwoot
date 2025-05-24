@@ -4,6 +4,11 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
 
   def index
     @conversation = conversation
+    Rails.logger.info "[ConversationsController#index] Conversation found: #{@conversation.present?}, ID: #{@conversation&.id}"
+    
+    if @conversation.nil?
+      Rails.logger.warn "[ConversationsController#index] No conversation found for this request"
+    end
   end
 
   def create

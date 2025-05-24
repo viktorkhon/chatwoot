@@ -11,17 +11,22 @@ module WebsiteTokenHelper
   end
 
   def set_contact
+    Rails.logger.info "[WebsiteTokenHelper] Setting contact. Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'none'}, Visitor ID: #{visitor_id}"
+    
     # First try to find contact using auth token
     if auth_token_params[:source_id].present?
       @contact_inbox = @web_widget.inbox.contact_inboxes.find_by(
         source_id: auth_token_params[:source_id]
       )
       @contact = @contact_inbox&.contact
+      Rails.logger.info "[WebsiteTokenHelper] Auth token lookup - Contact inbox found: #{@contact_inbox.present?}, Contact found: #{@contact.present?}"
     end
 
     # If no contact found via auth token and we have a visitor ID, try Redis mapping
     if @contact.blank? && visitor_id.present?
       contact_source_id = VisitorConversationMapping.get_contact_for_visitor(visitor_id, @web_widget.website_token)
+      Rails.logger.info "[WebsiteTokenHelper] Redis contact lookup for visitor #{visitor_id}: #{contact_source_id.present? ? contact_source_id : 'not found'}"
+      
       if contact_source_id.present?
         @contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: contact_source_id)
         @contact = @contact_inbox&.contact
@@ -31,15 +36,18 @@ module WebsiteTokenHelper
 
     # If still no contact, create a new one
     if @contact.blank?
+      Rails.logger.info "[WebsiteTokenHelper] Creating new contact for visitor #{visitor_id}"
       @contact_inbox = @web_widget.create_contact_inbox(additional_attributes)
       @contact = @contact_inbox.contact
       
       # Store the contact mapping for incognito users
       if visitor_id.present?
         VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
+        Rails.logger.info "[WebsiteTokenHelper] Stored contact mapping for visitor #{visitor_id} -> #{@contact_inbox.source_id}"
       end
     end
 
+    Rails.logger.info "[WebsiteTokenHelper] Final contact state - Contact ID: #{@contact&.id}, Contact Inbox ID: #{@contact_inbox&.id}, Source ID: #{@contact_inbox&.source_id}"
     Current.contact = @contact
   end
 

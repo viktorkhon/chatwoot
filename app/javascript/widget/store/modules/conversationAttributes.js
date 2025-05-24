@@ -20,10 +20,13 @@ export const actions = {
   getAttributes: async ({ commit }) => {
     try {
       const { data } = await getConversationAPI();
-      const { contact_last_seen_at: lastSeen } = data;
+      const lastSeen = data.contact_last_seen_at;
       commit(SET_CONVERSATION_ATTRIBUTES, data);
-      commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      if (lastSeen) {
+        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      }
     } catch (error) {
+      console.error('[Chatwoot Debug] Store: Failed to get conversation attributes:', error);
       // Ignore error
     }
   },

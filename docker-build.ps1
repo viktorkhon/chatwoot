@@ -4,7 +4,7 @@
 
 param(
     [Parameter(Position=0)]
-    [string]$BaseTag = "v1.0.7",
+    [string]$BaseTag = "latest",
     
     [Parameter(Position=1)]
     [string]$OutputTag = "latest"

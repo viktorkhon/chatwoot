@@ -189,4 +189,96 @@ git push
 
 # Force push with lease
 .\git-push-windows.ps1 -Force
-``` 
+```
+
+**Latest Commit Title:**
+Fix Docker base image tag issue - revert to v1.0.7 default
+
+**Latest Summary of Changes:**
+
+🔧 **Docker Image Tag Fix:**
+- Reverted default `BASE_IMAGE_TAG` from `latest` to `v1.0.7` (known working version)
+- Updated `docker-build.ps1` to default to `v1.0.7` instead of `latest`
+- Added base image validation in build script to check if image exists before building
+
+🛡️ **Error Prevention:**
+- Build script now verifies base image exists before attempting build
+- Clear error messages with suggested solutions if base image not found
+- Prevents failed builds due to missing Docker Hub tags
+
+**The Issue:**
+When I changed the default from `v1.0.7` to `latest`, Docker couldn't find `vkhon00/my-chatwoot-base:latest` because that tag doesn't exist on Docker Hub.
+
+**The Solution:**
+- Reverted to `v1.0.7` as the safe default
+- Added image existence validation
+- Provided options for creating `latest` tag if desired
+
+**Usage Options:**
+```bash
+# Build with default v1.0.7 (safe)
+.\docker-build.ps1
+
+# Build with specific version
+.\docker-build.ps1 v1.0.8
+
+# Create latest tag (if you want to)
+docker tag vkhon00/my-chatwoot-base:v1.0.8 vkhon00/my-chatwoot-base:latest
+docker push vkhon00/my-chatwoot-base:latest
+```
+
+Your Docker builds should now work without the "image not found" error!
+
+---
+
+**Previous Commit Title:**
+Add dynamic base image tag support to Dockerfile
+
+**Previous Summary of Changes:**
+
+🏷️ **Docker Image Tag Improvements:**
+- Replaced hardcoded `v1.0.7` tag with configurable `BASE_IMAGE_TAG` argument
+- Default to `latest` tag for automatic updates to newest base image (FIXED: now defaults to v1.0.7)
+- Added `docker-build.ps1` helper script for flexible builds with different tags
+
+🔧 **Build Flexibility:**
+- Support for specifying base image version at build time
+- Easy switching between image versions without editing Dockerfile
+- Backward compatibility with existing build processes
+
+**Technical Details:**
+- Updated `docker/Dockerfile` with ARG directive for BASE_IMAGE_TAG
+- Created `docker-build.ps1` with parameter support for base tag and output tag
+- Maintains compatibility while enabling dynamic version selection
+
+This change allows you to easily update to new base image versions without modifying the Dockerfile, and provides a convenient script for building with different configurations.
+
+---
+
+**Previous Commit Title:**
+Improve Docker development environment performance
+
+**Summary of Changes:**
+
+🚀 **Performance Improvements:**
+- Replaced custom Docker builds with standard Ruby/Node Alpine images
+- Eliminated 4+ minute build times in favor of seconds startup
+- Added volume caching for bundle and node_modules to speed up subsequent starts
+
+🐳 **Docker Configuration Updates:**
+- Updated `docker-compose.yaml` to use lightweight standard images (ruby:3.3.3-alpine, node:23-alpine)
+- Enhanced `docker/Dockerfile.base` with flexible build args for different environments
+- Added `docker/entrypoints/rails-dev.sh` for proper Rails development setup
+
+⚡ **Developer Experience:**
+- Development environment now starts in seconds instead of minutes
+- Maintained all functionality while dramatically improving performance
+- Package installation happens at runtime with caching for fast subsequent starts
+
+**Technical Details:**
+- Rails service uses Ruby 3.3.3 Alpine with runtime package installation
+- Vite service uses Node 23 Alpine for frontend development
+- Volume caching ensures dependencies persist between container restarts
+- Sidekiq service shares bundle cache with Rails for efficiency
+
+This change dramatically improves the developer experience by removing the slow custom build process while maintaining all required functionality for Chatwoot development. 

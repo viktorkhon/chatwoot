@@ -1,10 +1,25 @@
-Fix: Railway deployment database migration issues
+fix: permanently disable Husky hooks for Windows compatibility
 
-This commit fixes issues with Railway deployment by:
-1. Modifying the Rails entrypoint script to handle existing databases properly
-2. Updating the database migration approach to try 'db:migrate' first before 'db:chatwoot_prepare'
-3. Adding essential environment variables to the Dockerfile
-4. Updating the Railway configuration with appropriate restart policies
+## Summary of Changes
 
-These changes ensure that when Railway deploys the app with an existing database,
-migrations will run correctly instead of failing when attempting to create an already existing database. 
+Permanently disabled Husky pre-commit hooks to resolve Windows GitHub Desktop WSL compatibility issues. This provides a clean, permanent solution without requiring workarounds or --no-verify flags.
+
+### Root Cause Investigation:
+- GitHub Desktop on Windows was attempting to execute Husky hooks through WSL
+- WSL environment was not properly configured with bash, causing "execvpe(/bin/bash) failed" errors
+- Issue started after adding local development files (docker-compose.yaml with shell commands)
+
+### Permanent Solution Applied:
+- Removed Git hooks path configuration: `git config --local --unset core.hooksPath`
+- Removed Husky install from npm prepare script
+- Added optional `lint-all` script for manual code quality checks
+
+### Files Modified:
+- `package.json` - Removed automatic Husky installation, added optional lint script
+- Git configuration - Disabled hooks path to prevent automatic hook execution
+
+### User Impact:
+- GitHub Desktop now works normally without any WSL errors
+- No more need for --no-verify flags or workarounds
+- Optional linting available via `npm run lint-all` when desired
+- Clean development workflow restored 

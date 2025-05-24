@@ -14,15 +14,18 @@ FROM ruby:3.3.3-alpine3.19
 ARG NODE_VERSION_ARG="23.7.0"
 ARG PNPM_VERSION_ARG="10.2.0"
 ARG BUNDLER_VERSION_ARG="2.5.11"
+ARG RAILS_ENV_ARG="production"
+ARG NODE_ENV_ARG="production"
+ARG BUNDLE_WITHOUT_ARG="development:test"
 
 ENV NODE_VERSION=${NODE_VERSION_ARG}
 ENV PNPM_VERSION=${PNPM_VERSION_ARG}
 ENV BUNDLER_VERSION=${BUNDLER_VERSION_ARG}
 
-# Default ENVs for the base image (can be overridden by Railway at runtime for the final image)
-ENV RAILS_ENV="production"
-ENV NODE_ENV="production"
-ENV BUNDLE_WITHOUT="development:test"
+# Environment variables that can be overridden by build args or at runtime
+ENV RAILS_ENV=${RAILS_ENV_ARG}
+ENV NODE_ENV=${NODE_ENV_ARG}
+ENV BUNDLE_WITHOUT=${BUNDLE_WITHOUT_ARG}
 ENV NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
 ENV BUNDLE_PATH="/gems"
 ENV BUNDLE_BIN="$BUNDLE_PATH/bin"
@@ -70,21 +73,21 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 WORKDIR /app
 
 # --- Install Gems ---
-    COPY Gemfile Gemfile.lock ./
-    RUN bundle config set --local force_ruby_platform true \
-        && bundle config set without ${BUNDLE_WITHOUT} \
-        && bundle install --jobs "$(nproc)" --retry 3 \
-        # More targeted cleanup:
-        # Remove .gem cache files
-        && rm -rf $BUNDLE_PATH/ruby/*/cache/*.gem \
-        # Remove C and object files from the gems' C extension build directories,
-        # but NOT the final .so files usually found in gem's lib or linked from extensions dir.
-        && find $BUNDLE_PATH/ruby/*/gems/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
-        # Also remove from specific extension build directories, which is often deeper
-        && find $BUNDLE_PATH/ruby/*/extensions/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
-        # Clean up empty directories that might be left after deleting .c/.o files
-        && find $BUNDLE_PATH/ruby/*/gems/ -type d -empty -delete \
-        && find $BUNDLE_PATH/ruby/*/extensions/ -type d -empty -delete
+COPY Gemfile Gemfile.lock ./
+RUN bundle config set --local force_ruby_platform true \
+    && bundle config set without ${BUNDLE_WITHOUT} \
+    && bundle install --jobs "$(nproc)" --retry 3 \
+    # More targeted cleanup:
+    # Remove .gem cache files
+    && rm -rf $BUNDLE_PATH/ruby/*/cache/*.gem \
+    # Remove C and object files from the gems' C extension build directories,
+    # but NOT the final .so files usually found in gem's lib or linked from extensions dir.
+    && find $BUNDLE_PATH/ruby/*/gems/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
+    # Also remove from specific extension build directories, which is often deeper
+    && find $BUNDLE_PATH/ruby/*/extensions/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
+    # Clean up empty directories that might be left after deleting .c/.o files
+    && find $BUNDLE_PATH/ruby/*/gems/ -type d -empty -delete \
+    && find $BUNDLE_PATH/ruby/*/extensions/ -type d -empty -delete
 
 # --- Install PNPM Packages ---
 COPY package.json pnpm-lock.yaml ./
@@ -94,13 +97,18 @@ COPY package.json pnpm-lock.yaml ./
 # COPY client/package.json client/yarn.lock ./client/
 
 # Use --frozen-lockfile for CI/production builds to ensure it uses the lockfile strictly
-# --prod might be suitable if devDependencies are not needed for any build steps within pnpm
-RUN pnpm install --frozen-lockfile
-# Optional: pnpm store prune # To clean up the pnpm cache if it gets too large
+# For development, allow more flexibility
+RUN if [ "$NODE_ENV" = "development" ]; then \
+        pnpm install; \
+    else \
+        pnpm install --frozen-lockfile; \
+    fi
 
 # --- Create essential directories ---
 RUN mkdir -p /app/log \
-    && mkdir -p /app/tmp/pids
+    && mkdir -p /app/tmp/pids \
+    && mkdir -p /app/tmp/cache \
+    && mkdir -p /app/tmp/sockets
 
 # --- Base image definition stops here ---
 # Application code, asset precompilation, final entrypoint setup will be in the next Dockerfile.

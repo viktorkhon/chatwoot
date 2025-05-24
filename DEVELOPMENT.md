@@ -227,3 +227,40 @@ If you encounter issues:
 4. **Explore the codebase** and start making changes!
 
 Happy developing! 🚀 
+
+## Git Workflow on Windows
+
+### Husky Pre-commit Hooks
+
+The project uses Husky for Git hooks that run linting and validation before commits and pushes. These have been configured to work properly on Windows:
+
+- **Pre-commit**: Runs ESLint on JavaScript/Vue files and RuboCop on Ruby files (Unix/Linux only)
+- **Pre-push**: Validates that you're not pushing directly to protected branches (master/develop)
+
+### Git Commands
+
+```powershell
+# Standard Git workflow (hooks run automatically)
+git add .
+git commit -m "Your commit message"
+git push
+
+# Alternative: Use the Windows-specific push script
+.\git-push-windows.ps1
+
+# Skip hooks entirely if needed (for emergencies only)
+.\git-push-windows.ps1 -SkipHooks
+
+# Force push with lease (safer than --force)
+.\git-push-windows.ps1 -Force
+```
+
+### Troubleshooting Git Issues
+
+If you encounter any Git hook issues:
+
+1. **Use the Windows script**: `.\git-push-windows.ps1`
+2. **Skip hooks temporarily**: `$env:HUSKY = "0"; git push`
+3. **Reset environment**: `Remove-Item Env:HUSKY -ErrorAction SilentlyContinue`
+
+## Development Workflow 

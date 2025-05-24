@@ -1,0 +1,63 @@
+services:
+  rails:
+    env_file: .env.local
+    environment:
+      - SECRET_KEY_BASE=946f18131a843f562b3da64517a1f0a07395ed7b1bc7a3d045b57fe06e0b410e4f77572e0244cd87afd871eafed7fc79f0c3f4f0ba7d9472d4b816aedfe8379b
+      - FRONTEND_URL=http://localhost:3000
+      - REDIS_URL=redis://:asd@redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DATABASE=railway
+      - POSTGRES_USERNAME=postgres  
+      - POSTGRES_PASSWORD=dkSdvSLYiDNQxjTsVQuTprARLaecAPmb
+      - RAILS_ENV=development
+      - LOG_LEVEL=debug
+      - LETTER_OPENER=true
+      - SMTP_ADDRESS=mailhog
+      - SMTP_PORT=1025
+      - MAILER_SENDER_EMAIL=team@localhost
+      - ENABLE_ACCOUNT_SIGNUP=true
+    volumes:
+      - ./:/app:delegated
+      - packs:/app/public/packs
+      - cache:/app/tmp/cache
+      - bundle:/usr/local/bundle
+    ports:
+      - "3000:3000"
+
+  sidekiq:
+    env_file: .env.local
+    environment:
+      - SECRET_KEY_BASE=946f18131a843f562b3da64517a1f0a07395ed7b1bc7a3d045b57fe06e0b410e4f77572e0244cd87afd871eafed7fc79f0c3f4f0ba7d9472d4b816aedfe8379b
+      - FRONTEND_URL=http://localhost:3000
+      - REDIS_URL=redis://:asd@redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DATABASE=railway
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=dkSdvSLYiDNQxjTsVQuTprARLaecAPmb
+      - RAILS_ENV=development
+      - LOG_LEVEL=debug
+
+  postgres:
+    environment:
+      - POSTGRES_DB=railway
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=dkSdvSLYiDNQxjTsVQuTprARLaecAPmb
+    ports:
+      - "5432:5432"
+
+  redis:
+    command: ["sh", "-c", "redis-server --requirepass asd"]
+    ports:
+      - "6379:6379"
+
+  mailhog:
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres:
+  redis:
+  packs:
+  cache:
+  bundle: 

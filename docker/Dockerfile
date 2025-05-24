@@ -1,7 +1,8 @@
 # Dockerfile (for Railway, using your pushed base image)
 
-# Directly specify the base image you pushed to Docker Hub
-FROM vkhon00/my-chatwoot-base:v1.0.7
+# Allow overriding the image tag at build time, default to latest
+ARG BASE_IMAGE_TAG=latest
+FROM vkhon00/my-chatwoot-base:${BASE_IMAGE_TAG}
 
 ENV RAILS_ENV="production"
 ENV NODE_ENV="production"

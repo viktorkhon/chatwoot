@@ -1,7 +1,7 @@
 # Dockerfile (for Railway, using your pushed base image)
 
-# Allow overriding the image tag at build time, default to latest
-ARG BASE_IMAGE_TAG=latest
+# Allow overriding the image tag at build time, default to v1.0.7
+ARG BASE_IMAGE_TAG=v1.0.7
 FROM vkhon00/my-chatwoot-base:${BASE_IMAGE_TAG}
 
 ENV RAILS_ENV="production"

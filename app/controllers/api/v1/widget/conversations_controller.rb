@@ -18,7 +18,12 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           # Add the message to existing conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
-              @conversation.messages.create!(message_params)
+              message_params_data = message_params
+              if message_params_data.present? && !message_params_data.empty?
+                @conversation.messages.create!(message_params_data)
+              else
+                Rails.logger.error "[ConversationsController] Invalid message params for existing conversation"
+              end
             rescue => e
               Rails.logger.error "[ConversationsController] Failed to add message to existing conversation: #{e.message}"
               raise e
@@ -44,7 +49,12 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           # Add the message to new conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
-              @conversation.messages.create!(message_params)
+              message_params_data = message_params
+              if message_params_data.present? && !message_params_data.empty?
+                @conversation.messages.create!(message_params_data)
+              else
+                Rails.logger.error "[ConversationsController] Invalid message params for new conversation"
+              end
             rescue => e
               Rails.logger.error "[ConversationsController] Failed to add message to new conversation: #{e.message}"
               raise e

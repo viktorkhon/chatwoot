@@ -27,22 +27,32 @@ class Api::V1::Widget::BaseController < ApplicationController
         begin
           token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
           if token_data[:source_id].present?
-            # Find the contact inbox and conversation
+            # Find the contact inbox and its open conversations
             contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
-            if contact_inbox&.conversations&.last&.open?
-              @conversation = contact_inbox.conversations.last
-              Rails.logger.info "[BaseController] Found existing conversation #{@conversation.id} for visitor #{visitor_id}"
-              return @conversation
+            if contact_inbox
+              # Look for open conversations
+              open_conversation = contact_inbox.conversations.where(status: [:open, :pending]).last
+              if open_conversation
+                @conversation = open_conversation
+                Rails.logger.info "[BaseController] Found existing conversation #{@conversation.id} for visitor #{visitor_id}"
+                return @conversation
+              else
+                Rails.logger.info "[BaseController] Contact found but no open conversations for visitor #{visitor_id}"
+              end
+            else
+              Rails.logger.warn "[BaseController] Contact inbox not found for source_id #{token_data[:source_id]}"
             end
           end
         rescue => e
           Rails.logger.error "[BaseController] Error decoding conversation token: #{e.message}"
+          # Clear invalid token from Redis
+          VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
         end
       end
     end
 
-    # Fall back to the original logic
-    @conversation = conversations.last
+    # Fall back to the original logic - get the last conversation from conversations scope
+    @conversation = conversations.where(status: [:open, :pending]).last
   end
 
   def has_existing_conversation?
@@ -165,6 +175,10 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def message_params
     message_data = permitted_params[:message] || {}
+    
+    # Ensure conversation exists before accessing its properties
+    return {} unless conversation&.account_id && conversation&.inbox_id
+    
     {
       account_id: conversation.account_id,
       sender: @contact,

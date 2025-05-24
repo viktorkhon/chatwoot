@@ -1,0 +1,38 @@
+Fix conversation persistence and add debug logging for widget
+
+This commit resolves critical issues with conversation persistence across page navigation
+and adds comprehensive debug logging to help monitor widget behavior.
+
+**Backend Fixes:**
+• Fixed 500 errors in message creation with proper null checks in message_params
+• Enhanced conversation lookup logic with Redis token decoding error recovery  
+• Improved conversation persistence by checking open/pending status vs last conversation
+• Added comprehensive error handling with transaction rollbacks
+• Updated permitted_params across controllers to include visitor_id parameter
+
+**Frontend Debug Logging:**
+• Added visitor ID generation/retrieval logging in utils.js
+• Enhanced API logging in endPoints.js and conversation.js for all requests/responses
+• Implemented store action logging for conversation lifecycle tracking
+• Added page navigation and widget initialization logging in App.vue
+• Enhanced axios interceptor with visitor ID header and error response logging
+• Added campaign execution logging to track webhook triggers
+
+**Key Benefits:**
+• Eliminates 500 errors and infinite message loops
+• Ensures conversation persistence across page navigation using Redis
+• Comprehensive debug logging for troubleshooting widget issues
+• Proper visitor ID persistence using sessionStorage
+• Graceful error handling when Redis operations fail
+
+**Files Modified:**
+• app/controllers/api/v1/widget/base_controller.rb - conversation lookup & message_params fixes
+• app/controllers/api/v1/widget/messages_controller.rb - error handling & visitor_id support
+• app/controllers/api/v1/widget/conversations_controller.rb - improved message creation logic
+• app/controllers/concerns/website_token_helper.rb - enhanced permitted_params
+• app/javascript/widget/helpers/utils.js - visitor ID logging
+• app/javascript/widget/api/endPoints.js - API call logging  
+• app/javascript/widget/api/conversation.js - comprehensive API logging
+• app/javascript/widget/store/modules/conversation/actions.js - store action logging
+• app/javascript/widget/App.vue - page navigation & initialization logging
+• app/javascript/widget/helpers/axios.js - request/response interceptor logging 

@@ -56,6 +56,10 @@ module WebsiteTokenHelper
   end
 
   def permitted_params
-    params.permit(:website_token, :visitor_id)
+    params.permit(:website_token, :visitor_id, :id, :before, :after, 
+                  contact: [:name, :email, :phone_number],
+                  message: [:content, :referer_url, :page_url, :page_title, :timestamp, :echo_id, :reply_to, 
+                           { content_attributes: { page_info: [:referer_url, :page_url, :page_title] } }],
+                  custom_attributes: {})
   end
 end

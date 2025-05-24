@@ -15,9 +15,14 @@ import { createTemporaryMessage, getNonDeletedMessages } from './helpers';
 import { emitter } from 'shared/helpers/mitt';
 export const actions = {
   createConversation: async ({ commit, dispatch }, params) => {
+    console.log('[Chatwoot Debug] Store: Creating conversation with params:', params);
     commit('setConversationUIFlag', { isCreating: true });
     try {
       const { data } = await createConversationAPI(params);
+      console.log('[Chatwoot Debug] Store: Conversation created successfully:', {
+        id: data.id,
+        messagesCount: data.messages?.length || 0
+      });
       const { messages } = data;
       const [message = {}] = messages;
       commit('pushMessageToConversation', message);
@@ -25,28 +30,33 @@ export const actions = {
       // Emit event to notify that conversation is created and show the chat screen
       emitter.emit(ON_CONVERSATION_CREATED);
     } catch (error) {
+      console.error('[Chatwoot Debug] Store: Conversation creation failed:', error);
       // Ignore error
     } finally {
       commit('setConversationUIFlag', { isCreating: false });
     }
   },
   sendMessage: async ({ dispatch }, params) => {
+    console.log('[Chatwoot Debug] Store: Sending message with params:', params);
     const { content, replyTo } = params;
     const message = createTemporaryMessage({ content, replyTo });
     dispatch('sendMessageWithData', message);
   },
   sendMessageWithData: async ({ commit }, message) => {
     const { id, content, replyTo, meta = {} } = message;
+    console.log('[Chatwoot Debug] Store: Sending message with data:', { id, content, replyTo });
 
     commit('pushMessageToConversation', message);
     commit('updateMessageMeta', { id, meta: { ...meta, error: '' } });
     try {
       const { data } = await sendMessageAPI(content, replyTo);
+      console.log('[Chatwoot Debug] Store: Message sent successfully:', data.id);
 
       // [VITE] Don't delete this manually, since `pushMessageToConversation` does the replacement for us anyway
       // commit('deleteMessage', message.id);
       commit('pushMessageToConversation', { ...data, status: 'sent' });
     } catch (error) {
+      console.error('[Chatwoot Debug] Store: Message sending failed:', error);
       commit('pushMessageToConversation', { ...message, status: 'failed' });
       commit('updateMessageMeta', {
         id,
@@ -92,6 +102,7 @@ export const actions = {
     }
   },
   fetchOldConversations: async ({ commit }, { before } = {}) => {
+    console.log('[Chatwoot Debug] Store: Fetching old conversations with before:', before);
     try {
       commit('setConversationListLoading', true);
       const {
@@ -99,15 +110,18 @@ export const actions = {
       } = await getMessagesAPI({ before });
       const { contact_last_seen_at: lastSeen } = meta;
       const formattedMessages = getNonDeletedMessages({ messages: payload });
+      console.log('[Chatwoot Debug] Store: Fetched', formattedMessages.length, 'old messages');
       commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
       commit('setMessagesInConversation', formattedMessages);
       commit('setConversationListLoading', false);
     } catch (error) {
+      console.error('[Chatwoot Debug] Store: Failed to fetch old conversations:', error);
       commit('setConversationListLoading', false);
     }
   },
 
   syncLatestMessages: async ({ state, commit }) => {
+    console.log('[Chatwoot Debug] Store: Syncing latest messages after ID:', state.lastMessageId);
     try {
       const { lastMessageId, conversations } = state;
 
@@ -120,6 +134,7 @@ export const actions = {
       const missingMessages = formattedMessages.filter(
         message => conversations?.[message.id] === undefined
       );
+      console.log('[Chatwoot Debug] Store: Found', missingMessages.length, 'missing messages to sync');
       if (!missingMessages.length) return;
       missingMessages.forEach(message => {
         conversations[message.id] = message;
@@ -133,11 +148,13 @@ export const actions = {
       commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
       commit('setMissingMessagesInConversation', updatedConversation);
     } catch (error) {
+      console.error('[Chatwoot Debug] Store: Failed to sync latest messages:', error);
       // IgnoreError
     }
   },
 
   clearConversations: ({ commit }) => {
+    console.log('[Chatwoot Debug] Store: Clearing all conversations');
     commit('clearConversations');
   },
 

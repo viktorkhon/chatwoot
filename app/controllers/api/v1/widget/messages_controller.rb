@@ -7,9 +7,30 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def create
-    @message = conversation.messages.new(message_params)
-    build_attachment
-    @message.save!
+    # Ensure we have a conversation first
+    if conversation.nil?
+      render json: { error: 'No conversation available' }, status: :unprocessable_entity
+      return
+    end
+
+    # Ensure message params are valid
+    message_params_data = message_params
+    if message_params_data.empty?
+      render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
+      return
+    end
+
+    begin
+      @message = conversation.messages.new(message_params_data)
+      build_attachment
+      @message.save!
+    rescue ActiveRecord::RecordInvalid => e
+      render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
+    rescue => e
+      Rails.logger.error "[MessagesController] Error creating message: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      render json: { error: 'Message creation failed' }, status: :internal_server_error
+    end
   end
 
   def update
@@ -64,7 +85,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def permitted_params
     # timestamp parameter is used in create conversation method
-    params.permit(:id, :before, :after, :website_token, contact: [:name, :email], 
+    params.permit(:id, :before, :after, :website_token, :visitor_id, contact: [:name, :email], 
                   message: [:content, :referer_url, :page_url, :page_title, :timestamp, :echo_id, :reply_to, 
                            { content_attributes: { page_info: [:referer_url, :page_url, :page_title] } }])
   end

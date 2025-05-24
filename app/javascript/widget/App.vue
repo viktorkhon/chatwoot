@@ -76,25 +76,36 @@ export default {
     },
   },
   mounted() {
+    console.log('[Chatwoot Debug] Widget: App mounted on page:', window.location.href);
+    console.log('[Chatwoot Debug] Widget: Current conversation size:', this.conversationSize);
+    
     const { websiteToken, locale, widgetColor } = window.chatwootWebChannel;
     this.setLocale(locale);
     this.setWidgetColor(widgetColor);
     setHeader(window.authToken);
+    
     if (this.isIFrame) {
+      console.log('[Chatwoot Debug] Widget: Running in iframe mode');
       this.registerListeners();
       this.sendLoadedEvent();
     } else {
+      console.log('[Chatwoot Debug] Widget: Running in direct mode, fetching conversations');
       this.fetchOldConversations();
       this.fetchAvailableAgents(websiteToken);
       this.setLocale(getLocale(window.location.search));
     }
+    
     if (this.isRNWebView) {
+      console.log('[Chatwoot Debug] Widget: Running in React Native WebView');
       this.registerListeners();
       this.sendRNWebViewLoadedEvent();
     }
+    
     this.$store.dispatch('conversationAttributes/getAttributes');
     this.registerUnreadEvents();
     this.registerCampaignEvents();
+    
+    console.log('[Chatwoot Debug] Widget: App initialization complete');
   },
   methods: {
     ...mapActions('appConfig', [
@@ -161,7 +172,9 @@ export default {
       });
     },
     registerCampaignEvents() {
+      console.log('[Chatwoot Debug] Widget: Registering campaign events');
       emitter.on(ON_CAMPAIGN_MESSAGE_CLICK, () => {
+        console.log('[Chatwoot Debug] Widget: Campaign message clicked');
         if (this.shouldShowPreChatForm) {
           this.replaceRoute('prechat-form');
         } else {
@@ -173,12 +186,14 @@ export default {
         this.unsetUnreadView();
       });
       emitter.on('execute-campaign', campaignDetails => {
+        console.log('[Chatwoot Debug] Widget: Executing campaign:', campaignDetails);
         const { customAttributes, campaignId } = campaignDetails;
         const { websiteToken } = window.chatwootWebChannel;
         this.executeCampaign({ campaignId, websiteToken, customAttributes });
         this.replaceRoute('messages');
       });
       emitter.on('snooze-campaigns', () => {
+        console.log('[Chatwoot Debug] Widget: Snoozing campaigns for 1 hour');
         const expireBy = addHours(new Date(), 1);
         this.campaignsSnoozedTill = Number(expireBy);
       });
@@ -191,7 +206,16 @@ export default {
         !isEmptyObject(activeCampaign) &&
         !messageCount &&
         !shouldSnoozeCampaign;
+      
+      console.log('[Chatwoot Debug] Widget: Setting campaign view:', {
+        messageCount,
+        activeCampaign: activeCampaign?.id,
+        shouldSnoozeCampaign,
+        isCampaignReadyToExecute
+      });
+      
       if (this.isIFrame && isCampaignReadyToExecute) {
+        console.log('[Chatwoot Debug] Widget: Executing campaign in iframe');
         this.replaceRoute('campaigns').then(() => {
           this.setIframeHeight(true);
           IFrameHelper.sendMessage({ event: 'setUnreadMode' });
@@ -338,6 +362,15 @@ export default {
     setCampaignReadData(snoozedTill) {
       if (snoozedTill) {
         this.campaignsSnoozedTill = Number(snoozedTill);
+      }
+    },
+    async fetchOldConversations() {
+      console.log('[Chatwoot Debug] Widget: Fetching old conversations on page load');
+      try {
+        await this.$store.dispatch('conversation/fetchOldConversations');
+        console.log('[Chatwoot Debug] Widget: Old conversations fetched, current size:', this.conversationSize);
+      } catch (error) {
+        console.error('[Chatwoot Debug] Widget: Failed to fetch old conversations:', error);
       }
     },
   },

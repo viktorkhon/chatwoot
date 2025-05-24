@@ -282,3 +282,36 @@ Improve Docker development environment performance
 - Sidekiq service shares bundle cache with Rails for efficiency
 
 This change dramatically improves the developer experience by removing the slow custom build process while maintaining all required functionality for Chatwoot development. 
+
+Fix conversation persistence issues and add comprehensive debug logging
+
+**Backend Fixes:**
+- Fixed 500 errors in message creation by adding proper null checks in message_params method
+- Improved conversation lookup logic to handle Redis token decoding errors gracefully
+- Enhanced conversation persistence by checking for open/pending conversations instead of just last conversation
+- Fixed message parameter validation in both MessagesController and ConversationsController
+- Updated permitted_params across controllers to include visitor_id parameter
+- Added comprehensive error handling with proper transaction rollbacks
+
+**Frontend Debug Logging:**
+- Added visitor ID generation and retrieval logging in utils.js
+- Enhanced API endpoint logging in endPoints.js for conversation creation and message sending
+- Added comprehensive API response/error logging in conversation.js
+- Implemented store action logging for conversation creation, message sending, and state management
+- Added page navigation and widget initialization logging in App.vue
+- Enhanced axios interceptor with request/response logging including visitor ID header tracking
+- Added campaign execution logging to track potential duplicate webhook triggers
+
+**Key Improvements:**
+- Message creation now has proper error handling preventing 500 errors and infinite loops
+- Conversation persistence properly handles page navigation using Redis visitor mapping
+- Comprehensive logging helps identify conversation state issues, message failures, and duplicate webhooks
+- Enhanced visitor ID persistence using sessionStorage for page navigation support
+- Better error handling with graceful fallbacks when Redis operations fail
+
+**Technical Details:**
+- Visitor ID persists across page navigation within same browser session
+- Redis mappings cleared when conversations are resolved to prevent stale data
+- Conversation tokens properly decoded with error recovery
+- All API calls now include proper visitor ID headers for backend tracking
+- Enhanced debugging covers full conversation lifecycle from creation to message sending 

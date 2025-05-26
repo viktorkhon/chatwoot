@@ -2,7 +2,7 @@
 import { mapGetters, mapActions } from 'vuex';
 import { setHeader } from 'widget/helpers/axios';
 import addHours from 'date-fns/addHours';
-import { IFrameHelper, RNHelper } from 'widget/helpers/utils';
+import { IFrameHelper, RNHelper, generateVisitorId } from 'widget/helpers/utils';
 import configMixin from './mixins/configMixin';
 import availabilityMixin from 'widget/mixins/availability';
 import { getLocale } from './helpers/urlParamsHelper';
@@ -356,7 +356,6 @@ export default {
     },
     initializeVisitorTracking() {
       // Generate or retrieve visitor ID for session persistence
-      const { generateVisitorId } = require('widget/helpers/utils');
       const visitorId = generateVisitorId();
       
       console.log('[Chatwoot] Visitor ID:', visitorId);

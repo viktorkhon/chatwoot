@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Widget::BaseController < ApplicationController
   include SwitchLocale
   include WebsiteTokenHelper
@@ -8,274 +10,225 @@ class Api::V1::Widget::BaseController < ApplicationController
   private
 
   def conversations
-    # Use the inbox_id from auth token if available, otherwise use the web widget's inbox
-    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
+    return Conversation.none unless conversation_lookup_prerequisites_met?
+
+    inbox_id = resolve_inbox_id
+    return Conversation.none if inbox_id.nil?
+
+    build_conversations_scope(inbox_id)
+  rescue StandardError => e
+    Rails.logger.error "[Widget] Conversations lookup failed: #{e.message}"
+    Conversation.none
+  end
+
+  def conversation
+    @conversation ||= find_or_build_conversation
+  end
+
+  def create_conversation
+    Rails.logger.info "[Widget] Creating NEW conversation for visitor: #{visitor_id}"
     
-    Rails.logger.info "[BaseController] Conversations lookup - inbox_id: #{inbox_id}, hmac_verified: #{@contact_inbox&.hmac_verified?}"
-    Rails.logger.info "[BaseController] Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'empty'}"
-    Rails.logger.info "[BaseController] Web widget inbox_id: #{@web_widget&.inbox&.id}"
+    conversation_params_data = build_conversation_params_with_page_info
+    new_conversation = ::Conversation.create!(conversation_params_data)
+    store_conversation_in_redis(new_conversation) if should_store_in_redis?
     
-    # Early return if no contact_inbox - user hasn't interacted with chat yet
-    unless @contact_inbox.present?
-      Rails.logger.info "[BaseController] No contact_inbox present - returning empty scope"
-      return Conversation.none
+    Rails.logger.info "[Widget] ✅ NEW conversation created: #{new_conversation.id}"
+    new_conversation
+  rescue StandardError => e
+    Rails.logger.error "[Widget] Conversation creation failed: #{e.message}"
+    raise
+  end
+
+  # Core conversation lookup logic
+  def find_or_build_conversation
+    return nil unless @contact_inbox.present?
+
+    # Try Redis first for incognito users
+    conversation_from_redis = find_conversation_via_redis
+    if conversation_from_redis
+      Rails.logger.info "[Widget] Found conversation via Redis: #{conversation_from_redis.id}"
+      return conversation_from_redis
+    end
+
+    # Fallback to database lookup
+    conversation_from_db = find_conversation_via_database
+    if conversation_from_db
+      Rails.logger.info "[Widget] Found conversation via database: #{conversation_from_db.id}"
+    else
+      Rails.logger.info "[Widget] No existing conversation found for visitor: #{visitor_id}"
     end
     
-    if inbox_id.nil?
-      Rails.logger.error "[BaseController] ❌ No inbox_id available for conversation lookup"
-      return Conversation.none
+    conversation_from_db
+  end
+
+  def find_conversation_via_redis
+    return nil unless visitor_id.present?
+
+    conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
+    return nil unless conversation_token.present?
+
+    if validate_redis_conversation_mapping(visitor_id, conversation_token)
+      extract_conversation_from_token(conversation_token)
+    else
+      Rails.logger.warn "[Widget] Clearing stale Redis mapping for visitor: #{visitor_id}"
+      VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
+      nil
     end
+  end
+
+  def extract_conversation_from_token(conversation_token)
+    token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
+    return nil unless token_data[:source_id].present?
+
+    contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
+    return nil unless contact_inbox&.id == @contact_inbox&.id
+
+    find_conversation_from_token_data(contact_inbox, token_data)
+  rescue StandardError => e
+    Rails.logger.error "[Widget] Token extraction failed: #{e.message}"
+    nil
+  end
+
+  def find_conversation_from_token_data(contact_inbox, token_data)
+    # Try specific conversation ID first
+    if token_data[:conversation_id].present?
+      specific_conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
+      return specific_conversation if specific_conversation&.open_or_pending?
+    end
+
+    # Fallback to last open conversation
+    inbox_id = resolve_inbox_id
+    open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
     
-    begin
-      # Ensure we have valid objects before proceeding
-      unless @contact_inbox && @contact && inbox_id
-        Rails.logger.error "[BaseController] Missing required objects for conversation lookup: contact_inbox=#{@contact_inbox&.id}, contact=#{@contact&.id}, inbox_id=#{inbox_id}"
-        return Conversation.none
-      end
-      
-      if @contact_inbox.hmac_verified?
-        verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
-        @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
-        Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes, #{@conversations.count} conversations"
-      else
-        @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
-        Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}, found #{@conversations.count} conversations"
-      end
-      
-      Rails.logger.info "[BaseController] Conversations SQL: #{@conversations.to_sql}" if @conversations.respond_to?(:to_sql)
-    rescue => e
-      Rails.logger.error "[BaseController] Error during conversations lookup: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      @conversations = Conversation.none
+    if open_conversation
+      update_redis_mapping_for_conversation(open_conversation)
+      open_conversation
+    end
+  end
+
+  def find_conversation_via_database
+    conversations_scope = conversations
+    open_conversations = conversations_scope.where(status: [:open, :pending])
+    
+    conversation = open_conversations.last
+    store_conversation_in_redis(conversation) if conversation && should_store_in_redis?
+    
+    conversation
+  end
+
+  # Helper methods
+  def conversation_lookup_prerequisites_met?
+    @contact_inbox.present?
+  end
+
+  def resolve_inbox_id
+    auth_token_params[:inbox_id] || @web_widget&.inbox&.id
+  end
+
+  def build_conversations_scope(inbox_id)
+    if @contact_inbox.hmac_verified?
+      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
+      @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
+    else
+      @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
     end
     
     @conversations
   end
 
-  def conversation
-    return @conversation if @conversation
-
-    Rails.logger.info "[BaseController] === CONVERSATION LOOKUP START ==="
-    Rails.logger.info "[BaseController] Visitor ID: #{visitor_id}"
-    Rails.logger.info "[BaseController] Auth token present: #{auth_token_params.present?}"
-    Rails.logger.info "[BaseController] Contact present: #{@contact&.id}"
-    Rails.logger.info "[BaseController] Contact inbox present: #{@contact_inbox&.id}"
-
-    # Early return if no contact_inbox - this means user hasn't interacted with chat yet
-    unless @contact_inbox.present?
-      Rails.logger.info "[BaseController] No contact inbox present - user hasn't opened chat yet"
-      Rails.logger.info "[BaseController] === CONVERSATION LOOKUP END: nil (no interaction) ==="
-      return nil
-    end
-
-    # First try to get conversation from Redis mapping for incognito users
-    if visitor_id.present?
-      conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
-      Rails.logger.info "[BaseController] Redis conversation token for visitor #{visitor_id}: #{conversation_token.present? ? 'found' : 'not found'}"
-      
-      if conversation_token.present?
-        # Validate the Redis mapping first
-        if validate_redis_conversation_mapping(visitor_id, conversation_token)
-          # Decode the conversation token to get the contact inbox
-          begin
-            token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
-            Rails.logger.info "[BaseController] Decoded token data: #{token_data}"
-            
-            if token_data[:source_id].present?
-              # Find the contact inbox and its open conversations
-              contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
-              Rails.logger.info "[BaseController] Contact inbox found: #{contact_inbox&.id}"
-              
-              if contact_inbox
-                # Ensure we're using the same contact_inbox for consistency
-                if contact_inbox.id == @contact_inbox&.id
-                  # If token has specific conversation_id, use it directly
-                  if token_data[:conversation_id].present?
-                    specific_conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
-                    if specific_conversation && [:open, :pending].include?(specific_conversation.status.to_sym)
-                      @conversation = specific_conversation
-                      Rails.logger.info "[BaseController] ✅ Found specific conversation #{@conversation.id} for visitor #{visitor_id} via Redis"
-                      return @conversation
-                    end
-                  end
-                  
-                  # Fallback to last open conversation
-                  inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
-                  open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
-                  Rails.logger.info "[BaseController] Open conversation found via Redis: #{open_conversation&.id}"
-                  
-                  if open_conversation
-                    @conversation = open_conversation
-                    Rails.logger.info "[BaseController] ✅ Found existing conversation #{@conversation.id} for visitor #{visitor_id} via Redis"
-                    
-                    # Update Redis mapping to ensure it points to the correct conversation
-                    updated_token = generate_conversation_token_for_conversation(@conversation)
-                    if updated_token
-                      VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, updated_token)
-                      Rails.logger.info "[BaseController] Updated Redis mapping for visitor #{visitor_id} to conversation #{@conversation.id}"
-                    end
-                    
-                    return @conversation
-                  else
-                    Rails.logger.info "[BaseController] Contact found but no open conversations for visitor #{visitor_id}"
-                  end
-                else
-                  Rails.logger.warn "[BaseController] Contact inbox mismatch: Redis points to #{contact_inbox.id}, current is #{@contact_inbox&.id}"
-                  # Clear stale mapping
-                  VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
-                end
-              else
-                Rails.logger.warn "[BaseController] Contact inbox not found for source_id #{token_data[:source_id]}"
-                # Clear invalid mapping
-                VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
-              end
-            end
-          rescue => e
-            Rails.logger.error "[BaseController] Error decoding conversation token: #{e.message}"
-            # Clear invalid token from Redis
-            VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
-          end
-        else
-          Rails.logger.warn "[BaseController] Invalid Redis mapping detected, clearing for visitor #{visitor_id}"
-          VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
-        end
-      end
-    end
-
-    # Fall back to the original logic - get the last conversation from conversations scope
-    Rails.logger.info "[BaseController] Falling back to original conversation lookup"
+  def build_conversation_params_with_page_info
+    base_params = conversation_params
+    page_info = get_redis_page_info
     
-    # Use the same scope for consistency
-    begin
-      conversations_scope = conversations
-      Rails.logger.info "[BaseController] Conversations scope class: #{conversations_scope.class}, SQL: #{conversations_scope.to_sql}" if conversations_scope.respond_to?(:to_sql)
-      
-      open_conversations = conversations_scope.where(status: [:open, :pending])
-      all_conversations = conversations_scope
-      Rails.logger.info "[BaseController] Found #{open_conversations.count} open conversations out of #{all_conversations.count} total conversations"
-      inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
-      Rails.logger.info "[BaseController] Contact inbox ID: #{@contact_inbox.id}, Contact ID: #{@contact.id}, Inbox ID: #{inbox_id}"
-      
-      @conversation = open_conversations.last
-      if @conversation
-        Rails.logger.info "[BaseController] ✅ Found conversation #{@conversation.id} using original method"
-        
-        # Store this conversation in Redis for future lookups if we have a visitor ID
-        if visitor_id.present? && @contact_inbox.source_id.present?
-          conversation_token = generate_conversation_token_for_conversation(@conversation)
-          if conversation_token
-            VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, conversation_token)
-            Rails.logger.info "[BaseController] Stored conversation #{@conversation.id} in Redis for visitor #{visitor_id}"
-          end
-        end
-      else
-        Rails.logger.info "[BaseController] ℹ️ No open conversations found - this is normal for users who haven't started chatting"
-      end
-    rescue => e
-      Rails.logger.error "[BaseController] Error during conversation lookup: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      @conversation = nil
-    end
+    return base_params unless page_info.present?
 
-    Rails.logger.info "[BaseController] === CONVERSATION LOOKUP END: #{@conversation&.id || 'nil'} ==="
-    @conversation
+    merge_page_info_into_params(base_params, page_info)
   end
 
-  def create_conversation
-    # Get page info from Redis if available
-    page_info = {}
-    if visitor_id.present?
-      redis_page_info = VisitorConversationMapping.get_page_info_for_visitor(visitor_id, @web_widget.website_token)
-      page_info = redis_page_info if redis_page_info.present?
+  def get_redis_page_info
+    return {} unless visitor_id.present?
+    
+    VisitorConversationMapping.get_page_info_for_visitor(visitor_id, @web_widget.website_token) || {}
+  end
+
+  def merge_page_info_into_params(base_params, page_info)
+    existing_custom_attributes = base_params[:custom_attributes] || {}
+    
+    if existing_custom_attributes['page_url'].blank? && page_info[:page_url].present?
+      base_params[:custom_attributes] = existing_custom_attributes.merge({
+        'page_url' => page_info[:page_url],
+        'page_title' => page_info[:page_title],
+        'referer_url' => page_info[:referer_url]
+      }.compact)
     end
     
-    # Merge page info from Redis with current request params
-    conversation_params_with_page_info = conversation_params
-    if page_info.present?
-      existing_custom_attributes = conversation_params_with_page_info[:custom_attributes] || {}
-      
-      if existing_custom_attributes['page_url'].blank? && page_info[:page_url].present?
-        conversation_params_with_page_info[:custom_attributes] = existing_custom_attributes.merge({
-          'page_url' => page_info[:page_url],
-          'page_title' => page_info[:page_title],
-          'referer_url' => page_info[:referer_url]
-        }.compact)
-      end
-    end
-    
-    begin
-      Rails.logger.info "[BaseController#create_conversation] Creating conversation with params: contact_id=#{conversation_params_with_page_info[:contact_id]}, contact_inbox_id=#{conversation_params_with_page_info[:contact_inbox_id]}, inbox_id=#{conversation_params_with_page_info[:inbox_id]}"
-      new_conversation = ::Conversation.create!(conversation_params_with_page_info)
-      Rails.logger.info "[BaseController#create_conversation] ✅ Conversation created successfully: ID=#{new_conversation.id}, contact_inbox_id=#{new_conversation.contact_inbox_id}, status=#{new_conversation.status}"
-      Rails.logger.info "[BaseController#create_conversation] New conversation details - ID: #{new_conversation.id}, Inbox ID: #{new_conversation.inbox_id}, Contact Inbox ID: #{new_conversation.contact_inbox_id}"
-    rescue => e
-      Rails.logger.error "[BaseController#create_conversation] Failed to create conversation: #{e.message}"
-      raise e
-    end
-    
-    # Store conversation token in Redis for incognito users
-    if visitor_id.present? && @contact_inbox.source_id.present?
-      Rails.logger.info "[BaseController#create_conversation] Attempting to generate and set Redis token for new conversation ID: #{new_conversation.id}"
-      conversation_token = generate_conversation_token_for_conversation(new_conversation)
-      if conversation_token
-        Rails.logger.info "[BaseController#create_conversation] Generated token for conversation #{new_conversation.id}. Token starts with: #{conversation_token.slice(0,20)}..."
-        VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, conversation_token)
-        Rails.logger.info "[BaseController#create_conversation] Successfully called set_conversation_for_visitor for conversation #{new_conversation.id}"
-        VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
-      else
-        Rails.logger.warn "[BaseController#create_conversation] Failed to generate conversation token for new conversation ID: #{new_conversation.id}. Redis not updated for this conversation."
-      end
-    end
-    
-    new_conversation
+    base_params
+  end
+
+  def should_store_in_redis?
+    visitor_id.present? && @contact_inbox&.source_id.present?
+  end
+
+  def store_conversation_in_redis(conversation)
+    return unless conversation
+
+    conversation_token = generate_conversation_token_for_conversation(conversation)
+    return unless conversation_token
+
+    VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, conversation_token)
+    VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
+  end
+
+  def update_redis_mapping_for_conversation(conversation)
+    return unless should_store_in_redis?
+
+    updated_token = generate_conversation_token_for_conversation(conversation)
+    return unless updated_token
+
+    VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, updated_token)
   end
 
   def generate_conversation_token_for_conversation(conversation)
-    Rails.logger.info "[BaseController#generate_token] Input conversation ID: #{conversation&.id}, Contact Inbox ID: #{@contact_inbox&.id}, Conv.InboxID: #{conversation&.inbox_id}, Conv.ContactInboxID: #{conversation&.contact_inbox_id}"
+    return nil unless conversation_token_prerequisites_met?(conversation)
     
-    # Ensure all necessary components for the token payload are present
-    return nil unless conversation && @contact_inbox && @contact_inbox.source_id.present? && conversation.inbox_id.present? && conversation.id.present?
-    
-    begin
-      ::Widget::TokenService.new(
-        payload: {
-          source_id: @contact_inbox.source_id,
-          inbox_id: conversation.inbox_id,
-          conversation_id: conversation.id  # Add conversation ID to token for validation
-        }
-      ).generate_token
-    rescue => e
-      Rails.logger.error "[BaseController#generate_token] Error generating conversation token for conversation #{conversation&.id}: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      nil
-    end
+    ::Widget::TokenService.new(
+      payload: {
+        source_id: @contact_inbox.source_id,
+        inbox_id: conversation.inbox_id,
+        conversation_id: conversation.id
+      }
+    ).generate_token
+  rescue StandardError => e
+    Rails.logger.error "[Widget] Token generation failed: #{e.message}"
+    nil
+  end
+
+  def conversation_token_prerequisites_met?(conversation)
+    conversation&.id.present? && 
+    @contact_inbox&.source_id.present? && 
+    conversation.inbox_id.present?
   end
 
   def validate_redis_conversation_mapping(visitor_id, conversation_token)
     return false unless visitor_id.present? && conversation_token.present?
     
-    begin
-      token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
-      return false unless token_data[:source_id].present?
-      
-      # Find the contact inbox
-      contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
-      return false unless contact_inbox
-      
-      # If token has conversation_id, validate it exists and is open
-      if token_data[:conversation_id].present?
-        conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
-        if conversation.nil? || conversation.status == 'resolved'
-          Rails.logger.warn "[BaseController] Redis mapping points to invalid/resolved conversation #{token_data[:conversation_id]}"
-          return false
-        end
-      end
-      
-      true
-    rescue => e
-      Rails.logger.error "[BaseController] Error validating Redis mapping: #{e.message}"
-      false
-    end
+    token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
+    return false unless token_data[:source_id].present?
+    
+    contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
+    return false unless contact_inbox
+
+    validate_conversation_from_token(contact_inbox, token_data)
+  rescue StandardError => e
+    Rails.logger.error "[Widget] Redis mapping validation failed: #{e.message}"
+    false
+  end
+
+  def validate_conversation_from_token(contact_inbox, token_data)
+    return true unless token_data[:conversation_id].present?
+
+    conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
+    conversation.present? && conversation.status != 'resolved'
   end
 
   def inbox
@@ -284,30 +237,34 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def conversation_params
     message_data = permitted_params[:message] || {}
-    
-    # Ensure we have a valid inbox
     current_inbox = inbox
-    unless current_inbox
-      Rails.logger.error "[BaseController] No inbox available for conversation params"
-      raise "No inbox available for conversation creation"
-    end
+    
+    raise "No inbox available for conversation creation" unless current_inbox
     
     {
       account_id: current_inbox.account_id,
       inbox_id: current_inbox.id,
       contact_id: @contact.id,
       contact_inbox_id: @contact_inbox.id,
-      additional_attributes: {
-        browser_language: browser.accept_language&.first&.code,
-        browser: browser_params,
-        initiated_at: timestamp_params
-      },
-      custom_attributes: {
-        referer_url: message_data[:referer_url],
-        page_url: message_data[:page_url],
-        page_title: message_data[:page_title]
-      }.compact.merge(permitted_params[:custom_attributes].presence || {})
+      additional_attributes: build_additional_attributes,
+      custom_attributes: build_custom_attributes(message_data)
     }
+  end
+
+  def build_additional_attributes
+    {
+      browser_language: browser.accept_language&.first&.code,
+      browser: browser_params,
+      initiated_at: timestamp_params
+    }
+  end
+
+  def build_custom_attributes(message_data)
+    {
+      referer_url: message_data[:referer_url],
+      page_url: message_data[:page_url],
+      page_title: message_data[:page_title]
+    }.compact.merge(permitted_params[:custom_attributes].presence || {})
   end
 
   def contact_email
@@ -344,8 +301,6 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def message_params
     message_data = permitted_params[:message] || {}
-    
-    # Ensure conversation exists before accessing its properties
     return {} unless conversation&.account_id && conversation&.inbox_id
     
     {
@@ -353,16 +308,20 @@ class Api::V1::Widget::BaseController < ApplicationController
       sender: @contact,
       content: message_data[:content],
       inbox_id: conversation.inbox_id,
-      content_attributes: {
-        in_reply_to: message_data[:reply_to],
-        page_info: {
-          page_url: message_data[:page_url],
-          page_title: message_data[:page_title],
-          referer_url: message_data[:referer_url]
-        }.compact
-      }.compact,
+      content_attributes: build_message_content_attributes(message_data),
       echo_id: message_data[:echo_id],
       message_type: :incoming
     }
+  end
+
+  def build_message_content_attributes(message_data)
+    {
+      in_reply_to: message_data[:reply_to],
+      page_info: {
+        page_url: message_data[:page_url],
+        page_title: message_data[:page_title],
+        referer_url: message_data[:referer_url]
+      }.compact
+    }.compact
   end
 end

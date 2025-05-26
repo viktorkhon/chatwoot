@@ -17,13 +17,21 @@ export const getters = {
 };
 
 export const actions = {
-  getAttributes: async ({ commit }) => {
+  getAttributes: async ({ commit, state }) => {
+    // Prevent unnecessary calls if we already have conversation data
+    if (state.id) {
+      console.log('[Widget] Skipping getAttributes - already have conversation:', state.id);
+      return;
+    }
+    
+    console.log('[Widget] Fetching conversation attributes via getConversationAPI...');
+    
     try {
       const { data } = await getConversationAPI();
       
       // Handle case where no conversation exists yet (empty response)
       if (!data || !data.id) {
-        console.log('[🔍 Chatwoot Debug] No conversation found - user hasn\'t started chatting yet');
+        console.log('[Widget] No conversation found - user hasn\'t started chatting yet');
         commit('CLEAR_CONVERSATION_ATTRIBUTES');
         return;
       }
@@ -34,7 +42,7 @@ export const actions = {
         commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
       }
       
-      console.log('[🔍 Chatwoot Debug] Conversation attributes loaded:', {
+      console.log('[Widget] Conversation attributes loaded:', {
         id: data.id,
         status: data.status,
         hasAssignee: !!data.assignee,
@@ -43,9 +51,9 @@ export const actions = {
     } catch (error) {
       // Check if this is the specific urlParamsHelper error we're fixing
       if (error.message && error.message.includes("Cannot read properties of undefined (reading '$root')")) {
-        console.warn('[Chatwoot] Widget initialization timing issue - this is expected on first load and will resolve automatically');
+        console.warn('[Widget] Widget initialization timing issue - this is expected on first load and will resolve automatically');
       } else {
-        console.error('[Chatwoot] Failed to get conversation attributes:', error);
+        console.error('[Widget] Failed to get conversation attributes:', error.message);
       }
       // Clear attributes on error to ensure clean state
       commit('CLEAR_CONVERSATION_ATTRIBUTES');

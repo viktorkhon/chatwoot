@@ -86,8 +86,20 @@ class ActionCableConnector extends BaseActionCableConnector {
     this.app.$store.dispatch('conversation/addOrUpdateMessage', data);
   };
 
-  onConversationCreated = () => {
-    this.app.$store.dispatch('conversationAttributes/getAttributes');
+  onConversationCreated = (data) => {
+    // Only fetch attributes if this conversation creation event is relevant to this widget
+    // Check if the conversation belongs to the current contact/visitor
+    const currentContactId = this.app.$store.getters['contacts/getContact']?.id;
+    const conversationContactId = data?.conversation?.contact?.id;
+    
+    // If we have contact information and it matches, or if we don't have enough info to determine,
+    // then fetch the attributes
+    if (!currentContactId || !conversationContactId || currentContactId === conversationContactId) {
+      console.log('[Widget] Conversation created event - fetching attributes');
+      this.app.$store.dispatch('conversationAttributes/getAttributes');
+    } else {
+      console.log('[Widget] Conversation created event - not for this contact, ignoring');
+    }
   };
 
   onPresenceUpdate = data => {

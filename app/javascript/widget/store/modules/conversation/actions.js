@@ -13,72 +13,43 @@ import {
 import { ON_CONVERSATION_CREATED } from 'widget/constants/widgetBusEvents';
 import { createTemporaryMessage, getNonDeletedMessages } from './helpers';
 import { emitter } from 'shared/helpers/mitt';
+
 export const actions = {
   createConversation: async ({ commit, dispatch }, params) => {
     commit('setConversationUIFlag', { isCreating: true });
     try {
-      console.log('[🔍 Chatwoot Debug] Creating new conversation with params:', params);
       const { data } = await createConversationAPI(params);
-      console.log('[🔍 Chatwoot Debug] Conversation created successfully:', {
-        conversationId: data.id,
-        contactId: data.contact_id,
-        inboxId: data.inbox_id,
-        status: data.status
-      });
       const { messages } = data;
       const [message = {}] = messages;
+      
       commit('pushMessageToConversation', message);
       dispatch('conversationAttributes/getAttributes', {}, { root: true });
-      // Emit event to notify that conversation is created and show the chat screen
       emitter.emit(ON_CONVERSATION_CREATED);
     } catch (error) {
-      console.error('[❌ Chatwoot Debug] Conversation creation failed:', error);
-      // Ignore error
+      console.error('[Chatwoot] Conversation creation failed:', error.message);
     } finally {
       commit('setConversationUIFlag', { isCreating: false });
     }
   },
+
   sendMessage: async ({ dispatch }, params) => {
     const { content, replyTo } = params;
     const message = createTemporaryMessage({ content, replyTo });
     dispatch('sendMessageWithData', message);
   },
+
   sendMessageWithData: async ({ commit, dispatch, getters }, message) => {
     const { id, content, replyTo, meta = {} } = message;
-
-    console.log('[🔍 Chatwoot Debug] Sending message:', {
-      messageId: id,
-      content: content,
-      replyTo: replyTo,
-      tempMessage: true,
-      hasExistingConversation: getters.getConversationSize > 0
-    });
 
     commit('pushMessageToConversation', message);
     commit('updateMessageMeta', { id, meta: { ...meta, error: '' } });
     
     try {
       const { data } = await sendMessageAPI(content, replyTo);
-      console.log('[🔍 Chatwoot Debug] Message sent successfully:', {
-        messageId: data.id,
-        conversationId: data.conversation_id,
-        content: data.content,
-        messageType: data.message_type,
-        status: 'sent'
-      });
-
-      // [VITE] Don't delete this manually, since `pushMessageToConversation` does the replacement for us anyway
-      // commit('deleteMessage', message.id);
       commit('pushMessageToConversation', { ...data, status: 'sent' });
     } catch (error) {
-      console.error('[❌ Chatwoot Debug] Message sending failed:', error);
-      
-      // Check if the error is due to no conversation existing
       if (error.response?.data?.code === 'NO_CONVERSATION') {
-        console.log('[🔍 Chatwoot Debug] No conversation exists, creating one first...');
-        
         try {
-          // Create a conversation with the message content
           await dispatch('createConversation', {
             message: content,
             fullName: '',
@@ -86,12 +57,8 @@ export const actions = {
             phoneNumber: '',
             customAttributes: {}
           });
-          
-          console.log('[🔍 Chatwoot Debug] Conversation created, message should be included');
-          // The message was included in the conversation creation - DO NOT add it again
-          // The backend already includes the message in the new conversation
         } catch (conversationError) {
-          console.error('[❌ Chatwoot Debug] Failed to create conversation:', conversationError);
+          console.error('[Chatwoot] Failed to create conversation:', conversationError.message);
           commit('pushMessageToConversation', { ...message, status: 'failed' });
           commit('updateMessageMeta', {
             id,
@@ -99,7 +66,6 @@ export const actions = {
           });
         }
       } else {
-        // Other error, mark message as failed
         commit('pushMessageToConversation', { ...message, status: 'failed' });
         commit('updateMessageMeta', {
           id,
@@ -114,21 +80,21 @@ export const actions = {
   },
 
   sendAttachment: async ({ commit }, params) => {
-    const {
-      attachment: { thumbUrl, fileType },
-      meta = {},
-    } = params;
+    const { attachment: { thumbUrl, fileType }, meta = {} } = params;
     const attachment = {
       thumb_url: thumbUrl,
       data_url: thumbUrl,
       file_type: fileType,
       status: 'in_progress',
     };
+    
     const tempMessage = createTemporaryMessage({
       attachments: [attachment],
       replyTo: params.replyTo,
     });
+    
     commit('pushMessageToConversation', tempMessage);
+    
     try {
       const { data } = await sendAttachmentAPI(params);
       commit('updateAttachmentMessageStatus', {
@@ -140,50 +106,38 @@ export const actions = {
       commit('pushMessageToConversation', { ...tempMessage, status: 'failed' });
       commit('updateMessageMeta', {
         id: tempMessage.id,
-        meta: { ...meta, error: '' },
+        meta: { ...meta, error: 'Attachment upload failed' },
       });
-      // Show error
     }
   },
+
   fetchOldConversations: async ({ commit }, { before } = {}) => {
+    commit('setConversationListLoading', true);
+    
     try {
-      commit('setConversationListLoading', true);
-      console.log('[🔍 Chatwoot Debug] Fetching old conversations...');
       const { data } = await getMessagesAPI({ before });
       
-      // Handle case where no conversation exists yet (empty response)
       if (!data || (!data.payload && !Array.isArray(data))) {
-        console.log('[🔍 Chatwoot Debug] No conversations found - user hasn\'t started chatting yet');
         commit('setMessagesInConversation', []);
-        commit('setConversationListLoading', false);
         return;
       }
       
-      // Handle both old and new API response formats
       const payload = data.payload || data;
       const meta = data.meta || {};
-      const lastSeen = meta.contact_last_seen_at;
-      
       const formattedMessages = getNonDeletedMessages({ messages: payload });
-      console.log('[🔍 Chatwoot Debug] Fetched conversations:', {
-        messageCount: formattedMessages.length,
-        conversationId: formattedMessages[0]?.conversation_id,
-        lastSeen: lastSeen,
-        hasExistingConversation: formattedMessages.length > 0
-      });
       
-      if (lastSeen) {
-        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      if (meta.contact_last_seen_at) {
+        commit('conversation/setMetaUserLastSeenAt', meta.contact_last_seen_at, { root: true });
       }
+      
       commit('setMessagesInConversation', formattedMessages);
-      commit('setConversationListLoading', false);
     } catch (error) {
-      console.error('[❌ Chatwoot Debug] Failed to fetch conversations:', error);
-      // Handle 500 errors gracefully - likely means no conversation exists yet
       if (error.response?.status === 500) {
-        console.log('[🔍 Chatwoot Debug] Server error likely due to no conversation existing - this is normal');
         commit('setMessagesInConversation', []);
+      } else {
+        console.error('[Chatwoot] Failed to fetch conversations:', error.message);
       }
+    } finally {
       commit('setConversationListLoading', false);
     }
   },
@@ -191,35 +145,35 @@ export const actions = {
   syncLatestMessages: async ({ state, commit }) => {
     try {
       const { lastMessageId, conversations } = state;
-
       const { data } = await getMessagesAPI({ after: lastMessageId });
 
-      // Handle both old and new API response formats
       const payload = data.payload || data;
       const meta = data.meta || {};
-      const lastSeen = meta.contact_last_seen_at;
-
       const formattedMessages = getNonDeletedMessages({ messages: payload });
+      
       const missingMessages = formattedMessages.filter(
         message => conversations?.[message.id] === undefined
       );
+      
       if (!missingMessages.length) return;
+      
       missingMessages.forEach(message => {
         conversations[message.id] = message;
       });
-      // Sort conversation messages by created_at
+      
       const updatedConversation = Object.fromEntries(
         Object.entries(conversations).sort(
           (a, b) => a[1].created_at - b[1].created_at
         )
       );
-      if (lastSeen) {
-        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      
+      if (meta.contact_last_seen_at) {
+        commit('conversation/setMetaUserLastSeenAt', meta.contact_last_seen_at, { root: true });
       }
+      
       commit('setMissingMessagesInConversation', updatedConversation);
     } catch (error) {
-      console.error('[Chatwoot] Failed to sync messages:', error);
-      // IgnoreError
+      console.error('[Chatwoot] Failed to sync messages:', error.message);
     }
   },
 
@@ -229,7 +183,7 @@ export const actions = {
 
   addOrUpdateMessage: async ({ commit }, data) => {
     const { id, content_attributes } = data;
-    if (content_attributes && content_attributes.deleted) {
+    if (content_attributes?.deleted) {
       commit('deleteMessage', id);
       return;
     }
@@ -244,56 +198,48 @@ export const actions = {
     try {
       await toggleTyping(data);
     } catch (error) {
-      // IgnoreError
+      // Silent fail for typing indicators
     }
   },
 
   setUserLastSeen: async ({ commit, getters: appGetters }) => {
-    if (!appGetters.getConversationSize) {
-      return;
-    }
+    if (!appGetters.getConversationSize) return;
 
     const lastSeen = Date.now() / 1000;
     try {
       commit('setMetaUserLastSeenAt', lastSeen);
       await setUserLastSeenAt({ lastSeen });
     } catch (error) {
-      // IgnoreError
+      // Silent fail for last seen updates
     }
   },
 
   clearVisitorData: () => {
-    // Clear visitor ID from sessionStorage to force new conversation
-    sessionStorage.removeItem('cw_visitor_id');
-    localStorage.removeItem('cw_conversation');
-    localStorage.removeItem('cw_contact');
+    const storageKeys = ['cw_visitor_id', 'cw_conversation', 'cw_contact'];
+    storageKeys.forEach(key => {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    });
     
-    // Clear any stored conversation cookies
-    document.cookie = 'cw_conversation=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'cw_contact=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    
-    console.log('[Chatwoot] Visitor data cleared from all storage locations');
+    // Clear cookies
+    const cookieKeys = ['cw_conversation', 'cw_contact'];
+    cookieKeys.forEach(key => {
+      document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    });
   },
 
   resolveConversation: async ({ commit, dispatch }) => {
     try {
-      // First mark the conversation as resolved on the backend
-      await toggleStatus(); // This will clear visitor data on backend
-      
-      // Clear local state and reset the widget
+      await toggleStatus();
       commit('clearConversations'); 
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
-      
-      // Use centralized visitor data cleanup
       dispatch('clearVisitorData');
       
-      console.log('[Chatwoot] Conversation resolved and visitor data cleared');
-      
-      // Reset the widget state entirely
-      window.$chatwoot.reset(); 
-      
+      if (window.$chatwoot?.reset) {
+        window.$chatwoot.reset(); 
+      }
     } catch (error) {
-      console.error('[Chatwoot] Error resolving conversation:', error);
+      console.error('[Chatwoot] Error resolving conversation:', error.message);
     }
   },
 
@@ -301,7 +247,7 @@ export const actions = {
     try {
       await setCustomAttributes(customAttributes);
     } catch (error) {
-      // IgnoreError
+      console.error('[Chatwoot] Failed to set custom attributes:', error.message);
     }
   },
 
@@ -309,7 +255,7 @@ export const actions = {
     try {
       await deleteCustomAttribute(customAttribute);
     } catch (error) {
-      // IgnoreError
+      console.error('[Chatwoot] Failed to delete custom attribute:', error.message);
     }
   },
 };

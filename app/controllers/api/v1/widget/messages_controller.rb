@@ -3,26 +3,15 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   before_action :set_message, only: [:update]
 
   def index
-    Rails.logger.info "[MessagesController#index] === MESSAGES INDEX START ==="
-    Rails.logger.info "[MessagesController#index] Visitor ID: #{visitor_id}"
-    Rails.logger.info "[MessagesController#index] Contact: #{@contact&.id}"
-    Rails.logger.info "[MessagesController#index] Contact inbox: #{@contact_inbox&.id}"
-    
     # Handle case where no conversation exists yet
     @conversation = conversation
-    Rails.logger.info "[MessagesController#index] Conversation: #{@conversation&.id || 'nil'}"
     
     if @conversation.nil?
-      Rails.logger.info "[MessagesController#index] ℹ️ No conversation found - returning empty messages array"
       @messages = []
     else
-      Rails.logger.info "[MessagesController#index] ✅ Found conversation #{@conversation.id}, fetching messages"
       finder = message_finder
       @messages = finder ? finder.perform : []
-      Rails.logger.info "[MessagesController#index] Found #{@messages.count} messages"
     end
-    
-    Rails.logger.info "[MessagesController#index] === MESSAGES INDEX END ==="
   end
 
   def create
@@ -46,8 +35,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     rescue ActiveRecord::RecordInvalid => e
       render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
     rescue => e
-      Rails.logger.error "[MessagesController] Error creating message: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error "[Widget] Error creating message: #{e.message}"
       render json: { error: 'Message creation failed' }, status: :internal_server_error
     end
   end
@@ -83,11 +71,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    Rails.logger.info "[MessagesController] Setting conversation. Visitor ID: #{visitor_id}"
-    Rails.logger.info "[MessagesController] Current conversation: #{conversation&.id || 'nil'}"
-    
     if conversation.nil?
-      
       # Instead of creating a new conversation, return an error
       # Messages should only be sent to existing conversations
       render json: { 
@@ -96,7 +80,6 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
       }, status: :unprocessable_entity
       return
     else
-      Rails.logger.info "[MessagesController] ✅ Using existing conversation: #{conversation.id}"
       @conversation = conversation
     end
   end

@@ -3,35 +3,22 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   before_action :render_not_found_if_empty, only: [:toggle_typing, :toggle_status, :set_custom_attributes, :destroy_custom_attributes]
 
   def index
-    Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX START ==="
-    Rails.logger.info "[ConversationsController#index] Visitor ID: #{visitor_id}"
-    Rails.logger.info "[ConversationsController#index] Contact: #{@contact&.id}"
-    Rails.logger.info "[ConversationsController#index] Contact inbox: #{@contact_inbox&.id}"
-    
     # Handle case where user hasn't interacted with chat yet
     unless @contact_inbox.present?
-      Rails.logger.info "[ConversationsController#index] No contact inbox - user hasn't opened chat yet"
-      Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX END ==="
       @conversation = nil
       return
     end
     
     begin
       @conversation = conversation
-      Rails.logger.info "[ConversationsController#index] Conversation found: #{@conversation.present?}, ID: #{@conversation&.id}"
       
       if @conversation.nil?
-        Rails.logger.info "[ConversationsController#index] ℹ️ No conversation found - this is normal for users who haven't started chatting"
-      else
-        Rails.logger.info "[ConversationsController#index] ✅ Returning conversation #{@conversation.id} to frontend"
+        Rails.logger.info "[Widget] No conversation found for visitor: #{visitor_id}"
       end
     rescue => e
-      Rails.logger.error "[ConversationsController#index] Error during conversation lookup: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error "[Widget] Error during conversation lookup: #{e.message}"
       @conversation = nil
     end
-    
-    Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX END ==="
   end
 
   def create
@@ -39,17 +26,11 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
       ActiveRecord::Base.transaction do
         process_update_contact
         
-        Rails.logger.info "[ConversationsController#create] === CONVERSATION CREATE START ==="
-        Rails.logger.info "[ConversationsController#create] Visitor ID: #{visitor_id}"
-        Rails.logger.info "[ConversationsController#create] Contact: #{@contact&.id}"
-        Rails.logger.info "[ConversationsController#create] Contact inbox: #{@contact_inbox&.id}"
-        
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
         existing_conversation = conversation
-        Rails.logger.info "[ConversationsController#create] Existing conversation check: #{existing_conversation&.id || 'none'}"
         
         if existing_conversation.present?
-          Rails.logger.info "[ConversationsController#create] ✅ Using existing conversation #{existing_conversation.id}"
+          Rails.logger.info "[Widget] Using existing conversation #{existing_conversation.id} for visitor: #{visitor_id}"
           @conversation = existing_conversation
           
           # Add the message to existing conversation if message content provided
@@ -57,18 +38,17 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
             begin
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
-                Rails.logger.info "[ConversationsController#create] Adding message to existing conversation #{@conversation.id}"
                 @conversation.messages.create!(message_params_data)
               else
-                Rails.logger.error "[ConversationsController#create] Invalid message params for existing conversation"
+                Rails.logger.error "[Widget] Invalid message params for existing conversation"
               end
             rescue => e
-              Rails.logger.error "[ConversationsController#create] Failed to add message to existing conversation: #{e.message}"
+              Rails.logger.error "[Widget] Failed to add message to existing conversation: #{e.message}"
               raise e
             end
           end
         else
-          Rails.logger.info "[ConversationsController#create] No existing conversation found, creating new one"
+          Rails.logger.info "[Widget] ⚠️ CREATING NEW CONVERSATION during page navigation for visitor: #{visitor_id}"
           
           # Store page info in Redis before creating conversation (for incognito users)
           if visitor_id.present? && permitted_params[:message].present?
@@ -84,35 +64,30 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           end
           
           # Create new conversation (this will trigger webhook)
-          Rails.logger.info "[ConversationsController#create] Creating new conversation..."
           @conversation = create_conversation
-          Rails.logger.info "[ConversationsController#create] ✅ New conversation created: #{@conversation.id}"
+          Rails.logger.info "[Widget] ✅ NEW conversation created: #{@conversation.id} for visitor: #{visitor_id}"
           
           # Add the message to new conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
-                Rails.logger.info "[ConversationsController#create] Adding message to new conversation #{@conversation.id}"
                 @conversation.messages.create!(message_params_data)
               else
-                Rails.logger.error "[ConversationsController#create] Invalid message params for new conversation"
+                Rails.logger.error "[Widget] Invalid message params for new conversation"
               end
             rescue => e
-              Rails.logger.error "[ConversationsController#create] Failed to add message to new conversation: #{e.message}"
+              Rails.logger.error "[Widget] Failed to add message to new conversation: #{e.message}"
               raise e
             end
           end
         end
         
-        Rails.logger.info "[ConversationsController#create] === CONVERSATION CREATE END: #{@conversation.id} ==="
-        
         # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
         @conversation.reload
       end
     rescue => e
-      Rails.logger.error "[ConversationsController#create] Error in conversation creation: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error "[Widget] Error in conversation creation: #{e.message}"
       render json: { error: 'Conversation creation failed' }, status: :internal_server_error
     end
   end
@@ -127,38 +102,26 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def update_last_seen
-    Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN START ==="
-    Rails.logger.info "[ConversationsController#update_last_seen] Visitor ID: #{visitor_id}"
-    Rails.logger.info "[ConversationsController#update_last_seen] Contact: #{@contact&.id}"
-    Rails.logger.info "[ConversationsController#update_last_seen] Contact inbox: #{@contact_inbox&.id}"
-    Rails.logger.info "[ConversationsController#update_last_seen] Auth token present: #{auth_token_params.present?}"
-    
     # Handle case where user hasn't opened chat yet
     unless @contact_inbox.present?
-      Rails.logger.info "[ConversationsController#update_last_seen] No contact inbox - user hasn't opened chat yet"
       head :ok  # Return success but do nothing
       return
     end
     
     begin
       current_conversation = conversation
-      Rails.logger.info "[ConversationsController#update_last_seen] Conversation lookup result: #{current_conversation&.id || 'nil'}"
       
       if current_conversation.nil?
-        Rails.logger.info "[ConversationsController#update_last_seen] ℹ️ No active conversation found - this is normal for users who haven't started chatting"
         head :ok  # Return success but do nothing
         return
       end
 
-      Rails.logger.info "[ConversationsController#update_last_seen] ✅ Updating last seen for conversation: #{current_conversation.id}"
       current_conversation.contact_last_seen_at = DateTime.now.utc
       current_conversation.save!
       ::Conversations::UpdateMessageStatusJob.perform_later(current_conversation.id, current_conversation.contact_last_seen_at)
-      Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN END ==="
       head :ok
     rescue => e
-      Rails.logger.error "[ConversationsController#update_last_seen] Error during update_last_seen: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error "[Widget] Error during update_last_seen: #{e.message}"
       head :ok  # Return success to avoid breaking the frontend
     end
   end
@@ -174,27 +137,18 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def toggle_typing
-    Rails.logger.info "[ConversationsController#toggle_typing] === TOGGLE TYPING START ==="
-    Rails.logger.info "[ConversationsController#toggle_typing] Visitor ID: #{visitor_id}"
-    Rails.logger.info "[ConversationsController#toggle_typing] Typing status: #{permitted_params[:typing_status]}"
-    
     current_conversation = conversation
-    Rails.logger.info "[ConversationsController#toggle_typing] Conversation lookup result: #{current_conversation&.id || 'nil'}"
     
     # Allow toggle_typing to work even without an active conversation
     if current_conversation.present?
-      Rails.logger.info "[ConversationsController#toggle_typing] ✅ Processing typing event for conversation: #{current_conversation.id}"
       case permitted_params[:typing_status]
       when 'on'
         trigger_typing_event(CONVERSATION_TYPING_ON)
       when 'off'
         trigger_typing_event(CONVERSATION_TYPING_OFF)
       end
-    else
-      Rails.logger.warn "[ConversationsController#toggle_typing] ⚠️ No active conversation found - typing event skipped"
     end
 
-    Rails.logger.info "[ConversationsController#toggle_typing] === TOGGLE TYPING END ==="
     head :ok
   end
 

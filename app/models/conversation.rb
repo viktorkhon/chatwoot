@@ -138,6 +138,10 @@ class Conversation < ApplicationRecord
     save
   end
 
+  def open_or_pending?
+    open? || pending?
+  end
+
   def toggle_priority(priority = nil)
     self.priority = priority.presence
     save

@@ -276,7 +276,6 @@ export default {
           this.setReferrerHost(referrerHost);
           
           // Ensure conversation persistence during page navigation
-          console.log('[🔍 Chatwoot Debug] Page navigation detected via change-url event:', referrerURL);
           this.ensureConversationPersistence();
         } else if (message.event === 'toggle-close-button') {
           this.isMobile = message.isMobile;
@@ -360,23 +359,17 @@ export default {
     },
     initializeVisitorTracking() {
       // Generate or retrieve visitor ID for session persistence
-      const visitorId = generateVisitorId();
-      
-      console.log('[🔍 Chatwoot Debug] Current page URL:', window.location.href);
-      console.log('[🔍 Chatwoot Debug] Session storage visitor ID:', sessionStorage.getItem('cw_visitor_id'));
+      generateVisitorId();
       
       // Set up page navigation tracking for conversation persistence
-      this.handlePageNavigation();
-      
+      this.setupPageNavigationListeners();
+    },
+    setupPageNavigationListeners() {
       // Listen for page navigation events (for SPAs)
       window.addEventListener('popstate', this.handlePageNavigation);
-      
-      // Listen for hash changes
       window.addEventListener('hashchange', this.handlePageNavigation);
     },
     handlePageNavigation() {
-      console.log('[🔍 Chatwoot Debug] Page navigation detected:', window.location.href);
-      
       // Update page info for conversation persistence
       this.updatePageInfo();
       
@@ -390,31 +383,20 @@ export default {
         referer_url: document.referrer
       };
       
-      console.log('[🔍 Chatwoot Debug] Updating page info:', pageInfo);
-      
       // Store page info in the store for later use
       this.$store.dispatch('appConfig/updatePageInfo', pageInfo);
     },
     async ensureConversationPersistence() {
-      console.log('[🔍 Chatwoot Debug] Ensuring conversation persistence after navigation...');
-      
       try {
         // Fetch existing conversations to maintain persistence
         await this.fetchOldConversations();
         
         const conversationSize = this.$store.getters['conversation/getConversationSize'];
-        console.log('[🔍 Chatwoot Debug] Conversation persistence check:', {
-          hasExistingConversation: conversationSize > 0,
-          messageCount: conversationSize
-        });
-        
-        if (conversationSize > 0) {
-          console.log('[🔍 Chatwoot Debug] ✅ Conversation persistence maintained');
-        } else {
-          console.log('[🔍 Chatwoot Debug] ⚠️ No existing conversation found after navigation');
+        if (conversationSize === 0) {
+          console.log('[Chatwoot] No existing conversation found after navigation');
         }
       } catch (error) {
-        console.error('[❌ Chatwoot Debug] Error ensuring conversation persistence:', error);
+        console.error('[Chatwoot] Error ensuring conversation persistence:', error.message);
       }
     },
   },

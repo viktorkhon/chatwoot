@@ -6,6 +6,7 @@ import {
   SET_WIDGET_COLOR,
   TOGGLE_WIDGET_OPEN,
   SET_ROUTE_UPDATE_STATE,
+  SET_PAGE_INFO,
 } from '../types';
 
 const state = {
@@ -21,6 +22,11 @@ const state = {
   widgetStyle: 'standard',
   darkMode: 'light',
   isUpdatingRoute: false,
+  pageInfo: {
+    page_url: '',
+    page_title: '',
+    referer_url: ''
+  },
 };
 
 export const getters = {
@@ -34,6 +40,7 @@ export const getters = {
   darkMode: $state => $state.darkMode,
   getShowUnreadMessagesDialog: $state => $state.showUnreadMessagesDialog,
   getIsUpdatingRoute: _state => _state.isUpdatingRoute,
+  getPageInfo: $state => $state.pageInfo,
 };
 
 export const actions = {
@@ -79,6 +86,9 @@ export const actions = {
     // See issue: https://github.com/chatwoot/chatwoot/issues/10736
     commit(SET_ROUTE_UPDATE_STATE, status);
   },
+  updatePageInfo({ commit }, pageInfo) {
+    commit(SET_PAGE_INFO, pageInfo);
+  },
 };
 
 export const mutations = {
@@ -108,6 +118,9 @@ export const mutations = {
   },
   [SET_ROUTE_UPDATE_STATE]($state, status) {
     $state.isUpdatingRoute = status;
+  },
+  [SET_PAGE_INFO]($state, pageInfo) {
+    $state.pageInfo = pageInfo;
   },
 };
 

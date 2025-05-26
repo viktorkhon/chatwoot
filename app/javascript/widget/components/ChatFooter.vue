@@ -88,12 +88,17 @@ export default {
       this.clearConversations();
       this.clearConversationAttributes();
       
+      // Clear visitor ID from sessionStorage to force new conversation
+      sessionStorage.removeItem('cw_visitor_id');
+      
       // Reset the widget state
       window.$chatwoot.reset();
       
       // Clear any stored conversation data
       localStorage.removeItem('cw_conversation');
       localStorage.removeItem('cw_contact');
+      
+      console.log('[Chatwoot] Starting new conversation, visitor data cleared');
       
       // Redirect to pre-chat form
       this.replaceRoute('prechat-form');

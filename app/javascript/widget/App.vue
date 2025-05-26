@@ -76,27 +76,24 @@ export default {
     },
   },
   mounted() {
-    console.log('[Chatwoot Debug] Widget: App mounted on page:', window.location.href);
-    console.log('[Chatwoot Debug] Widget: Current conversation size:', this.conversationSize);
-    
     const { websiteToken, locale, widgetColor } = window.chatwootWebChannel;
     this.setLocale(locale);
     this.setWidgetColor(widgetColor);
     setHeader(window.authToken);
     
+    // Initialize visitor tracking for conversation persistence
+    this.initializeVisitorTracking();
+    
     if (this.isIFrame) {
-      console.log('[Chatwoot Debug] Widget: Running in iframe mode');
       this.registerListeners();
       this.sendLoadedEvent();
     } else {
-      console.log('[Chatwoot Debug] Widget: Running in direct mode, fetching conversations');
       this.fetchOldConversations();
       this.fetchAvailableAgents(websiteToken);
       this.setLocale(getLocale(window.location.search));
     }
     
     if (this.isRNWebView) {
-      console.log('[Chatwoot Debug] Widget: Running in React Native WebView');
       this.registerListeners();
       this.sendRNWebViewLoadedEvent();
     }
@@ -104,8 +101,6 @@ export default {
     this.$store.dispatch('conversationAttributes/getAttributes');
     this.registerUnreadEvents();
     this.registerCampaignEvents();
-    
-    console.log('[Chatwoot Debug] Widget: App initialization complete');
   },
   methods: {
     ...mapActions('appConfig', [
@@ -172,9 +167,7 @@ export default {
       });
     },
     registerCampaignEvents() {
-      console.log('[Chatwoot Debug] Widget: Registering campaign events');
       emitter.on(ON_CAMPAIGN_MESSAGE_CLICK, () => {
-        console.log('[Chatwoot Debug] Widget: Campaign message clicked');
         if (this.shouldShowPreChatForm) {
           this.replaceRoute('prechat-form');
         } else {
@@ -186,14 +179,12 @@ export default {
         this.unsetUnreadView();
       });
       emitter.on('execute-campaign', campaignDetails => {
-        console.log('[Chatwoot Debug] Widget: Executing campaign:', campaignDetails);
         const { customAttributes, campaignId } = campaignDetails;
         const { websiteToken } = window.chatwootWebChannel;
         this.executeCampaign({ campaignId, websiteToken, customAttributes });
         this.replaceRoute('messages');
       });
       emitter.on('snooze-campaigns', () => {
-        console.log('[Chatwoot Debug] Widget: Snoozing campaigns for 1 hour');
         const expireBy = addHours(new Date(), 1);
         this.campaignsSnoozedTill = Number(expireBy);
       });
@@ -207,15 +198,7 @@ export default {
         !messageCount &&
         !shouldSnoozeCampaign;
       
-      console.log('[Chatwoot Debug] Widget: Setting campaign view:', {
-        messageCount,
-        activeCampaign: activeCampaign?.id,
-        shouldSnoozeCampaign,
-        isCampaignReadyToExecute
-      });
-      
       if (this.isIFrame && isCampaignReadyToExecute) {
-        console.log('[Chatwoot Debug] Widget: Executing campaign in iframe');
         this.replaceRoute('campaigns').then(() => {
           this.setIframeHeight(true);
           IFrameHelper.sendMessage({ event: 'setUnreadMode' });
@@ -365,13 +348,41 @@ export default {
       }
     },
     async fetchOldConversations() {
-      console.log('[Chatwoot Debug] Widget: Fetching old conversations on page load');
       try {
         await this.$store.dispatch('conversation/fetchOldConversations');
-        console.log('[Chatwoot Debug] Widget: Old conversations fetched, current size:', this.conversationSize);
       } catch (error) {
-        console.error('[Chatwoot Debug] Widget: Failed to fetch old conversations:', error);
+        console.error('[Chatwoot] Failed to fetch conversations:', error);
       }
+    },
+    initializeVisitorTracking() {
+      // Generate or retrieve visitor ID for session persistence
+      const { generateVisitorId } = require('widget/helpers/utils');
+      const visitorId = generateVisitorId();
+      
+      console.log('[Chatwoot] Visitor ID:', visitorId);
+      
+      // Set up page navigation tracking for conversation persistence
+      this.handlePageNavigation();
+      
+      // Listen for page navigation events (for SPAs)
+      window.addEventListener('popstate', this.handlePageNavigation);
+      
+      // Listen for hash changes
+      window.addEventListener('hashchange', this.handlePageNavigation);
+    },
+    handlePageNavigation() {
+      // Update page info for conversation persistence
+      this.updatePageInfo();
+    },
+    updatePageInfo() {
+      const pageInfo = {
+        page_url: window.location.href,
+        page_title: document.title,
+        referer_url: document.referrer
+      };
+      
+      // Store page info in the store for later use
+      this.$store.dispatch('appConfig/updatePageInfo', pageInfo);
     },
   },
 };

@@ -26,7 +26,7 @@ export const actions = {
         commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
       }
     } catch (error) {
-      console.error('[Chatwoot Debug] Store: Failed to get conversation attributes:', error);
+      console.error('[Chatwoot] Failed to get conversation attributes:', error);
       // Ignore error
     }
   },

@@ -130,10 +130,19 @@ const sendAttachment = ({ attachment, replyTo = null }) => {
   };
 };
 
-const getConversation = ({ before, after }) => ({
-  url: `/api/v1/widget/messages${window.location.search}`,
-  params: { before, after },
-});
+const getConversation = ({ before, after }) => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/messages${search}`,
+    params: { 
+      before, 
+      after,
+      visitor_id: visitorId
+    },
+  };
+};
 
 const updateMessage = id => ({
   url: `/api/v1/widget/messages/${id}${window.location.search}`,

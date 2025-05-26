@@ -56,10 +56,27 @@ const getConversationAPI = async () => {
   const visitorId = getVisitorId();
   
   try {
-    const response = await API.get(`/api/v1/widget/conversations${search}`, {
+    // Use the messages endpoint to fetch conversation data without creating a new one
+    const response = await API.get(`/api/v1/widget/messages${search}`, {
       params: { visitor_id: visitorId }
     });
-    return response;
+    
+    // Transform the response to match the expected conversation format
+    if (response.data && response.data.payload && response.data.payload.length > 0) {
+      const firstMessage = response.data.payload[0];
+      return {
+        data: {
+          id: firstMessage.conversation_id,
+          contact_last_seen_at: response.data.meta?.contact_last_seen_at,
+          status: 'open', // Default status for active conversations
+          assignee: null, // Will be updated by other mechanisms if needed
+          team: null // Will be updated by other mechanisms if needed
+        }
+      };
+    } else {
+      // No conversation exists yet
+      return { data: null };
+    }
   } catch (error) {
     console.error('[Chatwoot] API: Conversation retrieval failed:', error);
     throw error;

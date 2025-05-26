@@ -45,3 +45,53 @@ Fixed critical conversation persistence issue where frontend and backend were fi
 - Redis mapping validation logic implemented
 - Automatic cleanup on conversation resolution
 - Enhanced logging for debugging conversation flow 
+
+**COMMIT NAME:**
+Fix new conversation creation during page navigation - Maintain conversation persistence
+
+**COMMIT SUMMARY:**
+
+## 🎯 Issue Fixed: New Conversation Creation During Page Navigation
+
+Fixed critical bug where page navigation was creating new conversations instead of maintaining existing conversation persistence, despite having conversation persistence features implemented.
+
+## 🔍 Root Cause Identified
+
+**Problem**: `getConversationAPI()` was calling the wrong backend endpoint
+- **Wrong**: `/api/v1/widget/conversations` (can trigger conversation creation)
+- **Correct**: `/api/v1/widget/messages` (only fetches existing conversations)
+
+**Trigger Chain**:
+1. Page navigation → ActionCable `conversation.created` event
+2. ActionCable → `conversationAttributes/getAttributes` 
+3. getAttributes → `getConversationAPI()`
+4. getConversationAPI → Wrong endpoint → New conversation created
+
+## ✅ Fixes Implemented
+
+### 1. Fixed API Endpoint Usage
+**File**: `app/javascript/widget/api/conversation.js`
+- Changed `getConversationAPI()` to use `/api/v1/widget/messages` endpoint
+- Added response transformation to match expected conversation format
+- Added proper handling for non-existent conversations
+
+### 2. Enhanced Visitor ID Support
+**File**: `app/javascript/widget/api/endPoints.js`  
+- Added visitor ID parameter to `getConversation` endpoint
+- Ensures proper visitor identification for conversation lookup
+
+## 🎯 Expected Results
+
+✅ **Page navigation maintains same conversation ID**
+✅ **No new conversations created during navigation**  
+✅ **Conversation messages preserved across pages**
+✅ **Conversation attributes loaded without side effects**
+✅ **ActionCable events handled correctly**
+
+## 📋 Technical Details
+
+- **API Clarification**: `/api/v1/widget/conversations` for creation, `/api/v1/widget/messages` for fetching
+- **Response Transformation**: Messages API response transformed to conversation attributes format
+- **Visitor ID Integration**: Proper visitor identification across all conversation-related endpoints
+
+This fix ensures true conversation persistence across page navigation while preventing unwanted conversation creation through ActionCable event handling. 

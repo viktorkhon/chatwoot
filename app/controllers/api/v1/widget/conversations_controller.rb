@@ -95,8 +95,15 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def update_last_seen
-    head :ok && return if conversation.nil?
+    Rails.logger.info "[ConversationsController#update_last_seen] Updating last seen for visitor: #{visitor_id}"
+    
+    if conversation.nil?
+      Rails.logger.warn "[ConversationsController#update_last_seen] No active conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox&.id}"
+      render json: { error: 'No active conversation found' }, status: :not_found
+      return
+    end
 
+    Rails.logger.info "[ConversationsController#update_last_seen] Updating last seen for conversation: #{conversation.id}"
     conversation.contact_last_seen_at = DateTime.now.utc
     conversation.save!
     ::Conversations::UpdateMessageStatusJob.perform_later(conversation.id, conversation.contact_last_seen_at)

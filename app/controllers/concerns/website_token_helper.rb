@@ -1,6 +1,22 @@
 module WebsiteTokenHelper
   def auth_token_params
-    @auth_token_params ||= ::Widget::TokenService.new(token: request.headers['X-Auth-Token']).decode_token
+    return @auth_token_params if defined?(@auth_token_params)
+    
+    auth_token = request.headers['X-Auth-Token']
+    if auth_token.present?
+      begin
+        @auth_token_params = ::Widget::TokenService.new(token: auth_token).decode_token
+        Rails.logger.info "[WebsiteTokenHelper] Decoded auth token: #{@auth_token_params.keys}" if @auth_token_params.present?
+      rescue => e
+        Rails.logger.warn "[WebsiteTokenHelper] Failed to decode auth token: #{e.message}"
+        @auth_token_params = {}
+      end
+    else
+      Rails.logger.info "[WebsiteTokenHelper] No auth token present"
+      @auth_token_params = {}
+    end
+    
+    @auth_token_params
   end
 
   def set_web_widget

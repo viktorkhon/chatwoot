@@ -8,12 +8,20 @@ class Api::V1::Widget::BaseController < ApplicationController
   private
 
   def conversations
+    # Use the inbox_id from auth token if available, otherwise use the web widget's inbox
+    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+    
+    Rails.logger.info "[BaseController] Conversations lookup - inbox_id: #{inbox_id}, hmac_verified: #{@contact_inbox&.hmac_verified?}"
+    
     if @contact_inbox.hmac_verified?
-      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: auth_token_params[:inbox_id], hmac_verified: true).map(&:id)
+      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
       @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
+      Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes"
     else
-      @conversations = @contact_inbox.conversations.where(inbox_id: auth_token_params[:inbox_id])
+      @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
+      Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}"
     end
+    @conversations
   end
 
   def conversation
@@ -57,7 +65,8 @@ class Api::V1::Widget::BaseController < ApplicationController
                   end
                   
                   # Fallback to last open conversation
-                  open_conversation = contact_inbox.conversations.where(inbox_id: auth_token_params[:inbox_id], status: [:open, :pending]).last
+                  inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+                  open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
                   Rails.logger.info "[BaseController] Open conversation found via Redis: #{open_conversation&.id}"
                   
                   if open_conversation
@@ -103,9 +112,14 @@ class Api::V1::Widget::BaseController < ApplicationController
     
     if @contact_inbox.present?
       # Use the same scope for consistency
-      open_conversations = conversations.where(status: [:open, :pending])
-      all_conversations = conversations
+      conversations_scope = conversations
+      Rails.logger.info "[BaseController] Conversations scope class: #{conversations_scope.class}, SQL: #{conversations_scope.to_sql}" if conversations_scope.respond_to?(:to_sql)
+      
+      open_conversations = conversations_scope.where(status: [:open, :pending])
+      all_conversations = conversations_scope
       Rails.logger.info "[BaseController] Found #{open_conversations.count} open conversations out of #{all_conversations.count} total conversations"
+      inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+      Rails.logger.info "[BaseController] Contact inbox ID: #{@contact_inbox.id}, Contact ID: #{@contact.id}, Inbox ID: #{inbox_id}"
       
       @conversation = open_conversations.last
       if @conversation
@@ -155,7 +169,9 @@ class Api::V1::Widget::BaseController < ApplicationController
     end
     
     begin
+      Rails.logger.info "[BaseController] Creating conversation with params: contact_id=#{conversation_params_with_page_info[:contact_id]}, contact_inbox_id=#{conversation_params_with_page_info[:contact_inbox_id]}, inbox_id=#{conversation_params_with_page_info[:inbox_id]}"
       new_conversation = ::Conversation.create!(conversation_params_with_page_info)
+      Rails.logger.info "[BaseController] ✅ Conversation created successfully: ID=#{new_conversation.id}, contact_inbox_id=#{new_conversation.contact_inbox_id}, status=#{new_conversation.status}"
     rescue => e
       Rails.logger.error "[BaseController] Failed to create conversation: #{e.message}"
       raise e

@@ -358,7 +358,8 @@ export default {
       // Generate or retrieve visitor ID for session persistence
       const visitorId = generateVisitorId();
       
-      console.log('[Chatwoot] Visitor ID:', visitorId);
+      console.log('[🔍 Chatwoot Debug] Current page URL:', window.location.href);
+      console.log('[🔍 Chatwoot Debug] Session storage visitor ID:', sessionStorage.getItem('cw_visitor_id'));
       
       // Set up page navigation tracking for conversation persistence
       this.handlePageNavigation();
@@ -370,8 +371,13 @@ export default {
       window.addEventListener('hashchange', this.handlePageNavigation);
     },
     handlePageNavigation() {
+      console.log('[🔍 Chatwoot Debug] Page navigation detected:', window.location.href);
+      
       // Update page info for conversation persistence
       this.updatePageInfo();
+      
+      // Ensure we have the latest conversation data after navigation
+      this.ensureConversationPersistence();
     },
     updatePageInfo() {
       const pageInfo = {
@@ -380,8 +386,32 @@ export default {
         referer_url: document.referrer
       };
       
+      console.log('[🔍 Chatwoot Debug] Updating page info:', pageInfo);
+      
       // Store page info in the store for later use
       this.$store.dispatch('appConfig/updatePageInfo', pageInfo);
+    },
+    async ensureConversationPersistence() {
+      console.log('[🔍 Chatwoot Debug] Ensuring conversation persistence after navigation...');
+      
+      try {
+        // Fetch existing conversations to maintain persistence
+        await this.fetchOldConversations();
+        
+        const conversationSize = this.$store.getters['conversation/getConversationSize'];
+        console.log('[🔍 Chatwoot Debug] Conversation persistence check:', {
+          hasExistingConversation: conversationSize > 0,
+          messageCount: conversationSize
+        });
+        
+        if (conversationSize > 0) {
+          console.log('[🔍 Chatwoot Debug] ✅ Conversation persistence maintained');
+        } else {
+          console.log('[🔍 Chatwoot Debug] ⚠️ No existing conversation found after navigation');
+        }
+      } catch (error) {
+        console.error('[❌ Chatwoot Debug] Error ensuring conversation persistence:', error);
+      }
     },
   },
 };

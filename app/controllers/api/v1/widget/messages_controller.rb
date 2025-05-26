@@ -64,7 +64,22 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    @conversation = create_conversation if conversation.nil?
+    Rails.logger.info "[MessagesController] Setting conversation. Visitor ID: #{visitor_id}"
+    Rails.logger.info "[MessagesController] Current conversation: #{conversation&.id || 'nil'}"
+    
+    if conversation.nil?
+      
+      # Instead of creating a new conversation, return an error
+      # Messages should only be sent to existing conversations
+      render json: { 
+        error: 'No active conversation found. Please start a conversation first.',
+        code: 'NO_CONVERSATION'
+      }, status: :unprocessable_entity
+      return
+    else
+      Rails.logger.info "[MessagesController] ✅ Using existing conversation: #{conversation.id}"
+      @conversation = conversation
+    end
   end
 
   def message_finder_params

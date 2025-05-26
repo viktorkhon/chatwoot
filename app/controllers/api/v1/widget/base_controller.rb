@@ -19,7 +19,11 @@ class Api::V1::Widget::BaseController < ApplicationController
   def conversation
     return @conversation if @conversation
 
-    Rails.logger.info "[BaseController] Looking for conversation. Visitor ID: #{visitor_id}, Auth token present: #{auth_token_params.present?}"
+    Rails.logger.info "[BaseController] === CONVERSATION LOOKUP START ==="
+    Rails.logger.info "[BaseController] Visitor ID: #{visitor_id}"
+    Rails.logger.info "[BaseController] Auth token present: #{auth_token_params.present?}"
+    Rails.logger.info "[BaseController] Contact present: #{@contact&.id}"
+    Rails.logger.info "[BaseController] Contact inbox present: #{@contact_inbox&.id}"
 
     # First try to get conversation from Redis mapping for incognito users
     if visitor_id.present?
@@ -30,15 +34,21 @@ class Api::V1::Widget::BaseController < ApplicationController
         # Decode the conversation token to get the contact inbox
         begin
           token_data = ::Widget::TokenService.new(token: conversation_token).decode_token
+          Rails.logger.info "[BaseController] Decoded token data: #{token_data}"
+          
           if token_data[:source_id].present?
             # Find the contact inbox and its open conversations
             contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
+            Rails.logger.info "[BaseController] Contact inbox found: #{contact_inbox&.id}"
+            
             if contact_inbox
               # Look for open conversations
               open_conversation = contact_inbox.conversations.where(status: [:open, :pending]).last
+              Rails.logger.info "[BaseController] Open conversation found: #{open_conversation&.id}"
+              
               if open_conversation
                 @conversation = open_conversation
-                Rails.logger.info "[BaseController] Found existing conversation #{@conversation.id} for visitor #{visitor_id}"
+                Rails.logger.info "[BaseController] ✅ Found existing conversation #{@conversation.id} for visitor #{visitor_id}"
                 return @conversation
               else
                 Rails.logger.info "[BaseController] Contact found but no open conversations for visitor #{visitor_id}"
@@ -56,7 +66,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     end
 
     # Fall back to the original logic - get the last conversation from conversations scope
-    Rails.logger.info "[BaseController] Falling back to original conversation lookup. Contact present: #{@contact.present?}, Contact inbox present: #{@contact_inbox.present?}"
+    Rails.logger.info "[BaseController] Falling back to original conversation lookup"
     
     if @contact_inbox.present?
       # Get conversation count for debugging
@@ -66,14 +76,15 @@ class Api::V1::Widget::BaseController < ApplicationController
       
       @conversation = open_conversations.last
       if @conversation
-        Rails.logger.info "[BaseController] Found conversation #{@conversation.id} using original method"
+        Rails.logger.info "[BaseController] ✅ Found conversation #{@conversation.id} using original method"
       else
-        Rails.logger.warn "[BaseController] No open conversations found for contact inbox #{@contact_inbox.id}"
+        Rails.logger.warn "[BaseController] ❌ No open conversations found for contact inbox #{@contact_inbox.id}"
       end
     else
-      Rails.logger.error "[BaseController] No contact inbox available for conversation lookup"
+      Rails.logger.error "[BaseController] ❌ No contact inbox available for conversation lookup"
     end
 
+    Rails.logger.info "[BaseController] === CONVERSATION LOOKUP END: #{@conversation&.id || 'nil'} ==="
     @conversation
   end
 

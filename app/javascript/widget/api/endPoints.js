@@ -12,7 +12,13 @@ const createConversation = params => {
   const search = buildSearchParamsWithLocale(window.location.search);
   const visitorId = getVisitorId();
 
-  console.log('[Chatwoot] Creating conversation for visitor:', visitorId);
+  console.log('[🔍 Chatwoot Debug] API: Creating conversation for visitor:', {
+    visitorId: visitorId,
+    pageURL: pageURL,
+    pageTitle: pageTitle,
+    referrerURL: referrerURL,
+    params: params
+  });
 
   return {
     url: `/api/v1/widget/conversations${search}`,
@@ -52,7 +58,13 @@ const sendMessage = (content, replyTo) => {
   const search = buildSearchParamsWithLocale(window.location.search);
   const visitorId = getVisitorId();
 
-  console.log('[Chatwoot] Sending message for visitor:', visitorId);
+  console.log('[🔍 Chatwoot Debug] API: Sending message for visitor:', {
+    visitorId: visitorId,
+    content: content,
+    replyTo: replyTo,
+    pageURL: pageURL,
+    pageTitle: pageTitle
+  });
 
   return {
     url: `/api/v1/widget/messages${search}`,

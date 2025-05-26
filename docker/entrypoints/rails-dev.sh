@@ -1,29 +1,12 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-echo "Starting Rails development server..."
-
-# Remove any pre-existing server.pid
-rm -rf /app/tmp/pids/server.pid
-
-# Wait for database to be ready
-echo "Waiting for database..."
-until bundle exec rails runner "ActiveRecord::Base.connection" >/dev/null 2>&1; do
-  echo "Database is unavailable - sleeping"
-  sleep 2
-done
-echo "Database is ready!"
-
-# Setup database if it doesn't exist
-echo "Setting up database..."
-bundle exec rails db:create db:migrate || bundle exec rails db:migrate
-
-# Install dependencies if they don't exist
-if [ ! -d "/app/node_modules" ]; then
-  echo "Installing Node.js dependencies..."
-  pnpm install
+# Remove a potentially pre-existing server.pid for Rails.
+if [ -f /app/tmp/pids/server.pid ]; then
+  rm /app/tmp/pids/server.pid
 fi
 
-# Start the Rails server
-echo "Starting Rails server on port 3000..."
-exec "$@" 
+# Then exec the container's main process (what's set as CMD in the Dockerfile).
+# This script will be the command in docker-compose.yaml for the rails service.
+echo "🚀 Starting Rails development server..."
+bundle exec rails server -b 0.0.0.0 -p 3000 

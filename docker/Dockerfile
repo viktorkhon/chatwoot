@@ -14,13 +14,15 @@ WORKDIR /app
 
 COPY . .
 
-# Asset Precompilation (should already be done in my-chatwoot-base IF it was built from the full app source)
-# If my-chatwoot-base only contains dependencies, and not app code + assets, then run it here:
+# Asset Precompilation
+# Dependencies are already installed in the base image, so we can compile directly
 RUN if [ "$RAILS_ENV" = "production" ]; then \
     echo "Precompiling assets for production..." && \
     SECRET_KEY_BASE=temporarykey_for_assets_precompile RAILS_LOG_TO_STDOUT=true bundle exec rake assets:precompile --trace && \
     echo "Asset precompilation complete." && \
-    rm -rf ./tmp/cache/* ./node_modules ./spec ./app/assets/builds/*.*; \
+    echo "Cleaning up build artifacts..." && \
+    rm -rf ./tmp/cache/* ./node_modules ./spec ./app/assets/builds/*.* && \
+    echo "Production build optimization complete."; \
   fi
 
 ARG RAILWAY_GIT_COMMIT_SHA_ARG=${RAILWAY_GIT_COMMIT_SHA:-unknown}

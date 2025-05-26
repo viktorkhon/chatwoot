@@ -13,8 +13,11 @@ This guide will help you set up and run Chatwoot locally for fast development. T
 ### 1. Start the Development Environment
 
 ```powershell
-# Start all services
-.\dev-start.ps1
+# Build base image and start all services
+.\dev-start.ps1 
+
+# After the first successful startup, prepare the database:
+.\dev-helpers.ps1 prepare-db
 ```
 
 This script will:
@@ -69,6 +72,7 @@ Use the `dev-helpers.ps1` script for common development tasks:
 | `logs` | View live logs from all services |
 | `logs-rails` | View Rails application logs only |
 | `logs-vite` | View Vite development server logs |
+| `logs-sidekiq` | View Sidekiq background job logs |
 | `console` | Access Rails console |
 | `migrate` | Run database migrations |
 | `seed` | Run database seeds |
@@ -81,26 +85,61 @@ Use the `dev-helpers.ps1` script for common development tasks:
 | `test` | Run test suite |
 | `clean` | Clean up containers and volumes |
 | `mailhog` | Open MailHog web interface |
+| `debug-db` | Debug database connectivity |
+| `update-env` | Update .env.local from env.development.template |
+| `prepare-db` | Prepare database (create, migrate, seed - for first time setup) |
+| `use-local-db` | Switch to local Docker database services |
+| `use-railway` | Switch to Railway external database services |
 
 ## Environment Configuration
 
 The development environment uses these key configurations:
 
-### Database Configuration
-- **Host**: postgres
+### Environment Files
+- **Template**: `env.development.template` - The source template with Railway database configuration
+- **Local Config**: `.env.local` - Your customized development settings (auto-created from template)
+- **Customization**: Edit `.env.local` to change database passwords, email settings, etc.
+- **Note**: Never edit `env.development.template` directly - it's the shared template for all developers
+
+### Database Configuration (Railway External)
+- **Host**: shinkansen.proxy.rlwy.net
+- **Port**: 17560
 - **Database**: railway
 - **Username**: postgres
 - **Password**: dkSdvSLYiDNQxjTsVQuTprARLaecAPmb
+- **URL**: postgresql://postgres:dkSdvSLYiDNQxjTsVQuTprARLaecAPmb@shinkansen.proxy.rlwy.net:17560/railway
 
-### Redis Configuration
-- **Host**: redis
-- **Port**: 6379
-- **Password**: asd
+### Redis Configuration (Railway External)
+- **URL**: redis://default:O5WdTAL7C.4PP~7Ik2tP~QMSAKEZeElU@mainline.proxy.rlwy.net:15984
 
 ### Email Configuration (MailHog)
 - **SMTP Host**: mailhog
 - **SMTP Port**: 1025
 - **Web UI**: http://localhost:8025
+
+### Customizing Environment Variables
+
+To customize your development environment:
+
+1. **Copy the template**: The startup script automatically copies `env.development.template` to `.env.local`
+2. **Edit `.env.local`**: Change any values you need (database passwords, email settings, etc.)
+3. **Restart services**: Run `.\dev-helpers.ps1 restart` to apply changes
+
+**Important**: Always edit `.env.local`, never `env.development.template`. The template file should remain unchanged so other developers get the same starting configuration.
+
+Example customizations in `.env.local`:
+```bash
+# Switch to local Docker database (comment out Railway settings)
+# POSTGRES_HOST=postgres
+# POSTGRES_PORT=5432
+# DATABASE_URL=postgresql://postgres:your_password@postgres:5432/railway
+
+# Switch to local Docker Redis (comment out Railway settings)  
+# REDIS_URL=redis://:your_password@redis:6379
+
+# Custom email sender
+MAILER_SENDER_EMAIL=dev@mycompany.com
+```
 
 ## Development Workflow
 
@@ -115,6 +154,9 @@ All your code changes are automatically synced to the containers via volume moun
 ### 2. Database Operations
 
 ```powershell
+# Prepare database on first setup (or if you want to reset everything)
+.\dev-helpers.ps1 prepare-db
+
 # Run migrations when you pull new code
 .\dev-helpers.ps1 migrate
 
@@ -197,6 +239,9 @@ docker-compose logs [service-name]
 Key development files:
 - `docker-compose.yaml` - Base Docker Compose configuration
 - `docker-compose.override.yml` - Development-specific overrides
+- `docker/Dockerfile.base` - Dockerfile for the base image with all dependencies
+- `docker/Dockerfile.development` - Dockerfile for Rails/Sidekiq development images
+- `docker/dockerfiles/vite.Dockerfile` - Dockerfile for the Vite dev server
 - `.env.local` - Local environment variables
 - `dev-start.ps1` - Development startup script
 - `dev-helpers.ps1` - Development helper commands

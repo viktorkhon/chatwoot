@@ -1,5 +1,6 @@
 fix: permanently disable Husky hooks for Windows compatibility
 
+<<<<<<< Updated upstream
 ## Summary of Changes
 
 Permanently disabled Husky pre-commit hooks to resolve Windows GitHub Desktop WSL compatibility issues. This provides a clean, permanent solution without requiring workarounds or --no-verify flags.
@@ -23,3 +24,13 @@ Permanently disabled Husky pre-commit hooks to resolve Windows GitHub Desktop WS
 - No more need for --no-verify flags or workarounds
 - Optional linting available via `npm run lint-all` when desired
 - Clean development workflow restored 
+=======
+- Add env.development.template for easy environment customization
+- Create missing docker/Dockerfile.development referenced in docker-compose
+- Integrate Vite service for frontend development with hot reload
+- Update dev scripts with automatic .env.local setup and better service management
+- Clean up docker-compose.override.yml to use .env.local instead of inline vars
+- Add comprehensive documentation for customizing database and email settings
+- Enable easy customization of database passwords, Redis settings, and SMTP config
+- Fix duplicate entries in docker-compose.yaml for clean configuration 
+>>>>>>> Stashed changes

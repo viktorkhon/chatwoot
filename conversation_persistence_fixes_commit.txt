@@ -74,3 +74,52 @@ to troubleshoot conversation persistence issues across page navigation.
 • app/javascript/widget/store/modules/conversation/actions.js - store action logging
 • app/javascript/widget/App.vue - page navigation & initialization logging
 • app/javascript/widget/helpers/axios.js - request/response interceptor logging 
+
+feat: Docker Development Environment with Pre-built Base Image
+
+SUMMARY OF CHANGES:
+Successfully set up Docker development environment using pre-built base image `vkhon00/my-chatwoot-base:latest` to avoid long dependency installation times.
+
+KEY ACHIEVEMENTS:
+✅ Fast Docker builds (25 seconds vs several minutes)
+✅ All containers built and started successfully
+✅ Database preparation completed
+✅ Rails server running on port 3000
+✅ Sidekiq background worker running
+✅ MailHog email testing service running
+
+SERVICES STATUS:
+- Rails: ✅ Running (Puma server active)
+- Sidekiq: ✅ Running  
+- MailHog: ✅ Running on port 8025
+- Database: ✅ Railway PostgreSQL connected
+- Redis: ✅ Railway Redis connected
+
+CURRENT ISSUE IDENTIFIED:
+❌ Vite assets building fails due to missing `esbuild` dependency in base image
+   - Base image built for production, missing dev dependencies
+   - Rails returns 500 error when trying to build frontend assets
+   - Error: "Cannot find package 'esbuild'"
+
+DOCKER OPTIMIZATIONS COMPLETED:
+1. Using pre-built base image `vkhon00/my-chatwoot-base:latest`
+2. Development Dockerfiles only add incremental changes
+3. Fixed port conflicts (removed 3036 from Rails service)
+4. Fixed entrypoint issues in Vite container
+5. Build time reduced from ~5+ minutes to ~25 seconds
+
+FILES MODIFIED:
+- docker-compose.yaml: Use pre-built base image
+- docker/Dockerfile.development: Inherit from pre-built base
+- docker/dockerfiles/vite.Dockerfile: Fixed entrypoint and base image
+- docker-compose.override.yml: Removed version attribute, fixed dependencies
+
+NEXT STEPS NEEDED:
+1. Install missing development dependencies (esbuild, etc.) in containers
+2. Get Vite dev server working for hot module replacement
+3. Verify Rails application fully functional with frontend assets
+
+PERFORMANCE GAIN:
+- Before: 5+ minutes build time (installing all dependencies)
+- After: 25 seconds build time (using pre-built base)
+- Improvement: ~90% faster Docker builds 

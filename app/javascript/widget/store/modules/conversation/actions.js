@@ -193,6 +193,19 @@ export const actions = {
     }
   },
 
+  clearVisitorData: () => {
+    // Clear visitor ID from sessionStorage to force new conversation
+    sessionStorage.removeItem('cw_visitor_id');
+    localStorage.removeItem('cw_conversation');
+    localStorage.removeItem('cw_contact');
+    
+    // Clear any stored conversation cookies
+    document.cookie = 'cw_conversation=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'cw_contact=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    console.log('[Chatwoot] Visitor data cleared from all storage locations');
+  },
+
   resolveConversation: async ({ commit, dispatch }) => {
     try {
       // First mark the conversation as resolved on the backend
@@ -202,10 +215,8 @@ export const actions = {
       commit('clearConversations'); 
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
       
-      // Clear visitor ID from sessionStorage to force new conversation on next interaction
-      sessionStorage.removeItem('cw_visitor_id');
-      localStorage.removeItem('cw_conversation'); 
-      localStorage.removeItem('cw_contact');    
+      // Use centralized visitor data cleanup
+      dispatch('clearVisitorData');
       
       console.log('[Chatwoot] Conversation resolved and visitor data cleared');
       

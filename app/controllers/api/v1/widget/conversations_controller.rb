@@ -17,7 +17,7 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
         process_update_contact
         
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
-        if has_existing_conversation?
+        if conversation.present?
           @conversation = conversation
           
           # Add the message to existing conversation if message content provided

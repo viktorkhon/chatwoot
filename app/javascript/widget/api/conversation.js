@@ -78,7 +78,7 @@ const sendEmailTranscript = async () => {
   );
 };
 const toggleStatus = async () => {
-  return API.get(
+  return API.post(
     `/api/v1/widget/conversations/toggle_status${window.location.search}`
   );
 };

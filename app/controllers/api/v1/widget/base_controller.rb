@@ -77,9 +77,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     @conversation
   end
 
-  def has_existing_conversation?
-    conversation.present?
-  end
+
 
   def create_conversation
     # Get page info from Redis if available

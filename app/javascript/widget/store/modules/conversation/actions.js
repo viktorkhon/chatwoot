@@ -88,8 +88,8 @@ export const actions = {
           });
           
           console.log('[🔍 Chatwoot Debug] Conversation created, message should be included');
-          // The message was included in the conversation creation, so mark as sent
-          commit('pushMessageToConversation', { ...message, status: 'sent' });
+          // The message was included in the conversation creation - DO NOT add it again
+          // The backend already includes the message in the new conversation
         } catch (conversationError) {
           console.error('[❌ Chatwoot Debug] Failed to create conversation:', conversationError);
           commit('pushMessageToConversation', { ...message, status: 'failed' });

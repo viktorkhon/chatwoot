@@ -187,6 +187,8 @@
   - [X] Safe parameter handling with fallbacks
   - [X] **Fixed conversation lookup issues that caused "0 conversations found" errors**
   - [X] **Enhanced auth token handling for new visitors without tokens**
+  - [X] **Fixed WebWidget inbox access to prevent NoMethodError**
+  - [X] **Enhanced conversation token generation with comprehensive validation**
 
 - [X] **Frontend Stability**
   - [X] Widget initializes without runtime errors
@@ -194,6 +196,8 @@
   - [X] Graceful fallback when Redis is unavailable
   - [X] Clean console output with essential logging only
   - [X] **Improved API response logging to avoid confusion**
+  - [X] **Fixed duplicate messages in chat widget**
+  - [X] **Proper message flow without redundant commits**
 
 ## 🔄 User Journey Validation Checklist
 
@@ -220,6 +224,9 @@
   - [X] No duplicate pending messages
   - [X] Temporary messages properly replaced with server confirmations
   - [X] ActionCable events only fire for appropriate message types
+  - [X] **Fixed duplicate messages when creating new conversations**
+  - [X] **Proper message flow: backend includes initial message, frontend relies on updates**
+  - [X] **Enhanced conversation creation with message inclusion**
 
 ### Conversation Resolution
 - [X] **End Conversation**
@@ -288,6 +295,13 @@
   - [X] Cross-page navigation seamlessness
   - [X] Error handling effectiveness
 
+- [X] **Debugging & Troubleshooting**
+  - [X] **Comprehensive conversation token generation logging**
+  - [X] **Enhanced Redis mapping validation and debugging**
+  - [X] **Detailed conversation creation flow logging**
+  - [X] **Token generation failure detection and reporting**
+  - [X] **Conversation ID consistency tracking**
+
 ### Documentation & Knowledge Transfer
 - [X] **Technical Documentation**
   - [X] All changes documented in project context
@@ -318,23 +332,42 @@
 - ✅ **Clean Implementation**: Well-documented, maintainable code
 - ✅ **Backward Compatible**: No breaking changes to existing functionality
 
-## 🔧 Recent Fixes (Session 35)
+## 🔧 Recent Fixes (Sessions 35-36)
 
-### Critical Bug Fixes
+### Critical Bug Fixes (Session 35)
 - [X] **Fixed BaseController `conversations` method**: Added missing return statement to properly return ActiveRecord relation
 - [X] **Enhanced auth token handling**: Fixed `auth_token_params` to gracefully handle missing auth tokens for new visitors
 - [X] **Improved inbox_id resolution**: Use web widget's inbox_id as fallback when auth token is empty
 - [X] **Enhanced conversation lookup logging**: Added detailed logging to debug conversation lookup issues
 - [X] **Fixed update_last_seen endpoint**: Added proper error handling and logging for missing conversations
 - [X] **Improved axios logging**: Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs
+- [X] **Fixed WebWidget inbox access**: Corrected `@web_widget&.inbox_id` to `@web_widget&.inbox&.id` to prevent NoMethodError
+
+### Duplicate Messages and Conversation ID Fixes (Session 36)
+- [X] **Fixed duplicate messages in widget**: Removed redundant message commit in `sendMessageWithData` when handling `NO_CONVERSATION` error
+- [X] **Enhanced conversation token generation logging**: Added comprehensive logging to debug conversation ID mismatches
+- [X] **Improved token generation validation**: Added stronger guard conditions for conversation.inbox_id and conversation.id
+- [X] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
+- [X] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
 
 ### Root Cause Analysis
-The "0 conversations found" issue was caused by:
-1. **Missing return statement** in `conversations` method causing it to return `nil` instead of ActiveRecord relation
-2. **Empty auth_token_params** for new visitors causing `inbox_id` to be `nil` in conversation queries
-3. **Inadequate error handling** in `update_last_seen` endpoint when no conversation exists
+1. **"0 conversations found" issue** was caused by:
+   - Missing return statement in `conversations` method causing it to return `nil` instead of ActiveRecord relation
+   - Empty auth_token_params for new visitors causing `inbox_id` to be `nil` in conversation queries
+   - Inadequate error handling in `update_last_seen` endpoint when no conversation exists
 
-These fixes ensure robust conversation lookup and proper error handling for all user scenarios.
+2. **WebWidget inbox access error** was caused by:
+   - Incorrect method chaining `@web_widget&.inbox_id` instead of `@web_widget&.inbox&.id`
+
+3. **Duplicate messages issue** was caused by:
+   - Frontend manually adding message after `createConversation` when backend already includes it
+   - Redundant `commit('pushMessageToConversation')` in `NO_CONVERSATION` error handling
+
+4. **Conversation ID mismatch** investigation revealed:
+   - Need for enhanced logging to track token generation for new conversations
+   - Potential silent failures in Redis token updates for newly created conversations
+
+These fixes ensure robust conversation lookup, proper error handling, and clean message flow for all user scenarios.
 
 ---
 

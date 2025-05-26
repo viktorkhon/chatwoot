@@ -1,0 +1,43 @@
+fix: Prevent duplicate messages and add conversation token generation debugging
+
+## Summary
+Fixed duplicate messages appearing in chat widget when users send their first message, and added comprehensive logging to investigate conversation ID mismatches between frontend and backend.
+
+## Key Issues Resolved
+- Fixed duplicate messages when user sends first message that triggers new conversation creation
+- Added detailed logging to debug conversation ID mismatches where backend uses old Redis tokens
+- Enhanced token generation validation and error reporting
+
+## Technical Changes
+
+### Frontend (app/javascript/widget/store/modules/conversation/actions.js)
+- **Fixed duplicate message issue**: Removed redundant `commit('pushMessageToConversation')` in `sendMessageWithData` action's `NO_CONVERSATION` error handling
+- **Reasoning**: Backend `ConversationsController#create` already includes the initial message in new conversation, frontend should rely on subsequent fetches/updates rather than manually adding message again
+
+### Backend (app/controllers/api/v1/widget/base_controller.rb)
+- **Enhanced `create_conversation` method**:
+  - Added detailed logging after conversation creation showing ID, inbox_id, contact_inbox_id
+  - Added logging before/after Redis token generation attempts
+  - Added logging to show generated token (partial) or failure status
+  - Added logging to confirm `set_conversation_for_visitor` calls
+
+- **Enhanced `generate_conversation_token_for_conversation` method**:
+  - Added input parameter logging (conversation.id, contact_inbox.id, etc.)
+  - Strengthened guard conditions to validate `conversation.inbox_id.present?` and `conversation.id.present?`
+  - Enhanced error logging with full backtrace for debugging
+  - Added comprehensive validation before token generation
+
+## Impact
+- **Eliminates duplicate messages**: Users see their first message only once in chat widget
+- **Enhanced debugging**: Comprehensive logging reveals token generation process for new conversations
+- **Improved reliability**: Better validation prevents token generation failures
+- **Better troubleshooting**: Detailed logs help identify conversation ID consistency issues
+
+## Files Modified
+- app/javascript/widget/store/modules/conversation/actions.js
+- app/controllers/api/v1/widget/base_controller.rb
+
+## Testing
+- Verified duplicate message issue is resolved
+- Added comprehensive logging for conversation token generation debugging
+- Enhanced error handling and validation for token creation process 

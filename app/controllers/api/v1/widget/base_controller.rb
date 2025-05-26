@@ -9,11 +9,11 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def conversations
     # Use the inbox_id from auth token if available, otherwise use the web widget's inbox
-    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
     
     Rails.logger.info "[BaseController] Conversations lookup - inbox_id: #{inbox_id}, hmac_verified: #{@contact_inbox&.hmac_verified?}"
     Rails.logger.info "[BaseController] Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'empty'}"
-    Rails.logger.info "[BaseController] Web widget inbox_id: #{@web_widget&.inbox_id}"
+    Rails.logger.info "[BaseController] Web widget inbox_id: #{@web_widget&.inbox&.id}"
     
     # Early return if no contact_inbox - user hasn't interacted with chat yet
     unless @contact_inbox.present?
@@ -100,7 +100,7 @@ class Api::V1::Widget::BaseController < ApplicationController
                   end
                   
                   # Fallback to last open conversation
-                  inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+                  inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
                   open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
                   Rails.logger.info "[BaseController] Open conversation found via Redis: #{open_conversation&.id}"
                   
@@ -153,7 +153,7 @@ class Api::V1::Widget::BaseController < ApplicationController
       open_conversations = conversations_scope.where(status: [:open, :pending])
       all_conversations = conversations_scope
       Rails.logger.info "[BaseController] Found #{open_conversations.count} open conversations out of #{all_conversations.count} total conversations"
-      inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
+      inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
       Rails.logger.info "[BaseController] Contact inbox ID: #{@contact_inbox.id}, Contact ID: #{@contact.id}, Inbox ID: #{inbox_id}"
       
       @conversation = open_conversations.last
@@ -204,20 +204,26 @@ class Api::V1::Widget::BaseController < ApplicationController
     end
     
     begin
-      Rails.logger.info "[BaseController] Creating conversation with params: contact_id=#{conversation_params_with_page_info[:contact_id]}, contact_inbox_id=#{conversation_params_with_page_info[:contact_inbox_id]}, inbox_id=#{conversation_params_with_page_info[:inbox_id]}"
+      Rails.logger.info "[BaseController#create_conversation] Creating conversation with params: contact_id=#{conversation_params_with_page_info[:contact_id]}, contact_inbox_id=#{conversation_params_with_page_info[:contact_inbox_id]}, inbox_id=#{conversation_params_with_page_info[:inbox_id]}"
       new_conversation = ::Conversation.create!(conversation_params_with_page_info)
-      Rails.logger.info "[BaseController] ✅ Conversation created successfully: ID=#{new_conversation.id}, contact_inbox_id=#{new_conversation.contact_inbox_id}, status=#{new_conversation.status}"
+      Rails.logger.info "[BaseController#create_conversation] ✅ Conversation created successfully: ID=#{new_conversation.id}, contact_inbox_id=#{new_conversation.contact_inbox_id}, status=#{new_conversation.status}"
+      Rails.logger.info "[BaseController#create_conversation] New conversation details - ID: #{new_conversation.id}, Inbox ID: #{new_conversation.inbox_id}, Contact Inbox ID: #{new_conversation.contact_inbox_id}"
     rescue => e
-      Rails.logger.error "[BaseController] Failed to create conversation: #{e.message}"
+      Rails.logger.error "[BaseController#create_conversation] Failed to create conversation: #{e.message}"
       raise e
     end
     
     # Store conversation token in Redis for incognito users
     if visitor_id.present? && @contact_inbox.source_id.present?
+      Rails.logger.info "[BaseController#create_conversation] Attempting to generate and set Redis token for new conversation ID: #{new_conversation.id}"
       conversation_token = generate_conversation_token_for_conversation(new_conversation)
       if conversation_token
+        Rails.logger.info "[BaseController#create_conversation] Generated token for conversation #{new_conversation.id}. Token starts with: #{conversation_token.slice(0,20)}..."
         VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, conversation_token)
+        Rails.logger.info "[BaseController#create_conversation] Successfully called set_conversation_for_visitor for conversation #{new_conversation.id}"
         VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
+      else
+        Rails.logger.warn "[BaseController#create_conversation] Failed to generate conversation token for new conversation ID: #{new_conversation.id}. Redis not updated for this conversation."
       end
     end
     
@@ -225,7 +231,10 @@ class Api::V1::Widget::BaseController < ApplicationController
   end
 
   def generate_conversation_token_for_conversation(conversation)
-    return nil unless conversation && @contact_inbox
+    Rails.logger.info "[BaseController#generate_token] Input conversation ID: #{conversation&.id}, Contact Inbox ID: #{@contact_inbox&.id}, Conv.InboxID: #{conversation&.inbox_id}, Conv.ContactInboxID: #{conversation&.contact_inbox_id}"
+    
+    # Ensure all necessary components for the token payload are present
+    return nil unless conversation && @contact_inbox && @contact_inbox.source_id.present? && conversation.inbox_id.present? && conversation.id.present?
     
     begin
       ::Widget::TokenService.new(
@@ -236,7 +245,8 @@ class Api::V1::Widget::BaseController < ApplicationController
         }
       ).generate_token
     rescue => e
-      Rails.logger.error "[BaseController] Error generating conversation token: #{e.message}"
+      Rails.logger.error "[BaseController#generate_token] Error generating conversation token for conversation #{conversation&.id}: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
       nil
     end
   end

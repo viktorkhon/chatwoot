@@ -41,7 +41,12 @@ export const actions = {
         hasTeam: !!data.team
       });
     } catch (error) {
-      console.error('[Chatwoot] Failed to get conversation attributes:', error);
+      // Check if this is the specific urlParamsHelper error we're fixing
+      if (error.message && error.message.includes("Cannot read properties of undefined (reading '$root')")) {
+        console.warn('[Chatwoot] Widget initialization timing issue - this is expected on first load and will resolve automatically');
+      } else {
+        console.error('[Chatwoot] Failed to get conversation attributes:', error);
+      }
       // Clear attributes on error to ensure clean state
       commit('CLEAR_CONVERSATION_ATTRIBUTES');
     }

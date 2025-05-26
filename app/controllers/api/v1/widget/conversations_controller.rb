@@ -39,25 +39,37 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
       ActiveRecord::Base.transaction do
         process_update_contact
         
+        Rails.logger.info "[ConversationsController#create] === CONVERSATION CREATE START ==="
+        Rails.logger.info "[ConversationsController#create] Visitor ID: #{visitor_id}"
+        Rails.logger.info "[ConversationsController#create] Contact: #{@contact&.id}"
+        Rails.logger.info "[ConversationsController#create] Contact inbox: #{@contact_inbox&.id}"
+        
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
-        if conversation.present?
-          @conversation = conversation
+        existing_conversation = conversation
+        Rails.logger.info "[ConversationsController#create] Existing conversation check: #{existing_conversation&.id || 'none'}"
+        
+        if existing_conversation.present?
+          Rails.logger.info "[ConversationsController#create] ✅ Using existing conversation #{existing_conversation.id}"
+          @conversation = existing_conversation
           
           # Add the message to existing conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
+                Rails.logger.info "[ConversationsController#create] Adding message to existing conversation #{@conversation.id}"
                 @conversation.messages.create!(message_params_data)
               else
-                Rails.logger.error "[ConversationsController] Invalid message params for existing conversation"
+                Rails.logger.error "[ConversationsController#create] Invalid message params for existing conversation"
               end
             rescue => e
-              Rails.logger.error "[ConversationsController] Failed to add message to existing conversation: #{e.message}"
+              Rails.logger.error "[ConversationsController#create] Failed to add message to existing conversation: #{e.message}"
               raise e
             end
           end
         else
+          Rails.logger.info "[ConversationsController#create] No existing conversation found, creating new one"
+          
           # Store page info in Redis before creating conversation (for incognito users)
           if visitor_id.present? && permitted_params[:message].present?
             page_info = {
@@ -72,29 +84,34 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           end
           
           # Create new conversation (this will trigger webhook)
+          Rails.logger.info "[ConversationsController#create] Creating new conversation..."
           @conversation = create_conversation
+          Rails.logger.info "[ConversationsController#create] ✅ New conversation created: #{@conversation.id}"
           
           # Add the message to new conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
+                Rails.logger.info "[ConversationsController#create] Adding message to new conversation #{@conversation.id}"
                 @conversation.messages.create!(message_params_data)
               else
-                Rails.logger.error "[ConversationsController] Invalid message params for new conversation"
+                Rails.logger.error "[ConversationsController#create] Invalid message params for new conversation"
               end
             rescue => e
-              Rails.logger.error "[ConversationsController] Failed to add message to new conversation: #{e.message}"
+              Rails.logger.error "[ConversationsController#create] Failed to add message to new conversation: #{e.message}"
               raise e
             end
           end
         end
         
+        Rails.logger.info "[ConversationsController#create] === CONVERSATION CREATE END: #{@conversation.id} ==="
+        
         # TODO: Temporary fix for message type cast issue, since message_type is returning as string instead of integer
         @conversation.reload
       end
     rescue => e
-      Rails.logger.error "[ConversationsController] Error in conversation creation: #{e.message}"
+      Rails.logger.error "[ConversationsController#create] Error in conversation creation: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
       render json: { error: 'Conversation creation failed' }, status: :internal_server_error
     end

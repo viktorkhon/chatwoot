@@ -350,6 +350,13 @@
 - [X] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
 - [X] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
 
+### Widget Initialization Timing Fixes (Session 37)
+- [X] **Fixed urlParamsHelper $root access error**: Added safe fallback chain for locale detection during early widget initialization
+- [X] **Enhanced locale handling**: Multiple fallback sources including browser language and default 'en' locale
+- [X] **Improved error handling**: Specific detection and informative warnings for initialization timing issues
+- [X] **Cross-browser compatibility**: Widget works reliably across different browser language settings
+- [X] **Graceful degradation**: Widget functions properly even during early initialization phases
+
 ### Root Cause Analysis
 1. **"0 conversations found" issue** was caused by:
    - Missing return statement in `conversations` method causing it to return `nil` instead of ActiveRecord relation

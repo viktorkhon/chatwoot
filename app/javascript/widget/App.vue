@@ -274,6 +274,10 @@ export default {
           });
           window.referrerURL = referrerURL;
           this.setReferrerHost(referrerHost);
+          
+          // Ensure conversation persistence during page navigation
+          console.log('[🔍 Chatwoot Debug] Page navigation detected via change-url event:', referrerURL);
+          this.ensureConversationPersistence();
         } else if (message.event === 'toggle-close-button') {
           this.isMobile = message.isMobile;
         } else if (message.event === 'push-event') {

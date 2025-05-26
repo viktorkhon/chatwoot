@@ -3,7 +3,26 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   before_action :set_message, only: [:update]
 
   def index
-    @messages = conversation.nil? ? [] : message_finder.perform
+    Rails.logger.info "[MessagesController#index] === MESSAGES INDEX START ==="
+    Rails.logger.info "[MessagesController#index] Visitor ID: #{visitor_id}"
+    Rails.logger.info "[MessagesController#index] Contact: #{@contact&.id}"
+    Rails.logger.info "[MessagesController#index] Contact inbox: #{@contact_inbox&.id}"
+    
+    # Handle case where no conversation exists yet
+    @conversation = conversation
+    Rails.logger.info "[MessagesController#index] Conversation: #{@conversation&.id || 'nil'}"
+    
+    if @conversation.nil?
+      Rails.logger.info "[MessagesController#index] ℹ️ No conversation found - returning empty messages array"
+      @messages = []
+    else
+      Rails.logger.info "[MessagesController#index] ✅ Found conversation #{@conversation.id}, fetching messages"
+      finder = message_finder
+      @messages = finder ? finder.perform : []
+      Rails.logger.info "[MessagesController#index] Found #{@messages.count} messages"
+    end
+    
+    Rails.logger.info "[MessagesController#index] === MESSAGES INDEX END ==="
   end
 
   def create
@@ -91,7 +110,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def message_finder
-    @message_finder ||= MessageFinder.new(conversation, message_finder_params)
+    return nil unless @conversation.present?
+    @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
   end
 
   def message_update_params

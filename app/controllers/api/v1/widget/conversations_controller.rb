@@ -8,14 +8,29 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
     Rails.logger.info "[ConversationsController#index] Contact: #{@contact&.id}"
     Rails.logger.info "[ConversationsController#index] Contact inbox: #{@contact_inbox&.id}"
     
-    @conversation = conversation
-    Rails.logger.info "[ConversationsController#index] Conversation found: #{@conversation.present?}, ID: #{@conversation&.id}"
-    
-    if @conversation.nil?
-      Rails.logger.warn "[ConversationsController#index] No conversation found for this request"
-    else
-      Rails.logger.info "[ConversationsController#index] ✅ Returning conversation #{@conversation.id} to frontend"
+    # Handle case where user hasn't interacted with chat yet
+    unless @contact_inbox.present?
+      Rails.logger.info "[ConversationsController#index] No contact inbox - user hasn't opened chat yet"
+      Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX END ==="
+      @conversation = nil
+      return
     end
+    
+    begin
+      @conversation = conversation
+      Rails.logger.info "[ConversationsController#index] Conversation found: #{@conversation.present?}, ID: #{@conversation&.id}"
+      
+      if @conversation.nil?
+        Rails.logger.info "[ConversationsController#index] ℹ️ No conversation found - this is normal for users who haven't started chatting"
+      else
+        Rails.logger.info "[ConversationsController#index] ✅ Returning conversation #{@conversation.id} to frontend"
+      end
+    rescue => e
+      Rails.logger.error "[ConversationsController#index] Error during conversation lookup: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      @conversation = nil
+    end
+    
     Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX END ==="
   end
 
@@ -101,22 +116,34 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
     Rails.logger.info "[ConversationsController#update_last_seen] Contact inbox: #{@contact_inbox&.id}"
     Rails.logger.info "[ConversationsController#update_last_seen] Auth token present: #{auth_token_params.present?}"
     
-    current_conversation = conversation
-    Rails.logger.info "[ConversationsController#update_last_seen] Conversation lookup result: #{current_conversation&.id || 'nil'}"
-    
-    if current_conversation.nil?
-      Rails.logger.warn "[ConversationsController#update_last_seen] ❌ No active conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox&.id}"
-      Rails.logger.warn "[ConversationsController#update_last_seen] This might indicate a conversation lookup issue or the conversation was resolved"
-      render json: { error: 'No active conversation found' }, status: :not_found
+    # Handle case where user hasn't opened chat yet
+    unless @contact_inbox.present?
+      Rails.logger.info "[ConversationsController#update_last_seen] No contact inbox - user hasn't opened chat yet"
+      head :ok  # Return success but do nothing
       return
     end
+    
+    begin
+      current_conversation = conversation
+      Rails.logger.info "[ConversationsController#update_last_seen] Conversation lookup result: #{current_conversation&.id || 'nil'}"
+      
+      if current_conversation.nil?
+        Rails.logger.info "[ConversationsController#update_last_seen] ℹ️ No active conversation found - this is normal for users who haven't started chatting"
+        head :ok  # Return success but do nothing
+        return
+      end
 
-    Rails.logger.info "[ConversationsController#update_last_seen] ✅ Updating last seen for conversation: #{current_conversation.id}"
-    current_conversation.contact_last_seen_at = DateTime.now.utc
-    current_conversation.save!
-    ::Conversations::UpdateMessageStatusJob.perform_later(current_conversation.id, current_conversation.contact_last_seen_at)
-    Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN END ==="
-    head :ok
+      Rails.logger.info "[ConversationsController#update_last_seen] ✅ Updating last seen for conversation: #{current_conversation.id}"
+      current_conversation.contact_last_seen_at = DateTime.now.utc
+      current_conversation.save!
+      ::Conversations::UpdateMessageStatusJob.perform_later(current_conversation.id, current_conversation.contact_last_seen_at)
+      Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN END ==="
+      head :ok
+    rescue => e
+      Rails.logger.error "[ConversationsController#update_last_seen] Error during update_last_seen: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      head :ok  # Return success to avoid breaking the frontend
+    end
   end
 
   def transcript

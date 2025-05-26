@@ -151,6 +151,14 @@ export const actions = {
       console.log('[🔍 Chatwoot Debug] Fetching old conversations...');
       const { data } = await getMessagesAPI({ before });
       
+      // Handle case where no conversation exists yet (empty response)
+      if (!data || (!data.payload && !Array.isArray(data))) {
+        console.log('[🔍 Chatwoot Debug] No conversations found - user hasn\'t started chatting yet');
+        commit('setMessagesInConversation', []);
+        commit('setConversationListLoading', false);
+        return;
+      }
+      
       // Handle both old and new API response formats
       const payload = data.payload || data;
       const meta = data.meta || {};
@@ -171,6 +179,11 @@ export const actions = {
       commit('setConversationListLoading', false);
     } catch (error) {
       console.error('[❌ Chatwoot Debug] Failed to fetch conversations:', error);
+      // Handle 500 errors gracefully - likely means no conversation exists yet
+      if (error.response?.status === 500) {
+        console.log('[🔍 Chatwoot Debug] Server error likely due to no conversation existing - this is normal');
+        commit('setMessagesInConversation', []);
+      }
       commit('setConversationListLoading', false);
     }
   },

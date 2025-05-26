@@ -15,21 +15,40 @@ class Api::V1::Widget::BaseController < ApplicationController
     Rails.logger.info "[BaseController] Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'empty'}"
     Rails.logger.info "[BaseController] Web widget inbox_id: #{@web_widget&.inbox_id}"
     
+    # Early return if no contact_inbox - user hasn't interacted with chat yet
+    unless @contact_inbox.present?
+      Rails.logger.info "[BaseController] No contact_inbox present - returning empty scope"
+      return Conversation.none
+    end
+    
     if inbox_id.nil?
       Rails.logger.error "[BaseController] ❌ No inbox_id available for conversation lookup"
-      return @contact_inbox&.conversations || Conversation.none
+      return Conversation.none
     end
     
-    if @contact_inbox.hmac_verified?
-      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
-      @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
-      Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes, #{@conversations.count} conversations"
-    else
-      @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
-      Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}, found #{@conversations.count} conversations"
+    begin
+      # Ensure we have valid objects before proceeding
+      unless @contact_inbox && @contact && inbox_id
+        Rails.logger.error "[BaseController] Missing required objects for conversation lookup: contact_inbox=#{@contact_inbox&.id}, contact=#{@contact&.id}, inbox_id=#{inbox_id}"
+        return Conversation.none
+      end
+      
+      if @contact_inbox.hmac_verified?
+        verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
+        @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
+        Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes, #{@conversations.count} conversations"
+      else
+        @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
+        Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}, found #{@conversations.count} conversations"
+      end
+      
+      Rails.logger.info "[BaseController] Conversations SQL: #{@conversations.to_sql}" if @conversations.respond_to?(:to_sql)
+    rescue => e
+      Rails.logger.error "[BaseController] Error during conversations lookup: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      @conversations = Conversation.none
     end
     
-    Rails.logger.info "[BaseController] Conversations SQL: #{@conversations.to_sql}" if @conversations.respond_to?(:to_sql)
     @conversations
   end
 
@@ -41,6 +60,13 @@ class Api::V1::Widget::BaseController < ApplicationController
     Rails.logger.info "[BaseController] Auth token present: #{auth_token_params.present?}"
     Rails.logger.info "[BaseController] Contact present: #{@contact&.id}"
     Rails.logger.info "[BaseController] Contact inbox present: #{@contact_inbox&.id}"
+
+    # Early return if no contact_inbox - this means user hasn't interacted with chat yet
+    unless @contact_inbox.present?
+      Rails.logger.info "[BaseController] No contact inbox present - user hasn't opened chat yet"
+      Rails.logger.info "[BaseController] === CONVERSATION LOOKUP END: nil (no interaction) ==="
+      return nil
+    end
 
     # First try to get conversation from Redis mapping for incognito users
     if visitor_id.present?
@@ -119,8 +145,8 @@ class Api::V1::Widget::BaseController < ApplicationController
     # Fall back to the original logic - get the last conversation from conversations scope
     Rails.logger.info "[BaseController] Falling back to original conversation lookup"
     
-    if @contact_inbox.present?
-      # Use the same scope for consistency
+    # Use the same scope for consistency
+    begin
       conversations_scope = conversations
       Rails.logger.info "[BaseController] Conversations scope class: #{conversations_scope.class}, SQL: #{conversations_scope.to_sql}" if conversations_scope.respond_to?(:to_sql)
       
@@ -143,17 +169,17 @@ class Api::V1::Widget::BaseController < ApplicationController
           end
         end
       else
-        Rails.logger.warn "[BaseController] ❌ No open conversations found for contact inbox #{@contact_inbox.id}"
+        Rails.logger.info "[BaseController] ℹ️ No open conversations found - this is normal for users who haven't started chatting"
       end
-    else
-      Rails.logger.error "[BaseController] ❌ No contact inbox available for conversation lookup"
+    rescue => e
+      Rails.logger.error "[BaseController] Error during conversation lookup: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      @conversation = nil
     end
 
     Rails.logger.info "[BaseController] === CONVERSATION LOOKUP END: #{@conversation&.id || 'nil'} ==="
     @conversation
   end
-
-
 
   def create_conversation
     # Get page info from Redis if available
@@ -243,15 +269,22 @@ class Api::V1::Widget::BaseController < ApplicationController
   end
 
   def inbox
-    @inbox ||= ::Inbox.find_by(id: auth_token_params[:inbox_id])
+    @inbox ||= ::Inbox.find_by(id: auth_token_params[:inbox_id]) || @web_widget&.inbox
   end
 
   def conversation_params
     message_data = permitted_params[:message] || {}
     
+    # Ensure we have a valid inbox
+    current_inbox = inbox
+    unless current_inbox
+      Rails.logger.error "[BaseController] No inbox available for conversation params"
+      raise "No inbox available for conversation creation"
+    end
+    
     {
-      account_id: inbox.account_id,
-      inbox_id: inbox.id,
+      account_id: current_inbox.account_id,
+      inbox_id: current_inbox.id,
       contact_id: @contact.id,
       contact_inbox_id: @contact_inbox.id,
       additional_attributes: {

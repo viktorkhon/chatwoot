@@ -1,0 +1,39 @@
+fix: Resolve 500 errors when opening chat widget - enhance conversation persistence
+
+## Summary
+Fixed critical 500 Internal Server Errors occurring when users open the chat widget by implementing defensive programming and proper error handling in widget controllers.
+
+## Key Issues Resolved
+- Fixed NoMethodError in conversation_params when inbox is nil for new visitors
+- Enhanced object validation in conversation lookup methods
+- Improved error handling in update_last_seen endpoint
+- Added graceful degradation for missing conversation objects
+
+## Technical Changes
+
+### BaseController (app/controllers/api/v1/widget/base_controller.rb)
+- Fixed inbox method to fallback to web_widget.inbox when auth token inbox unavailable
+- Added validation in conversation_params to ensure inbox exists before accessing properties
+- Enhanced conversations method with comprehensive object validation
+- Added defensive programming with early returns for missing required objects
+
+### ConversationsController (app/controllers/api/v1/widget/conversations_controller.rb)
+- Enhanced update_last_seen to handle users without contact_inbox gracefully
+- Changed error responses from 500 to 200 OK for normal "no conversation" states
+- Added comprehensive error handling with try-catch blocks
+- Improved logging to distinguish between normal states and actual errors
+
+## Impact
+- Eliminates 500 errors for new visitors opening chat widget
+- Maintains full functionality for existing conversation persistence features
+- Improves user experience with smooth widget initialization
+- Enhances debugging capabilities with better error handling and logging
+
+## Files Modified
+- app/controllers/api/v1/widget/base_controller.rb
+- app/controllers/api/v1/widget/conversations_controller.rb
+
+## Testing
+- Verified new visitor flow works without 500 errors
+- Confirmed existing conversation persistence functionality remains intact
+- Enhanced error handling prevents crashes while maintaining proper API responses 

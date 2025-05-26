@@ -20,14 +20,30 @@ export const actions = {
   getAttributes: async ({ commit }) => {
     try {
       const { data } = await getConversationAPI();
+      
+      // Handle case where no conversation exists yet (empty response)
+      if (!data || !data.id) {
+        console.log('[🔍 Chatwoot Debug] No conversation found - user hasn\'t started chatting yet');
+        commit('CLEAR_CONVERSATION_ATTRIBUTES');
+        return;
+      }
+      
       const lastSeen = data.contact_last_seen_at;
       commit(SET_CONVERSATION_ATTRIBUTES, data);
       if (lastSeen) {
         commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
       }
+      
+      console.log('[🔍 Chatwoot Debug] Conversation attributes loaded:', {
+        id: data.id,
+        status: data.status,
+        hasAssignee: !!data.assignee,
+        hasTeam: !!data.team
+      });
     } catch (error) {
       console.error('[Chatwoot] Failed to get conversation attributes:', error);
-      // Ignore error
+      // Clear attributes on error to ensure clean state
+      commit('CLEAR_CONVERSATION_ATTRIBUTES');
     }
   },
   update({ commit }, data) {

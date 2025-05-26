@@ -4,6 +4,17 @@
 
 <!-- New sessions will be added at the top -->
 
+### SASS Import Fix - [Date: 2025-05-26]
+- Fixed critical SASS import errors in widget build system
+- Corrected import paths in `app/javascript/widget/assets/scss/woot.scss`
+- Changed relative imports to use Vite's configured path resolution:
+  - `@import 'reset'` → `@import 'widget/assets/scss/reset'`
+  - `@import 'views/conversation'` → `@import 'widget/assets/scss/views/conversation'`
+  - `@import 'custom_card'` → `@import 'widget/assets/scss/custom_card'`
+- Build system now successfully compiles all assets without SASS import errors
+- Aligned widget SASS imports with patterns used in survey and portal modules
+- Resolved "Can't find stylesheet to import" errors that were blocking builds
+
 ### Conversation Persistence Implementation - [Date: 2025-05-24]
 - Completed implementation of conversation persistence feature for web widget using Redis
 - Added comprehensive visitor mapping system with 30-day TTL

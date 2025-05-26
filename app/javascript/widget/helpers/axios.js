@@ -12,6 +12,14 @@ API.interceptors.request.use(
   config => {
     const visitorId = getVisitorId();
     
+    // Add visitor ID to headers first
+    if (visitorId) {
+      config.headers['X-Visitor-ID'] = visitorId;
+    } else {
+      console.warn('[⚠️ Chatwoot Debug] No visitor ID available for request');
+    }
+    
+    // Log after adding the header
     console.log('[🔍 Chatwoot Debug] API Request:', {
       method: config.method?.toUpperCase(),
       url: config.url,
@@ -19,12 +27,6 @@ API.interceptors.request.use(
       hasVisitorIdHeader: !!config.headers['X-Visitor-ID'],
       hasVisitorIdParam: !!(config.data?.visitor_id || config.params?.visitor_id)
     });
-    
-    if (visitorId) {
-      config.headers['X-Visitor-ID'] = visitorId;
-    } else {
-      console.warn('[⚠️ Chatwoot Debug] No visitor ID available for request');
-    }
     
     return config;
   },

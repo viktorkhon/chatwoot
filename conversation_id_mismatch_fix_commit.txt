@@ -1,0 +1,47 @@
+Fix conversation ID mismatch between frontend and backend with Redis validation
+
+## Summary
+
+Fixed critical conversation persistence issue where frontend and backend were finding different conversation IDs for the same visitor (frontend: 453, backend: 486). This was caused by stale Redis mappings pointing to old or resolved conversations.
+
+## Key Changes
+
+### Backend Improvements
+- **Enhanced conversation lookup logic** with Redis mapping validation before use
+- **Added conversation ID to tokens** for direct conversation validation
+- **Implemented automatic Redis cleanup** when conversations are resolved
+- **Added stale mapping detection** and automatic cleanup
+- **Improved conversation token generation** with conversation ID inclusion
+
+### Redis Mapping Validation
+- **validate_redis_conversation_mapping()** - Validates Redis mappings before use
+- **Checks conversation existence** and status (resolved conversations invalidated)
+- **Automatic cleanup** of invalid/stale mappings
+- **Conversation resolution callback** to clean up Redis mappings
+
+### Conversation Lookup Consistency
+- **Unified lookup logic** ensures frontend and backend find same conversation
+- **Fallback validation** when Redis mappings are invalid
+- **Automatic mapping updates** to maintain consistency
+- **Enhanced logging** for debugging conversation lookup flow
+
+### Files Modified
+- `app/controllers/api/v1/widget/base_controller.rb` - Enhanced conversation lookup with validation
+- `app/models/conversation.rb` - Added Redis cleanup callback on resolution
+- `app/javascript/widget/api/endPoints.js` - Added missing API endpoint helpers
+- `app/javascript/widget/api/conversation.js` - Fixed API calls to use proper endpoints
+- `app/javascript/widget/api/contacts.js` - Enhanced contact API with visitor ID
+- `app/javascript/widget/helpers/axios.js` - Improved request logging
+
+## Impact
+- ✅ **Conversation ID consistency** between frontend and backend
+- ✅ **Automatic stale mapping cleanup** prevents future mismatches  
+- ✅ **Enhanced Redis validation** ensures mapping reliability
+- ✅ **Improved debugging** with comprehensive logging
+- ✅ **Preserved webhook functionality** for n8n integration
+
+## Testing
+- All syntax checks pass
+- Redis mapping validation logic implemented
+- Automatic cleanup on conversation resolution
+- Enhanced logging for debugging conversation flow 

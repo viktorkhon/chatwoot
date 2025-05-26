@@ -176,6 +176,82 @@ const getMostReadArticles = (slug, locale) => ({
   },
 });
 
+const toggleTyping = (typingStatus) => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/toggle_typing${search}`,
+    params: {
+      visitor_id: visitorId,
+      typing_status: typingStatus
+    }
+  };
+};
+
+const updateLastSeen = (lastSeen) => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/update_last_seen${search}`,
+    params: {
+      visitor_id: visitorId,
+      contact_last_seen_at: lastSeen
+    }
+  };
+};
+
+const sendEmailTranscript = () => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/transcript${search}`,
+    params: {
+      visitor_id: visitorId
+    }
+  };
+};
+
+const toggleStatus = () => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/toggle_status${search}`,
+    params: {
+      visitor_id: visitorId
+    }
+  };
+};
+
+const setCustomAttributes = (customAttributes) => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/set_custom_attributes${search}`,
+    params: {
+      visitor_id: visitorId,
+      custom_attributes: customAttributes
+    }
+  };
+};
+
+const deleteCustomAttribute = (customAttribute) => {
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  return {
+    url: `/api/v1/widget/conversations/destroy_custom_attributes${search}`,
+    params: {
+      visitor_id: visitorId,
+      custom_attribute: [customAttribute]
+    }
+  };
+};
+
 export default {
   createConversation,
   sendMessage,
@@ -186,4 +262,10 @@ export default {
   getCampaigns,
   triggerCampaign,
   getMostReadArticles,
+  toggleTyping,
+  updateLastSeen,
+  sendEmailTranscript,
+  toggleStatus,
+  setCustomAttributes,
+  deleteCustomAttribute,
 };

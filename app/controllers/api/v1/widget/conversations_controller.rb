@@ -3,12 +3,20 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   before_action :render_not_found_if_empty, only: [:toggle_typing, :toggle_status, :set_custom_attributes, :destroy_custom_attributes]
 
   def index
+    Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX START ==="
+    Rails.logger.info "[ConversationsController#index] Visitor ID: #{visitor_id}"
+    Rails.logger.info "[ConversationsController#index] Contact: #{@contact&.id}"
+    Rails.logger.info "[ConversationsController#index] Contact inbox: #{@contact_inbox&.id}"
+    
     @conversation = conversation
     Rails.logger.info "[ConversationsController#index] Conversation found: #{@conversation.present?}, ID: #{@conversation&.id}"
     
     if @conversation.nil?
       Rails.logger.warn "[ConversationsController#index] No conversation found for this request"
+    else
+      Rails.logger.info "[ConversationsController#index] ✅ Returning conversation #{@conversation.id} to frontend"
     end
+    Rails.logger.info "[ConversationsController#index] === CONVERSATION INDEX END ==="
   end
 
   def create

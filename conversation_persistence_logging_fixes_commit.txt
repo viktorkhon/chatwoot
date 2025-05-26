@@ -1,0 +1,50 @@
+**Commit Name:**
+Fix conversation persistence logging confusion and enhance debugging
+
+**Summary of Changes:**
+
+## Problem Solved
+Fixed confusing frontend logs showing `conversationId: undefined` for status-only endpoints and enhanced backend debugging to resolve ID mismatch issues in conversation persistence.
+
+## Frontend Changes
+- **Enhanced axios response interceptor** (`app/javascript/widget/helpers/axios.js`)
+  - Only log conversation IDs for endpoints that return conversation data
+  - GET `/conversations` and POST `/messages` endpoints now properly log conversation IDs
+  - Eliminated confusing `undefined` logs for `update_last_seen` and `toggle_typing` endpoints
+
+## Backend Changes
+- **Enhanced conversation lookup debugging** (`app/controllers/api/v1/widget/base_controller.rb`)
+  - Added comprehensive logging for conversation lookup process
+  - Enhanced inbox ID resolution with fallback logic
+  - Added SQL query logging for debugging
+  - Better error handling for missing inbox_id
+
+- **Enhanced update_last_seen endpoint** (`app/controllers/api/v1/widget/conversations_controller.rb`)
+  - Added detailed logging with visitor ID, contact info, and auth token status
+  - Clear success/failure indicators with emojis
+  - Better error messages for debugging conversation lookup issues
+
+- **Enhanced toggle_typing endpoint** (`app/controllers/api/v1/widget/conversations_controller.rb`)
+  - Added comprehensive logging for typing events
+  - Clear processing status indicators
+  - Warning messages when no active conversation is found
+
+- **Enhanced auth token handling** (`app/controllers/concerns/website_token_helper.rb`)
+  - Better logging for auth token decoding process
+  - Clear indication when no auth token is present (normal for new visitors)
+  - Enhanced error handling and status reporting
+
+## Impact
+- **Cleaner frontend debugging**: No more confusing `conversationId: undefined` logs
+- **Enhanced backend visibility**: Complete conversation lookup process logging
+- **Better error identification**: Clear indicators for conversation lookup failures
+- **Improved ID tracking**: Better ability to debug ID mismatches between frontend and backend
+- **Structured logging**: Visual indicators and clear start/end markers for debugging sessions
+
+## Files Modified
+1. `app/javascript/widget/helpers/axios.js`
+2. `app/controllers/api/v1/widget/conversations_controller.rb`
+3. `app/controllers/api/v1/widget/base_controller.rb`
+4. `app/controllers/concerns/website_token_helper.rb`
+
+This fix addresses the conversation persistence debugging issues by providing clear, structured logging that eliminates confusion and enables better troubleshooting of ID mapping problems. 

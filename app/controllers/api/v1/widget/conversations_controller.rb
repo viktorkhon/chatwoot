@@ -95,18 +95,27 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def update_last_seen
-    Rails.logger.info "[ConversationsController#update_last_seen] Updating last seen for visitor: #{visitor_id}"
+    Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN START ==="
+    Rails.logger.info "[ConversationsController#update_last_seen] Visitor ID: #{visitor_id}"
+    Rails.logger.info "[ConversationsController#update_last_seen] Contact: #{@contact&.id}"
+    Rails.logger.info "[ConversationsController#update_last_seen] Contact inbox: #{@contact_inbox&.id}"
+    Rails.logger.info "[ConversationsController#update_last_seen] Auth token present: #{auth_token_params.present?}"
     
-    if conversation.nil?
-      Rails.logger.warn "[ConversationsController#update_last_seen] No active conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox&.id}"
+    current_conversation = conversation
+    Rails.logger.info "[ConversationsController#update_last_seen] Conversation lookup result: #{current_conversation&.id || 'nil'}"
+    
+    if current_conversation.nil?
+      Rails.logger.warn "[ConversationsController#update_last_seen] ❌ No active conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox&.id}"
+      Rails.logger.warn "[ConversationsController#update_last_seen] This might indicate a conversation lookup issue or the conversation was resolved"
       render json: { error: 'No active conversation found' }, status: :not_found
       return
     end
 
-    Rails.logger.info "[ConversationsController#update_last_seen] Updating last seen for conversation: #{conversation.id}"
-    conversation.contact_last_seen_at = DateTime.now.utc
-    conversation.save!
-    ::Conversations::UpdateMessageStatusJob.perform_later(conversation.id, conversation.contact_last_seen_at)
+    Rails.logger.info "[ConversationsController#update_last_seen] ✅ Updating last seen for conversation: #{current_conversation.id}"
+    current_conversation.contact_last_seen_at = DateTime.now.utc
+    current_conversation.save!
+    ::Conversations::UpdateMessageStatusJob.perform_later(current_conversation.id, current_conversation.contact_last_seen_at)
+    Rails.logger.info "[ConversationsController#update_last_seen] === UPDATE LAST SEEN END ==="
     head :ok
   end
 
@@ -121,16 +130,27 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def toggle_typing
+    Rails.logger.info "[ConversationsController#toggle_typing] === TOGGLE TYPING START ==="
+    Rails.logger.info "[ConversationsController#toggle_typing] Visitor ID: #{visitor_id}"
+    Rails.logger.info "[ConversationsController#toggle_typing] Typing status: #{permitted_params[:typing_status]}"
+    
+    current_conversation = conversation
+    Rails.logger.info "[ConversationsController#toggle_typing] Conversation lookup result: #{current_conversation&.id || 'nil'}"
+    
     # Allow toggle_typing to work even without an active conversation
-    if conversation.present?
+    if current_conversation.present?
+      Rails.logger.info "[ConversationsController#toggle_typing] ✅ Processing typing event for conversation: #{current_conversation.id}"
       case permitted_params[:typing_status]
       when 'on'
         trigger_typing_event(CONVERSATION_TYPING_ON)
       when 'off'
         trigger_typing_event(CONVERSATION_TYPING_OFF)
       end
+    else
+      Rails.logger.warn "[ConversationsController#toggle_typing] ⚠️ No active conversation found - typing event skipped"
     end
 
+    Rails.logger.info "[ConversationsController#toggle_typing] === TOGGLE TYPING END ==="
     head :ok
   end
 

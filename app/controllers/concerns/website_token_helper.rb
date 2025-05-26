@@ -12,10 +12,11 @@ module WebsiteTokenHelper
         @auth_token_params = {}
       end
     else
-      Rails.logger.info "[WebsiteTokenHelper] No auth token present"
+      Rails.logger.info "[WebsiteTokenHelper] No auth token present - this is normal for new visitors"
       @auth_token_params = {}
     end
     
+    Rails.logger.info "[WebsiteTokenHelper] Auth token params result: #{@auth_token_params.present? ? @auth_token_params.keys : 'empty hash'}"
     @auth_token_params
   end
 

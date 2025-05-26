@@ -39,10 +39,16 @@ API.interceptors.request.use(
 // Add response interceptor to log API responses and errors
 API.interceptors.response.use(
   response => {
-    // Only log conversation_id for actual conversation-related responses
-    const conversationId = response.config.url?.includes('/conversations') ? 
-      (response.data?.id || response.data?.conversation_id) : 
-      response.data?.conversation_id;
+    // Only log conversation_id for endpoints that actually return conversation data
+    let conversationId;
+    if (response.config.url?.includes('/conversations') && response.config.method?.toLowerCase() === 'get') {
+      // GET requests to conversations endpoints should return conversation data
+      conversationId = response.data?.id || response.data?.conversation_id;
+    } else if (response.config.url?.includes('/messages') && response.config.method?.toLowerCase() === 'post') {
+      // POST requests to messages endpoints return message data with conversation_id
+      conversationId = response.data?.conversation_id;
+    }
+    // For other endpoints (update_last_seen, toggle_typing, etc.), don't log conversation_id
       
     console.log('[🔍 Chatwoot Debug] API Response:', {
       method: response.config.method?.toUpperCase(),

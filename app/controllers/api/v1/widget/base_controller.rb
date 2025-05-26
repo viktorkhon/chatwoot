@@ -12,15 +12,24 @@ class Api::V1::Widget::BaseController < ApplicationController
     inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox_id
     
     Rails.logger.info "[BaseController] Conversations lookup - inbox_id: #{inbox_id}, hmac_verified: #{@contact_inbox&.hmac_verified?}"
+    Rails.logger.info "[BaseController] Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'empty'}"
+    Rails.logger.info "[BaseController] Web widget inbox_id: #{@web_widget&.inbox_id}"
+    
+    if inbox_id.nil?
+      Rails.logger.error "[BaseController] ❌ No inbox_id available for conversation lookup"
+      return @contact_inbox&.conversations || Conversation.none
+    end
     
     if @contact_inbox.hmac_verified?
       verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
       @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
-      Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes"
+      Rails.logger.info "[BaseController] HMAC verified path - found #{verified_contact_inbox_ids.count} verified contact inboxes, #{@conversations.count} conversations"
     else
       @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
-      Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}"
+      Rails.logger.info "[BaseController] Standard path - using contact_inbox #{@contact_inbox.id} for inbox #{inbox_id}, found #{@conversations.count} conversations"
     end
+    
+    Rails.logger.info "[BaseController] Conversations SQL: #{@conversations.to_sql}" if @conversations.respond_to?(:to_sql)
     @conversations
   end
 

@@ -5,164 +5,164 @@
 ## 🎯 Core Requirements
 
 ### ✅ Primary Objectives
-- [X] **Single Conversation Per Session**: Users maintain one conversation throughout their session across page navigation
-- [X] **New Conversation Creation**: Users can still create new conversations when needed
-- [X] **Message Functionality**: Users can send and receive messages normally
-- [X] **Webhook Preservation**: All existing webhook functionality continues to work as before
-- [X] **Cross-Page Persistence**: Conversations persist during Shopify navigation, SPA routing, and page refreshes
-- [X] **Incognito Support**: Works without cookies using Redis-backed visitor tracking
-- [X] **Webhook Prevention**: Duplicate webwidget_triggered webhooks prevented during page navigation
+- [ ] **Single Conversation Per Session**: Users maintain one conversation throughout their session across page navigation
+- [ ] **New Conversation Creation**: Users can still create new conversations when needed
+- [ ] **Message Functionality**: Users can send and receive messages normally
+- [ ] **Webhook Preservation**: All existing webhook functionality continues to work as before
+- [ ] **Cross-Page Persistence**: Conversations persist during Shopify navigation, SPA routing, and page refreshes
+- [ ] **Incognito Support**: Works without cookies using Redis-backed visitor tracking
+- [ ] **Webhook Prevention**: Duplicate webwidget_triggered webhooks prevented during page navigation
 
 ## 🏗️ Backend Implementation Checklist
 
 ### Redis Infrastructure
-- [X] **VisitorConversationMapping Model** (`app/models/visitor_conversation_mapping.rb`)
-  - [X] Redis-backed visitor tracking system with 30-day TTL
-  - [X] Maps visitor fingerprints to conversation tokens for incognito users
-  - [X] Maps visitor fingerprints to contact source IDs for contact persistence
-  - [X] Tracks page info for visitors before conversation creation
-  - [X] Auto-cleanup when conversations are resolved
-  - [X] Graceful degradation when Redis is unavailable
+- [ ] **VisitorConversationMapping Model** (`app/models/visitor_conversation_mapping.rb`)
+  - [ ] Redis-backed visitor tracking system with 30-day TTL
+  - [ ] Maps visitor fingerprints to conversation tokens for incognito users
+  - [ ] Maps visitor fingerprints to contact source IDs for contact persistence
+  - [ ] Tracks page info for visitors before conversation creation
+  - [ ] Auto-cleanup when conversations are resolved
+  - [ ] Graceful degradation when Redis is unavailable
 
-- [X] **Redis Configuration** (`lib/redis/config.rb`)
-  - [X] Railway Valkey service integration
-  - [X] Increased timeout and reconnection attempts
-  - [X] Connection pooling and error handling
-  - [X] Debug endpoint for Redis diagnostics
+- [ ] **Redis Configuration** (`lib/redis/config.rb`)
+  - [ ] Railway Valkey service integration
+  - [ ] Increased timeout and reconnection attempts
+  - [ ] Connection pooling and error handling
+  - [ ] Debug endpoint for Redis diagnostics
 
 ### Controller Enhancements
-- [X] **BaseController** (`app/controllers/api/v1/widget/base_controller.rb`)
-  - [X] Enhanced conversation lookup with Redis validation
-  - [X] `validate_redis_conversation_mapping()` method for stale mapping detection
-  - [X] Enhanced conversation token generation with conversation ID
-  - [X] Improved conversation lookup logic with fallback methods
-  - [X] Automatic cleanup of stale mappings when inconsistencies detected
-  - [X] Visitor ID extraction from headers/params
-  - [X] Safe parameter handling with fallbacks
-  - [X] **Fixed `conversations` method to return the ActiveRecord relation properly**
-  - [X] **Enhanced conversation lookup logging for debugging**
-  - [X] **Fixed inbox_id resolution when auth_token_params is empty**
-  - [X] **Restored proper conversation lookup logic after optimization**
+- [ ] **BaseController** (`app/controllers/api/v1/widget/base_controller.rb`)
+  - [ ] Enhanced conversation lookup with Redis validation
+  - [ ] `validate_redis_conversation_mapping()` method for stale mapping detection
+  - [ ] Enhanced conversation token generation with conversation ID
+  - [ ] Improved conversation lookup logic with fallback methods
+  - [ ] Automatic cleanup of stale mappings when inconsistencies detected
+  - [ ] Visitor ID extraction from headers/params
+  - [ ] Safe parameter handling with fallbacks
+  - [ ] **Fixed `conversations` method to return the ActiveRecord relation properly**
+  - [ ] **Enhanced conversation lookup logging for debugging**
+  - [ ] **Fixed inbox_id resolution when auth_token_params is empty**
+  - [ ] **Restored proper conversation lookup logic after optimization**
 
-- [X] **ConversationsController** (`app/controllers/api/v1/widget/conversations_controller.rb`)
-  - [X] Webhook prevention logic to avoid duplicates
-  - [X] Redis mapping management and cleanup
-  - [X] Enhanced error handling for conversation creation
-  - [X] Detailed logging for debugging conversation issues
-  - [X] Toggle typing endpoint fixes (removed from before_action filter)
-  - [X] **Enhanced `update_last_seen` action with proper error handling and logging**
-  - [X] **Session cleanup on conversation resolution for webhook prevention**
+- [ ] **ConversationsController** (`app/controllers/api/v1/widget/conversations_controller.rb`)
+  - [ ] Webhook prevention logic to avoid duplicates
+  - [ ] Redis mapping management and cleanup
+  - [ ] Enhanced error handling for conversation creation
+  - [ ] Detailed logging for debugging conversation issues
+  - [ ] Toggle typing endpoint fixes (removed from before_action filter)
+  - [ ] **Enhanced `update_last_seen` action with proper error handling and logging**
+  - [ ] **Session cleanup on conversation resolution for webhook prevention**
 
-- [X] **MessagesController** (`app/controllers/api/v1/widget/messages_controller.rb`)
-  - [X] Modified `set_conversation` to return error instead of creating new conversations
-  - [X] Enhanced logging for message creation flow
-  - [X] Safe navigation in `message_params` method
-  - [X] Proper error handling for NO_CONVERSATION scenarios
+- [ ] **MessagesController** (`app/controllers/api/v1/widget/messages_controller.rb`)
+  - [ ] Modified `set_conversation` to return error instead of creating new conversations
+  - [ ] Enhanced logging for message creation flow
+  - [ ] Safe navigation in `message_params` method
+  - [ ] Proper error handling for NO_CONVERSATION scenarios
 
 ### Model Updates
-- [X] **Conversation Model** (`app/models/conversation.rb`)
-  - [X] `cleanup_redis_mappings_on_resolution()` callback
-  - [X] Automatic cleanup of Redis mappings when conversations are resolved
-  - [X] Enhanced webhook data with page information
-  - [X] Timestamp standardization for ActionCable events
+- [ ] **Conversation Model** (`app/models/conversation.rb`)
+  - [ ] `cleanup_redis_mappings_on_resolution()` callback
+  - [ ] Automatic cleanup of Redis mappings when conversations are resolved
+  - [ ] Enhanced webhook data with page information
+  - [ ] Timestamp standardization for ActionCable events
 
-- [X] **Message Model** (`app/models/message.rb`)
-  - [X] Fixed `dispatch_update_event` timestamp conversion
-  - [X] Consistent Unix timestamp format in ActionCable broadcasts
+- [ ] **Message Model** (`app/models/message.rb`)
+  - [ ] Fixed `dispatch_update_event` timestamp conversion
+  - [ ] Consistent Unix timestamp format in ActionCable broadcasts
 
 ### Helper Enhancements
-- [X] **WebsiteTokenHelper** (`app/controllers/concerns/website_token_helper.rb`)
-  - [X] Enhanced with visitor ID support
-  - [X] Redis fallback contact lookup
-  - [X] Improved contact creation logic
-  - [X] Better error handling and logging
-  - [X] **Fixed `auth_token_params` method to handle missing auth tokens gracefully**
+- [ ] **WebsiteTokenHelper** (`app/controllers/concerns/website_token_helper.rb`)
+  - [ ] Enhanced with visitor ID support
+  - [ ] Redis fallback contact lookup
+  - [ ] Improved contact creation logic
+  - [ ] Better error handling and logging
+  - [ ] **Fixed `auth_token_params` method to handle missing auth tokens gracefully**
 
 ### Webhook & Event Management
-- [X] **WebhookListener** (`app/listeners/webhook_listener.rb`)
-  - [X] **Session-based webhook prevention for webwidget_triggered events**
-  - [X] **Redis-based session tracking (30-minute duration)**
-  - [X] **Prevents duplicate webhooks during page navigation**
-  - [X] **Automatic session cleanup on conversation resolution**
-  - [X] **Graceful degradation when Redis is unavailable**
+- [ ] **WebhookListener** (`app/listeners/webhook_listener.rb`)
+  - [ ] **Session-based webhook prevention for webwidget_triggered events**
+  - [ ] **Redis-based session tracking (30-minute duration)**
+  - [ ] **Prevents duplicate webhooks during page navigation**
+  - [ ] **Automatic session cleanup on conversation resolution**
+  - [ ] **Graceful degradation when Redis is unavailable**
 
-- [X] **AgentBotListener** (`app/listeners/agent_bot_listener.rb`)
-  - [X] **Session-based event prevention for webwidget_triggered events**
-  - [X] **Consistent session management with webhook listener**
-  - [X] **Prevents duplicate agent bot events during navigation**
+- [ ] **AgentBotListener** (`app/listeners/agent_bot_listener.rb`)
+  - [ ] **Session-based event prevention for webwidget_triggered events**
+  - [ ] **Consistent session management with webhook listener**
+  - [ ] **Prevents duplicate agent bot events during navigation**
 
 ## 🎨 Frontend Implementation Checklist
 
 ### Core Widget Files
-- [X] **App.vue** (`app/javascript/widget/App.vue`)
-  - [X] Visitor tracking initialization with `initializeVisitorTracking()`
-  - [X] Page navigation handling and state preservation
-  - [X] Conversation token extraction from URL parameters
-  - [X] Enhanced error handling in mounted() lifecycle
-  - [X] Fixed ES6 import statements (no Node.js require)
-  - [X] Page info updates and tracking
+- [ ] **App.vue** (`app/javascript/widget/App.vue`)
+  - [ ] Visitor tracking initialization with `initializeVisitorTracking()`
+  - [ ] Page navigation handling and state preservation
+  - [ ] Conversation token extraction from URL parameters
+  - [ ] Enhanced error handling in mounted() lifecycle
+  - [ ] Fixed ES6 import statements (no Node.js require)
+  - [ ] Page info updates and tracking
 
-- [X] **Utils Helper** (`app/javascript/widget/helpers/utils.js`)
-  - [X] Stable browser fingerprinting system with `generateVisitorId()`
-  - [X] `getVisitorId()` for consistent visitor identification
-  - [X] Cross-page tracking maintains visitor identity
-  - [X] Page info collection utilities
+- [ ] **Utils Helper** (`app/javascript/widget/helpers/utils.js`)
+  - [ ] Stable browser fingerprinting system with `generateVisitorId()`
+  - [ ] `getVisitorId()` for consistent visitor identification
+  - [ ] Cross-page tracking maintains visitor identity
+  - [ ] Page info collection utilities
 
 ### Store Management
-- [X] **Conversation Actions** (`app/javascript/widget/store/modules/conversation/actions.js`)
-  - [X] Enhanced `sendMessageWithData` with NO_CONVERSATION error handling
-  - [X] `resolveConversation` and `startNewConversation` with visitor data cleanup
-  - [X] Proper temporary message replacement logic
-  - [X] Visitor tracking integration
-  - [X] Enhanced persistence across navigation
-  - [X] **Conversation creation safeguards to prevent multiple calls**
+- [ ] **Conversation Actions** (`app/javascript/widget/store/modules/conversation/actions.js`)
+  - [ ] Enhanced `sendMessageWithData` with NO_CONVERSATION error handling
+  - [ ] `resolveConversation` and `startNewConversation` with visitor data cleanup
+  - [ ] Proper temporary message replacement logic
+  - [ ] Visitor tracking integration
+  - [ ] Enhanced persistence across navigation
+  - [ ] **Conversation creation safeguards to prevent multiple calls**
 
-- [X] **Conversation Mutations** (`app/javascript/widget/store/modules/conversation/mutations.js`)
-  - [X] `setConversationCookie` mutation
-  - [X] `replaceTemporaryMessage` for proper message handling
-  - [X] Clean logging without excessive debug output
+- [ ] **Conversation Mutations** (`app/javascript/widget/store/modules/conversation/mutations.js`)
+  - [ ] `setConversationCookie` mutation
+  - [ ] `replaceTemporaryMessage` for proper message handling
+  - [ ] Clean logging without excessive debug output
 
-- [X] **AppConfig Store** (`app/javascript/widget/store/modules/appConfig.js`)
-  - [X] Complete page info state management
-  - [X] `updatePageInfo` action
-  - [X] `SET_PAGE_INFO` mutation
+- [ ] **AppConfig Store** (`app/javascript/widget/store/modules/appConfig.js`)
+  - [ ] Complete page info state management
+  - [ ] `updatePageInfo` action
+  - [ ] `SET_PAGE_INFO` mutation
 
 ### API Integration
-- [X] **Conversation API** (`app/javascript/widget/api/conversation.js`)
-  - [X] Fixed API endpoints (correct `/api/v1/widget/messages` path)
-  - [X] Enhanced all API methods with visitor ID headers
-  - [X] Page info tracking in all requests
-  - [X] Consistent URL building using `buildSearchParamsWithLocale()`
-  - [X] Proper timestamp format (Unix timestamps)
-  - [X] **Strictly ensure `X-Visitor-ID` header is present on `POST /api/v1/widget/conversations` (conversation creation call)**
+- [ ] **Conversation API** (`app/javascript/widget/api/conversation.js`)
+  - [ ] Fixed API endpoints (correct `/api/v1/widget/messages` path)
+  - [ ] Enhanced all API methods with visitor ID headers
+  - [ ] Page info tracking in all requests
+  - [ ] Consistent URL building using `buildSearchParamsWithLocale()`
+  - [ ] Proper timestamp format (Unix timestamps)
+  - [ ] **Strictly ensure `X-Visitor-ID` header is present on `POST /api/v1/widget/conversations` (conversation creation call)**
 
-- [X] **EndPoints Helper** (`app/javascript/widget/api/endPoints.js`)
-  - [X] Complete visitor ID integration
-  - [X] All endpoints include visitor ID headers
-  - [X] Page info tracking
-  - [X] Consistent URL construction patterns
+- [ ] **EndPoints Helper** (`app/javascript/widget/api/endPoints.js`)
+  - [ ] Complete visitor ID integration
+  - [ ] All endpoints include visitor ID headers
+  - [ ] Page info tracking
+  - [ ] Consistent URL construction patterns
 
-- [X] **Axios Configuration** (`app/javascript/widget/helpers/axios.js`)
-  - [X] Fixed `setHeader` and `clearHeader` implementations
-  - [X] Enhanced request/response interceptors
-  - [X] Visitor ID header injection
-  - [X] Conversation token handling
-  - [X] Clean logging with essential error reporting only
-  - [X] **Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs**
+- [ ] **Axios Configuration** (`app/javascript/widget/helpers/axios.js`)
+  - [ ] Fixed `setHeader` and `clearHeader` implementations
+  - [ ] Enhanced request/response interceptors
+  - [ ] Visitor ID header injection
+  - [ ] Conversation token handling
+  - [ ] Clean logging with essential error reporting only
+  - [ ] **Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs**
 
 ### ActionCable & Real-time Features
-- [X] **ActionCable Helper** (`app/javascript/widget/helpers/actionCable.js`)
-  - [X] Fixed event emission logic (only emit `ON_AGENT_MESSAGE_RECEIVED` for agent messages)
-  - [X] Proper message type classification (user messages = INCOMING, agent messages = OUTGOING)
-  - [X] Enhanced message processing with conversation validation
-  - [X] Real-time message display without duplicates
+- [ ] **ActionCable Helper** (`app/javascript/widget/helpers/actionCable.js`)
+  - [ ] Fixed event emission logic (only emit `ON_AGENT_MESSAGE_RECEIVED` for agent messages)
+  - [ ] Proper message type classification (user messages = INCOMING, agent messages = OUTGOING)
+  - [ ] Enhanced message processing with conversation validation
+  - [ ] Real-time message display without duplicates
 
 ### Session & Webhook Management
-- [X] **IFrameHelper** (`app/javascript/sdk/IFrameHelper.js`)
-  - [X] Session-based webhook prevention
-  - [X] Smart conversation detection and routing
-  - [X] Enhanced session tracking with visual debugging
-  - [X] Prevents duplicate "widget opened" webhooks during navigation
+- [ ] **IFrameHelper** (`app/javascript/sdk/IFrameHelper.js`)
+  - [ ] Session-based webhook prevention
+  - [ ] Smart conversation detection and routing
+  - [ ] Enhanced session tracking with visual debugging
+  - [ ] Prevents duplicate "widget opened" webhooks during navigation
 
 ## 🧪 Testing & Quality Assurance Checklist
 
@@ -178,11 +178,11 @@
   - [ ] Verify no duplicate webhooks during navigation
   - [ ] Test conversation resolution and session cleanup
 
-- [X] **Persistence Debug Tests** (`app/javascript/widget/conversation_persistence_debug.test.js`)
-  - [X] Visitor ID generation and persistence testing
-  - [X] Conversation flow simulation
-  - [X] API request structure validation
-  - [X] Page navigation simulation
+- [ ] **Persistence Debug Tests** (`app/javascript/widget/conversation_persistence_debug.test.js`)
+  - [ ] Visitor ID generation and persistence testing
+  - [ ] Conversation flow simulation
+  - [ ] API request structure validation
+  - [ ] Page navigation simulation
 
 ### Quality Gates
 - [ ] **Updated Testing Process**
@@ -192,26 +192,26 @@
   - [ ] Test Redis session management edge cases
 
 ### Error Handling & Resilience
-- [X] **Backend Stability**
-  - [X] All widget endpoints return proper responses (no 500 errors)
-  - [X] Redis fault tolerance with graceful degradation
-  - [X] Comprehensive error logging without breaking functionality
-  - [X] Safe parameter handling with fallbacks
-  - [X] **Fixed conversation lookup issues that caused "0 conversations found" errors**
-  - [X] **Enhanced auth token handling for new visitors without tokens**
-  - [X] **Fixed WebWidget inbox access to prevent NoMethodError**
-  - [X] **Enhanced conversation token generation with comprehensive validation**
-  - [X] **Webhook prevention graceful degradation when Redis fails**
+- [ ] **Backend Stability**
+  - [ ] All widget endpoints return proper responses (no 500 errors)
+  - [ ] Redis fault tolerance with graceful degradation
+  - [ ] Comprehensive error logging without breaking functionality
+  - [ ] Safe parameter handling with fallbacks
+  - [ ] **Fixed conversation lookup issues that caused "0 conversations found" errors**
+  - [ ] **Enhanced auth token handling for new visitors without tokens**
+  - [ ] **Fixed WebWidget inbox access to prevent NoMethodError**
+  - [ ] **Enhanced conversation token generation with comprehensive validation**
+  - [ ] **Webhook prevention graceful degradation when Redis fails**
 
-- [X] **Frontend Stability**
-  - [X] Widget initializes without runtime errors
-  - [X] Proper error handling for API failures
-  - [X] Graceful fallback when Redis is unavailable
-  - [X] Clean console output with essential logging only
-  - [X] **Improved API response logging to avoid confusion**
-  - [X] **Fixed duplicate messages in chat widget**
-  - [X] **Proper message flow without redundant commits**
-  - [X] **Conversation creation safeguards prevent multiple calls**
+- [ ] **Frontend Stability**
+  - [ ] Widget initializes without runtime errors
+  - [ ] Proper error handling for API failures
+  - [ ] Graceful fallback when Redis is unavailable
+  - [ ] Clean console output with essential logging only
+  - [ ] **Improved API response logging to avoid confusion**
+  - [ ] **Fixed duplicate messages in chat widget**
+  - [ ] **Proper message flow without redundant commits**
+  - [ ] **Conversation creation safeguards prevent multiple calls**
 
 ## 🔄 User Journey Validation Checklist
 
@@ -233,15 +233,15 @@
   - [ ] User can continue sending messages seamlessly
 
 ### Message Interaction
-- [X] **Message Sending**
-  - [X] User messages appear immediately in chat UI
-  - [X] Proper message type classification (user = INCOMING, agent = OUTGOING)
-  - [X] No duplicate pending messages
-  - [X] Temporary messages properly replaced with server confirmations
-  - [X] ActionCable events only fire for appropriate message types
-  - [X] **Fixed duplicate messages when creating new conversations**
-  - [X] **Proper message flow: backend includes initial message, frontend relies on updates**
-  - [X] **Enhanced conversation creation with message inclusion**
+- [ ] **Message Sending**
+  - [ ] User messages appear immediately in chat UI
+  - [ ] Proper message type classification (user = INCOMING, agent = OUTGOING)
+  - [ ] No duplicate pending messages
+  - [ ] Temporary messages properly replaced with server confirmations
+  - [ ] ActionCable events only fire for appropriate message types
+  - [ ] **Fixed duplicate messages when creating new conversations**
+  - [ ] **Proper message flow: backend includes initial message, frontend relies on updates**
+  - [ ] **Enhanced conversation creation with message inclusion**
 
 ### Conversation Resolution with Session Cleanup
 - [ ] **End Conversation**
@@ -261,35 +261,35 @@
   - [ ] **Next chat session** → webwidget_triggered webhook sent → New conversation
 
 ### Incognito & Edge Cases
-- [X] **Incognito Mode**
-  - [X] Full functionality without cookies
-  - [X] Redis provides persistence across navigation
-  - [X] Visitor ID generation works consistently
-  - [X] All features work as expected
+- [ ] **Incognito Mode**
+  - [ ] Full functionality without cookies
+  - [ ] Redis provides persistence across navigation
+  - [ ] Visitor ID generation works consistently
+  - [ ] All features work as expected
 
 - [ ] **Error Scenarios with Webhook Prevention**
   - [ ] Redis unavailable → Graceful degradation → Webhooks still work
   - [ ] Network issues → Proper error handling
   - [ ] Invalid tokens → Automatic cleanup and recovery
   - [ ] Stale mappings → Automatic validation and cleanup
-  - [X] **Missing auth tokens → Graceful handling for new visitors**
-  - [X] **Conversation lookup failures → Proper error responses**
+  - [ ] **Missing auth tokens → Graceful handling for new visitors**
+  - [ ] **Conversation lookup failures → Proper error responses**
   - [ ] **Session key conflicts → Proper Redis key management**
 
 ## 🚀 Deployment & Production Checklist
 
 ### Build & Deployment
-- [X] **Frontend Build**
-  - [X] All ES6 imports properly configured
-  - [X] No Node.js require statements in browser code
-  - [X] Vite build process completes successfully
-  - [X] All assets properly compiled and served
+- [ ] **Frontend Build**
+  - [ ] All ES6 imports properly configured
+  - [ ] No Node.js require statements in browser code
+  - [ ] Vite build process completes successfully
+  - [ ] All assets properly compiled and served
 
-- [X] **Backend Deployment**
-  - [X] Redis/Valkey service properly configured
-  - [X] Environment variables set correctly
-  - [X] Database migrations applied
-  - [X] All dependencies installed
+- [ ] **Backend Deployment**
+  - [ ] Redis/Valkey service properly configured
+  - [ ] Environment variables set correctly
+  - [ ] Database migrations applied
+  - [ ] All dependencies installed
 
 ### Production Validation
 - [ ] **Functionality Testing with Webhook Prevention**
@@ -324,28 +324,28 @@
   - [ ] Error handling effectiveness
   - [ ] **Webhook prevention effectiveness (no duplicate n8n conversations)**
 
-- [X] **Debugging & Troubleshooting**
-  - [X] **Comprehensive conversation token generation logging**
-  - [X] **Enhanced Redis mapping validation and debugging**
-  - [X] **Detailed conversation creation flow logging**
-  - [X] **Token generation failure detection and reporting**
-  - [X] **Conversation ID consistency tracking**
-  - [X] **Webhook session tracking logging**
+- [ ] **Debugging & Troubleshooting**
+  - [ ] **Comprehensive conversation token generation logging**
+  - [ ] **Enhanced Redis mapping validation and debugging**
+  - [ ] **Detailed conversation creation flow logging**
+  - [ ] **Token generation failure detection and reporting**
+  - [ ] **Conversation ID consistency tracking**
+  - [ ] **Webhook session tracking logging**
 
 ### Documentation & Knowledge Transfer
-- [X] **Technical Documentation**
-  - [X] All changes documented in project context
-  - [X] API changes and new endpoints documented
-  - [X] Redis schema and data flow documented
-  - [X] Error handling and troubleshooting guides
-  - [X] **Webhook prevention implementation documented**
+- [ ] **Technical Documentation**
+  - [ ] All changes documented in project context
+  - [ ] API changes and new endpoints documented
+  - [ ] Redis schema and data flow documented
+  - [ ] Error handling and troubleshooting guides
+  - [ ] **Webhook prevention implementation documented**
 
-- [X] **Operational Documentation**
-  - [X] Deployment procedures updated
-  - [X] Monitoring and alerting configured
-  - [X] Troubleshooting runbooks created
-  - [X] Performance optimization guidelines
-  - [X] **Webhook session management procedures**
+- [ ] **Operational Documentation**
+  - [ ] Deployment procedures updated
+  - [ ] Monitoring and alerting configured
+  - [ ] Troubleshooting runbooks created
+  - [ ] Performance optimization guidelines
+  - [ ] **Webhook session management procedures**
 
 ## 🎯 Success Criteria
 
@@ -368,35 +368,35 @@
 ## 🔧 Recent Fixes (Sessions 35-43)
 
 ### Critical Bug Fixes (Session 35)
-- [X] **Fixed BaseController `conversations` method**: Added missing return statement to properly return ActiveRecord relation
-- [X] **Enhanced auth token handling**: Fixed `auth_token_params` to gracefully handle missing auth tokens for new visitors
-- [X] **Improved inbox_id resolution**: Use web widget's inbox_id as fallback when auth token is empty
-- [X] **Enhanced conversation lookup logging**: Added detailed logging to debug conversation lookup issues
-- [X] **Fixed update_last_seen endpoint**: Added proper error handling and logging for missing conversations
-- [X] **Improved axios logging**: Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs
-- [X] **Fixed WebWidget inbox access**: Corrected `@web_widget&.inbox_id` to `@web_widget&.inbox&.id` to prevent NoMethodError
+- [ ] **Fixed BaseController `conversations` method**: Added missing return statement to properly return ActiveRecord relation
+- [ ] **Enhanced auth token handling**: Fixed `auth_token_params` to gracefully handle missing auth tokens for new visitors
+- [ ] **Improved inbox_id resolution**: Use web widget's inbox_id as fallback when auth token is empty
+- [ ] **Enhanced conversation lookup logging**: Added detailed logging to debug conversation lookup issues
+- [ ] **Fixed update_last_seen endpoint**: Added proper error handling and logging for missing conversations
+- [ ] **Improved axios logging**: Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs
+- [ ] **Fixed WebWidget inbox access**: Corrected `@web_widget&.inbox_id` to `@web_widget&.inbox&.id` to prevent NoMethodError
 
 ### Duplicate Messages and Conversation ID Fixes (Session 36)
-- [X] **Fixed duplicate messages in widget**: Removed redundant message commit in `sendMessageWithData` when handling `NO_CONVERSATION` error
-- [X] **Enhanced conversation token generation logging**: Added comprehensive logging to debug conversation ID mismatches
-- [X] **Improved token generation validation**: Added stronger guard conditions for conversation.inbox_id and conversation.id
-- [X] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
-- [X] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
+- [ ] **Fixed duplicate messages in widget**: Removed redundant message commit in `sendMessageWithData` when handling `NO_CONVERSATION` error
+- [ ] **Enhanced conversation token generation logging**: Added comprehensive logging to debug conversation ID mismatches
+- [ ] **Improved token generation validation**: Added stronger guard conditions for conversation.inbox_id and conversation.id
+- [ ] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
+- [ ] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
 
 ### Widget Initialization Timing Fixes (Session 37)
-- [X] **Fixed urlParamsHelper $root access error**: Added safe fallback chain for locale detection during early widget initialization
-- [X] **Enhanced locale handling**: Multiple fallback sources including browser language and default 'en' locale
-- [X] **Improved error handling**: Specific detection and informative warnings for initialization timing issues
-- [X] **Cross-browser compatibility**: Widget works reliably across different browser language settings
-- [X] **Graceful degradation**: Widget functions properly even during early initialization phases
+- [ ] **Fixed urlParamsHelper $root access error**: Added safe fallback chain for locale detection during early widget initialization
+- [ ] **Enhanced locale handling**: Multiple fallback sources including browser language and default 'en' locale
+- [ ] **Improved error handling**: Specific detection and informative warnings for initialization timing issues
+- [ ] **Cross-browser compatibility**: Widget works reliably across different browser language settings
+- [ ] **Graceful degradation**: Widget functions properly even during early initialization phases
 
 ### Webhook Prevention Implementation (Session 43)
-- [X] **Session-based webhook prevention**: Added Redis-based session tracking to prevent duplicate webwidget_triggered webhooks
-- [X] **Agent bot event prevention**: Consistent session management for agent bot webwidget_triggered events
-- [X] **Session cleanup on resolution**: Clear webhook session keys when conversations are resolved
-- [X] **Graceful Redis degradation**: Continue with webhook/processing if Redis is unavailable
-- [X] **Comprehensive logging**: Debug and monitoring capabilities for webhook session management
-- [X] **Frontend safeguards**: Prevent multiple conversation creation calls during rapid interactions
+- [ ] **Session-based webhook prevention**: Added Redis-based session tracking to prevent duplicate webwidget_triggered webhooks
+- [ ] **Agent bot event prevention**: Consistent session management for agent bot webwidget_triggered events
+- [ ] **Session cleanup on resolution**: Clear webhook session keys when conversations are resolved
+- [ ] **Graceful Redis degradation**: Continue with webhook/processing if Redis is unavailable
+- [ ] **Comprehensive logging**: Debug and monitoring capabilities for webhook session management
+- [ ] **Frontend safeguards**: Prevent multiple conversation creation calls during rapid interactions
 
 ### Root Cause Analysis
 1. **"0 conversations found" issue** was caused by:

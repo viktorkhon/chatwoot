@@ -98,7 +98,8 @@ export default {
       this.sendRNWebViewLoadedEvent();
     }
     
-    this.$store.dispatch('conversationAttributes/getAttributes');
+    // Don't automatically fetch conversation attributes on mount
+    // Only fetch when widget is actually opened to prevent unnecessary API calls
     this.registerUnreadEvents();
     this.registerCampaignEvents();
   },
@@ -258,7 +259,9 @@ export default {
         if (message.event === 'config-set') {
           this.setLocale(message.locale);
           this.setBubbleLabel();
-          this.fetchOldConversations().then(() => this.setUnreadView());
+          // Don't fetch conversations automatically on initialization
+          // Only fetch when widget is actually opened to prevent unnecessary API calls
+          this.setUnreadView();
           this.fetchAvailableAgents(websiteToken);
           this.setAppConfig(message);
           this.$store.dispatch('contacts/get');
@@ -314,6 +317,12 @@ export default {
           this.setColorScheme(message.darkMode);
         } else if (message.event === 'toggle-open') {
           this.$store.dispatch('appConfig/toggleWidgetOpen', message.isOpen);
+
+          // Fetch conversations when widget is opened
+          if (message.isOpen) {
+            this.fetchOldConversations();
+            this.$store.dispatch('conversationAttributes/getAttributes');
+          }
 
           const shouldShowMessageView =
             ['home'].includes(this.$route.name) &&

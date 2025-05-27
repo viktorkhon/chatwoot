@@ -39,6 +39,10 @@ export const actions = {
       }
     } catch (error) {
       // Clear attributes on error to ensure clean state
+      // Don't log errors for expected cases (no conversation exists yet)
+      if (error.response?.status !== 500) {
+        console.log('[Chatwoot] No conversation attributes available yet');
+      }
       commit('CLEAR_CONVERSATION_ATTRIBUTES');
     }
   },

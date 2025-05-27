@@ -4,13 +4,21 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def index
     # Handle case where no conversation exists yet
-    @conversation = conversation
-    
-    if @conversation.nil?
+    begin
+      @conversation = conversation
+      
+      if @conversation.nil?
+        @messages = []
+        Rails.logger.info "[Widget] No conversation found for messages index, returning empty array"
+      else
+        finder = message_finder
+        @messages = finder ? finder.perform : []
+        Rails.logger.info "[Widget] Found #{@messages.length} messages for conversation #{@conversation.id}"
+      end
+    rescue => e
+      Rails.logger.error "[Widget] Error in messages index: #{e.message}"
+      @conversation = nil
       @messages = []
-    else
-      finder = message_finder
-      @messages = finder ? finder.perform : []
     end
   end
 

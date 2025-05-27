@@ -5,7 +5,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   def index
     # Handle case where no conversation exists yet
     begin
-      @conversation = conversation
+      # Use lightweight lookup for message operations to avoid Redis overhead
+      @conversation = find_existing_conversation_without_redis
       Rails.logger.info "[Widget] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"
       
       if @conversation.nil?
@@ -31,8 +32,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def create
     begin
-      # Ensure we have a conversation first
-      current_conversation = conversation
+      # Use lightweight lookup for message operations to avoid Redis overhead
+      current_conversation = find_existing_conversation_without_redis
       Rails.logger.info "[Widget] Message create - conversation: #{current_conversation.class} (#{current_conversation.inspect})"
       
       if current_conversation.nil?
@@ -47,8 +48,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
         return
       end
 
-      # Ensure message params are valid
-      message_params_data = message_params
+      # Build message params with the conversation we already have
+      message_params_data = build_message_params_for_conversation(current_conversation)
       Rails.logger.info "[Widget] Message params: #{message_params_data.inspect}"
       
       if message_params_data.empty?
@@ -105,7 +106,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    current_conversation = conversation
+    # Use lightweight lookup for message operations to avoid Redis overhead
+    current_conversation = find_existing_conversation_without_redis
     
     if current_conversation.nil?
       Rails.logger.error "[MessagesController] ❌ NO_CONVERSATION: Visitor #{visitor_id}, Contact #{@contact_inbox&.source_id}"
@@ -151,5 +153,38 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def set_message
     @message = @web_widget.inbox.messages.find(permitted_params[:id])
+  end
+
+  def build_message_params_for_conversation(conversation)
+    message_data = permitted_params[:message] || {}
+    
+    # Ensure we have a valid conversation object
+    unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
+      Rails.logger.error "[Widget] Invalid conversation object for message_params: #{conversation.class}"
+      return {}
+    end
+    
+    return {} unless conversation.account_id && conversation.inbox_id
+    
+    {
+      account_id: conversation.account_id,
+      sender: @contact,
+      content: message_data[:content],
+      inbox_id: conversation.inbox_id,
+      content_attributes: build_message_content_attributes(message_data),
+      echo_id: message_data[:echo_id],
+      message_type: :incoming
+    }
+  end
+
+  def build_message_content_attributes(message_data)
+    {
+      in_reply_to: message_data[:reply_to],
+      page_info: {
+        page_url: message_data[:page_url],
+        page_title: message_data[:page_title],
+        referer_url: message_data[:referer_url]
+      }.compact
+    }.compact
   end
 end

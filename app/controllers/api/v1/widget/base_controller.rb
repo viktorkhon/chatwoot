@@ -29,7 +29,9 @@ class Api::V1::Widget::BaseController < ApplicationController
   end
 
   def conversation
-    @conversation ||= find_or_build_conversation
+    # Only perform lookup if we don't have a conversation cached
+    # AND we're in a context that should trigger conversation lookup
+    @conversation ||= find_conversation_for_context
   end
 
   def create_conversation
@@ -71,12 +73,10 @@ class Api::V1::Widget::BaseController < ApplicationController
     # For database lookup, we need @contact_inbox to be set
     return nil unless @contact_inbox.present?
     
-    # Fallback to database lookup
+    # Fallback to database lookup (this now automatically stores in Redis)
     conversation_from_db = find_conversation_via_database
     if conversation_from_db
       Rails.logger.info "[Widget] ✅ Using database conversation: #{conversation_from_db.id}"
-      # Store in Redis for future lookups
-      store_conversation_in_redis(conversation_from_db) if should_store_in_redis?
       return conversation_from_db
     end
     
@@ -217,6 +217,12 @@ class Api::V1::Widget::BaseController < ApplicationController
     conversation = conversations_scope.where(status: [:open, :pending]).last
     if conversation
       Rails.logger.info "[Widget] ✅ Found conversation via database: #{conversation.id}"
+      
+      # CRITICAL: Store in Redis immediately to prevent future Redis lookup failures
+      if should_store_in_redis?
+        Rails.logger.info "[Widget] 💾 Storing database conversation #{conversation.id} in Redis for future lookups"
+        store_conversation_in_redis(conversation)
+      end
     else
       Rails.logger.info "[Widget] 🔍 Database lookup - no open conversations found"
     end
@@ -428,5 +434,53 @@ class Api::V1::Widget::BaseController < ApplicationController
         referer_url: message_data[:referer_url]
       }.compact
     }.compact
+  end
+
+  def find_conversation_for_context
+    # Determine if this request should trigger conversation lookup
+    action_name = params[:action]
+    controller_name = params[:controller]
+    
+    # Only perform full conversation lookup for specific actions that need it
+    case "#{controller_name}##{action_name}"
+    when 'api/v1/widget/conversations#index', 'api/v1/widget/conversations#create'
+      # These actions need full conversation lookup with Redis
+      find_or_build_conversation
+    when 'api/v1/widget/messages#index', 'api/v1/widget/messages#create'
+      # For message operations, try to use existing conversation without Redis lookup
+      find_existing_conversation_without_redis
+    else
+      # For other actions, try lightweight lookup
+      find_existing_conversation_without_redis
+    end
+  end
+
+  def find_existing_conversation_without_redis
+    # Try to find existing conversation without triggering Redis operations
+    # This is for message operations where we should already have a conversation
+    
+    return nil unless @contact_inbox.present?
+    
+    Rails.logger.info "[Widget] 🔍 Lightweight conversation lookup for visitor: #{visitor_id}"
+    
+    # Try database lookup first (most common case for existing conversations)
+    conversation_from_db = find_conversation_via_database
+    if conversation_from_db
+      Rails.logger.info "[Widget] ✅ Found existing conversation via database: #{conversation_from_db.id}"
+      return conversation_from_db
+    end
+    
+    # Only try Redis if database lookup fails AND we have visitor_id
+    if visitor_id.present?
+      Rails.logger.info "[Widget] 🔍 Database lookup failed, checking Redis for visitor: #{visitor_id}"
+      conversation_from_redis = find_conversation_via_redis
+      if conversation_from_redis
+        Rails.logger.info "[Widget] ✅ Found conversation via Redis: #{conversation_from_redis.id}"
+        return conversation_from_redis
+      end
+    end
+    
+    Rails.logger.warn "[Widget] ❌ No existing conversation found for visitor: #{visitor_id}"
+    nil
   end
 end

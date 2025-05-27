@@ -31,8 +31,9 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
         
         process_update_contact
         
-        # Check if we already have a conversation - if so, don't create a new one or fire webhook
-        existing_conversation = conversation
+        # CRITICAL: Use full conversation lookup to ensure we find existing conversations
+        # This should trigger Redis + database lookup to find any existing conversation
+        existing_conversation = find_or_build_conversation
         
         if existing_conversation.present?
           Rails.logger.info "[Widget] ✅ Using existing conversation #{existing_conversation.id}"

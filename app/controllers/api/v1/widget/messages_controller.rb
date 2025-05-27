@@ -79,7 +79,11 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    if conversation.nil?
+    current_conversation = conversation
+    
+    if current_conversation.nil?
+      Rails.logger.error "[MessagesController] ❌ NO_CONVERSATION: Visitor #{visitor_id}, Contact #{@contact_inbox&.source_id}"
+      
       # Instead of creating a new conversation, return an error
       # Messages should only be sent to existing conversations
       render json: { 
@@ -88,7 +92,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
       }, status: :unprocessable_entity
       return
     else
-      @conversation = conversation
+      @conversation = current_conversation
     end
   end
 

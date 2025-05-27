@@ -16,9 +16,16 @@ import { emitter } from 'shared/helpers/mitt';
 
 export const actions = {
   createConversation: async ({ commit, dispatch, state }, params) => {
+    console.log('[🔍 Chatwoot Debug] Creating conversation with params:', {
+      hasMessage: !!params.message,
+      messageContent: params.message?.substring(0, 50) + '...',
+      fullName: params.fullName,
+      emailAddress: params.emailAddress
+    });
+    
     // Prevent multiple conversation creation calls
     if (state.uiFlags.isCreating) {
-      console.log('[Chatwoot] Conversation creation already in progress, skipping...');
+      console.log('[🔍 Chatwoot Debug] Conversation creation already in progress, skipping...');
       return;
     }
     
@@ -28,11 +35,18 @@ export const actions = {
       const { messages } = data;
       const [message = {}] = messages;
       
+      console.log('[🔍 Chatwoot Debug] Conversation created successfully:', {
+        conversationId: data.id,
+        hasMessages: messages?.length > 0,
+        messageCount: messages?.length || 0,
+        firstMessageId: message?.id
+      });
+      
       commit('pushMessageToConversation', message);
       dispatch('conversationAttributes/getAttributes', {}, { root: true });
       emitter.emit(ON_CONVERSATION_CREATED);
     } catch (error) {
-      console.error('[Chatwoot] Conversation creation failed:', error.message);
+      console.error('[🔍 Chatwoot Debug] Conversation creation failed:', error.message);
     } finally {
       commit('setConversationUIFlag', { isCreating: false });
     }
@@ -55,21 +69,30 @@ export const actions = {
       commit('pushMessageToConversation', { ...data, status: 'sent' });
     } catch (error) {
       if (error.response?.data?.code === 'NO_CONVERSATION') {
-        console.log('[Chatwoot] No conversation exists, creating one first...');
+        console.log('[🔍 Chatwoot Debug] NO_CONVERSATION error received');
         
-        // Check if we already have conversations to prevent unnecessary creation during navigation
+        // Check if we already have conversations - if so, this is a backend lookup issue
         const conversationSize = getters.getConversationSize;
+        console.log('[🔍 Chatwoot Debug] Current conversation size:', conversationSize);
+        
         if (conversationSize > 0) {
-          console.log('[Chatwoot] Conversations exist, this might be a timing issue. Retrying...');
+          console.error('[🔍 Chatwoot Debug] ❌ CRITICAL: Backend cannot find conversation that frontend knows exists!');
+          console.error('[🔍 Chatwoot Debug] This indicates a conversation lookup issue in MessagesController');
+          
+          // Don't create a new conversation - show error instead
           commit('pushMessageToConversation', { ...message, status: 'failed' });
           commit('updateMessageMeta', {
             id,
-            meta: { ...meta, error: 'Message sending failed - please try again' },
+            meta: { ...meta, error: 'Message sending failed - conversation lookup issue. Please refresh the page.' },
           });
           return;
         }
         
+        console.log('[🔍 Chatwoot Debug] No conversations exist, this should not happen after widget is opened');
+        
+        // Only create conversation if we truly have no conversations
         try {
+          console.log('[🔍 Chatwoot Debug] Creating new conversation for message');
           await dispatch('createConversation', {
             message: content,
             fullName: '',
@@ -77,8 +100,9 @@ export const actions = {
             phoneNumber: '',
             customAttributes: {}
           });
+          console.log('[🔍 Chatwoot Debug] New conversation created successfully');
         } catch (conversationError) {
-          console.error('[Chatwoot] Failed to create conversation:', conversationError.message);
+          console.error('[🔍 Chatwoot Debug] Failed to create conversation:', conversationError.message);
           commit('pushMessageToConversation', { ...message, status: 'failed' });
           commit('updateMessageMeta', {
             id,

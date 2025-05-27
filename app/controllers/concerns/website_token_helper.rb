@@ -6,17 +6,14 @@ module WebsiteTokenHelper
     if auth_token.present?
       begin
         @auth_token_params = ::Widget::TokenService.new(token: auth_token).decode_token
-        Rails.logger.info "[WebsiteTokenHelper] Decoded auth token: #{@auth_token_params.keys}" if @auth_token_params.present?
       rescue => e
         Rails.logger.warn "[WebsiteTokenHelper] Failed to decode auth token: #{e.message}"
         @auth_token_params = {}
       end
     else
-      Rails.logger.info "[WebsiteTokenHelper] No auth token present - this is normal for new visitors"
       @auth_token_params = {}
     end
     
-    Rails.logger.info "[WebsiteTokenHelper] Auth token params result: #{@auth_token_params.present? ? @auth_token_params.keys : 'empty hash'}"
     @auth_token_params
   end
 
@@ -28,21 +25,17 @@ module WebsiteTokenHelper
   end
 
   def set_contact
-    Rails.logger.info "[WebsiteTokenHelper] Setting contact. Auth token params: #{auth_token_params.present? ? auth_token_params.keys : 'none'}, Visitor ID: #{visitor_id}"
-    
     # First try to find contact using auth token
     if auth_token_params[:source_id].present?
       @contact_inbox = @web_widget.inbox.contact_inboxes.find_by(
         source_id: auth_token_params[:source_id]
       )
       @contact = @contact_inbox&.contact
-      Rails.logger.info "[WebsiteTokenHelper] Auth token lookup - Contact inbox found: #{@contact_inbox.present?}, Contact found: #{@contact.present?}"
     end
 
     # If no contact found via auth token and we have a visitor ID, try Redis mapping
     if @contact.blank? && visitor_id.present?
       contact_source_id = VisitorConversationMapping.get_contact_for_visitor(visitor_id, @web_widget.website_token)
-      Rails.logger.info "[WebsiteTokenHelper] Redis contact lookup for visitor #{visitor_id}: #{contact_source_id.present? ? contact_source_id : 'not found'}"
       
       if contact_source_id.present?
         @contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: contact_source_id)
@@ -64,7 +57,6 @@ module WebsiteTokenHelper
       end
     end
 
-    Rails.logger.info "[WebsiteTokenHelper] Final contact state - Contact ID: #{@contact&.id}, Contact Inbox ID: #{@contact_inbox&.id}, Source ID: #{@contact_inbox&.source_id}"
     Current.contact = @contact
   end
 

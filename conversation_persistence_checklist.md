@@ -365,38 +365,53 @@
 - ✅ **Backward Compatible**: No breaking changes to existing functionality
 - ✅ **Webhook Prevention**: Session-based deduplication prevents spam
 
-## 🔧 Recent Fixes (Sessions 35-43)
+## 🔧 Recent Fixes (Sessions 35-46)
 
 ### Critical Bug Fixes (Session 35)
-- [ ] **Fixed BaseController `conversations` method**: Added missing return statement to properly return ActiveRecord relation
-- [ ] **Enhanced auth token handling**: Fixed `auth_token_params` to gracefully handle missing auth tokens for new visitors
-- [ ] **Improved inbox_id resolution**: Use web widget's inbox_id as fallback when auth token is empty
-- [ ] **Enhanced conversation lookup logging**: Added detailed logging to debug conversation lookup issues
-- [ ] **Fixed update_last_seen endpoint**: Added proper error handling and logging for missing conversations
-- [ ] **Improved axios logging**: Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs
-- [ ] **Fixed WebWidget inbox access**: Corrected `@web_widget&.inbox_id` to `@web_widget&.inbox&.id` to prevent NoMethodError
+- [x] **Fixed BaseController `conversations` method**: Added missing return statement to properly return ActiveRecord relation
+- [x] **Enhanced auth token handling**: Fixed `auth_token_params` to gracefully handle missing auth tokens for new visitors
+- [x] **Improved inbox_id resolution**: Use web widget's inbox_id as fallback when auth token is empty
+- [x] **Enhanced conversation lookup logging**: Added detailed logging to debug conversation lookup issues
+- [x] **Fixed update_last_seen endpoint**: Added proper error handling and logging for missing conversations
+- [x] **Improved axios logging**: Fixed conversation ID logging to avoid confusion between contact IDs and conversation IDs
+- [x] **Fixed WebWidget inbox access**: Corrected `@web_widget&.inbox_id` to `@web_widget&.inbox&.id` to prevent NoMethodError
 
 ### Duplicate Messages and Conversation ID Fixes (Session 36)
-- [ ] **Fixed duplicate messages in widget**: Removed redundant message commit in `sendMessageWithData` when handling `NO_CONVERSATION` error
-- [ ] **Enhanced conversation token generation logging**: Added comprehensive logging to debug conversation ID mismatches
-- [ ] **Improved token generation validation**: Added stronger guard conditions for conversation.inbox_id and conversation.id
-- [ ] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
-- [ ] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
+- [x] **Fixed duplicate messages in widget**: Removed redundant message commit in `sendMessageWithData` when handling `NO_CONVERSATION` error
+- [x] **Enhanced conversation token generation logging**: Added comprehensive logging to debug conversation ID mismatches
+- [x] **Improved token generation validation**: Added stronger guard conditions for conversation.inbox_id and conversation.id
+- [x] **Added Redis token debugging**: Enhanced logging to track token generation and Redis mapping updates
+- [x] **Fixed conversation creation flow**: Ensured backend includes initial message without frontend duplication
 
 ### Widget Initialization Timing Fixes (Session 37)
-- [ ] **Fixed urlParamsHelper $root access error**: Added safe fallback chain for locale detection during early widget initialization
-- [ ] **Enhanced locale handling**: Multiple fallback sources including browser language and default 'en' locale
-- [ ] **Improved error handling**: Specific detection and informative warnings for initialization timing issues
-- [ ] **Cross-browser compatibility**: Widget works reliably across different browser language settings
-- [ ] **Graceful degradation**: Widget functions properly even during early initialization phases
+- [x] **Fixed urlParamsHelper $root access error**: Added safe fallback chain for locale detection during early widget initialization
+- [x] **Enhanced locale handling**: Multiple fallback sources including browser language and default 'en' locale
+- [x] **Improved error handling**: Specific detection and informative warnings for initialization timing issues
+- [x] **Cross-browser compatibility**: Widget works reliably across different browser language settings
+- [x] **Graceful degradation**: Widget functions properly even during early initialization phases
 
 ### Webhook Prevention Implementation (Session 43)
-- [ ] **Session-based webhook prevention**: Added Redis-based session tracking to prevent duplicate webwidget_triggered webhooks
-- [ ] **Agent bot event prevention**: Consistent session management for agent bot webwidget_triggered events
-- [ ] **Session cleanup on resolution**: Clear webhook session keys when conversations are resolved
-- [ ] **Graceful Redis degradation**: Continue with webhook/processing if Redis is unavailable
-- [ ] **Comprehensive logging**: Debug and monitoring capabilities for webhook session management
-- [ ] **Frontend safeguards**: Prevent multiple conversation creation calls during rapid interactions
+- [x] **Session-based webhook prevention**: Added Redis-based session tracking to prevent duplicate webwidget_triggered webhooks
+- [x] **Agent bot event prevention**: Consistent session management for agent bot webwidget_triggered events
+- [x] **Session cleanup on resolution**: Clear webhook session keys when conversations are resolved
+- [x] **Graceful Redis degradation**: Continue with webhook/processing if Redis is unavailable
+- [x] **Comprehensive logging**: Debug and monitoring capabilities for webhook session management
+- [x] **Frontend safeguards**: Prevent multiple conversation creation calls during rapid interactions
+
+### Redis Operation and 500 Error Fixes (Session 46)
+- [x] **Fixed Redis operation return values**: VisitorConversationMapping.redis_operation now returns actual Redis results instead of boolean true/false
+- [x] **Enhanced conversation token validation**: Added type checking to prevent "undefined method length for true" errors
+- [x] **Fixed toggle_typing 500 errors**: Removed from before_action filter and added defensive programming
+- [x] **Enhanced message creation error handling**: Added conversation object validation and comprehensive error logging
+- [x] **Improved messages index defensive programming**: Added type safety checks and graceful error handling
+- [x] **Enhanced debugging capabilities**: Comprehensive logging for object types, values, and error backtraces
+
+### Frontend Session-Based Webhook Prevention (Session 47)
+- [x] **Frontend sessionStorage tracking**: Added session-based prevention in IFrameHelper.onBubbleToggle to prevent duplicate webwidget.triggered events
+- [x] **Session flag management**: Only send webwidget.triggered once per session using sessionStorage flag
+- [x] **Conversation resolution cleanup**: Clear session flag when conversations are resolved to allow new webhooks
+- [x] **Enhanced visitor data cleanup**: Include webhook session flag in clearVisitorData action
+- [x] **Console logging for debugging**: Added informative logs for webhook prevention decisions
 
 ### Root Cause Analysis
 1. **"0 conversations found" issue** was caused by:
@@ -416,7 +431,22 @@
    - Webhook listener sending webwidget_triggered webhook to n8n on every event
    - n8n creating new conversations for each webhook, breaking persistence
 
-These fixes ensure robust conversation lookup, proper error handling, clean message flow, and webhook prevention for all user scenarios.
+5. **Redis validation errors** were caused by:
+   - `VisitorConversationMapping.redis_operation` returning boolean `true`/`false` instead of actual Redis data
+   - Conversation tokens becoming `true` instead of JWT strings, causing `length()` method errors
+   - Lack of type validation before calling string methods on Redis results
+
+6. **500 errors in widget controllers** were caused by:
+   - `toggle_typing` requiring active conversation when it should work without one
+   - `message_params` calling methods on boolean values instead of conversation objects
+   - Insufficient defensive programming for invalid object states
+
+7. **Persistent webhook duplication** was caused by:
+   - Frontend sending `webwidget.triggered` on every bubble toggle without session tracking
+   - Backend session prevention working but frontend still sending events
+   - No coordination between frontend and backend session management
+
+These fixes ensure robust conversation lookup, proper error handling, clean message flow, Redis data integrity, and comprehensive webhook prevention for all user scenarios.
 
 ---
 

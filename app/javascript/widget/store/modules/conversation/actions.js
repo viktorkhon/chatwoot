@@ -259,7 +259,7 @@ export const actions = {
   },
 
   clearVisitorData: () => {
-    const storageKeys = ['cw_visitor_id', 'cw_conversation', 'cw_contact'];
+    const storageKeys = ['cw_visitor_id', 'cw_conversation', 'cw_contact', 'chatwoot_webwidget_triggered_session'];
     storageKeys.forEach(key => {
       sessionStorage.removeItem(key);
       localStorage.removeItem(key);
@@ -278,6 +278,10 @@ export const actions = {
       commit('clearConversations'); 
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
       dispatch('clearVisitorData');
+      
+      // Clear webwidget triggered session flag to allow new webhook for next conversation
+      sessionStorage.removeItem('chatwoot_webwidget_triggered_session');
+      console.log('[Chatwoot] Cleared webwidget triggered session flag for next conversation');
       
       if (window.$chatwoot?.reset) {
         window.$chatwoot.reset(); 

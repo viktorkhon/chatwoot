@@ -74,7 +74,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     return nil unless @contact_inbox.present?
     
     # Fallback to database lookup (this now automatically stores in Redis)
-    conversation_from_db = find_conversation_via_database
+    conversation_from_db = find_conversation_via_database_with_redis_storage
     if conversation_from_db
       Rails.logger.info "[Widget] ✅ Using database conversation: #{conversation_from_db.id}"
       return conversation_from_db
@@ -217,8 +217,22 @@ class Api::V1::Widget::BaseController < ApplicationController
     conversation = conversations_scope.where(status: [:open, :pending]).last
     if conversation
       Rails.logger.info "[Widget] ✅ Found conversation via database: #{conversation.id}"
+    else
+      Rails.logger.info "[Widget] 🔍 Database lookup - no open conversations found"
+    end
+    
+    conversation
+  end
+
+  def find_conversation_via_database_with_redis_storage
+    conversations_scope = conversations
+    Rails.logger.info "[Widget] 🔍 Database lookup - open conversations: #{conversations_scope.where(status: [:open, :pending]).count}"
+    
+    conversation = conversations_scope.where(status: [:open, :pending]).last
+    if conversation
+      Rails.logger.info "[Widget] ✅ Found conversation via database: #{conversation.id}"
       
-      # CRITICAL: Store in Redis immediately to prevent future Redis lookup failures
+      # Store in Redis for future lookups (only for conversation management operations)
       if should_store_in_redis?
         Rails.logger.info "[Widget] 💾 Storing database conversation #{conversation.id} in Redis for future lookups"
         store_conversation_in_redis(conversation)

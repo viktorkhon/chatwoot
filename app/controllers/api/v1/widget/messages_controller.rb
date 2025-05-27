@@ -71,6 +71,10 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def update
+    # Message update should not trigger conversation lookups
+    # The message already exists and has a conversation associated
+    Rails.logger.info "[Widget] Message update - message: #{@message.id}, conversation: #{@message.conversation.id}"
+    
     if @message.content_type == 'input_email'
       @message.update!(submitted_email: contact_email)
       ContactIdentifyAction.new(

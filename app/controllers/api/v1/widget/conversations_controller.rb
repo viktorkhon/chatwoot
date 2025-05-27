@@ -110,7 +110,9 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
     end
     
     begin
-      current_conversation = conversation
+      # Use lightweight database lookup instead of full conversation lookup
+      # This prevents Redis operations during frequent update_last_seen calls
+      current_conversation = find_existing_conversation_without_redis
       
       if current_conversation.nil?
         head :ok  # Return success but do nothing

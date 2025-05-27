@@ -6,14 +6,21 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     # Handle case where no conversation exists yet
     begin
       @conversation = conversation
+      Rails.logger.info "[Widget] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"
       
       if @conversation.nil?
         @messages = []
         Rails.logger.info "[Widget] No conversation found for messages index, returning empty array"
       else
         finder = message_finder
-        @messages = finder ? finder.perform : []
-        Rails.logger.info "[Widget] Found #{@messages.length} messages for conversation #{@conversation.id}"
+        if finder && finder.respond_to?(:perform)
+          @messages = finder.perform
+          @messages = @messages.to_a if @messages.respond_to?(:to_a) # Ensure it's an array
+          Rails.logger.info "[Widget] Found #{@messages.length} messages for conversation #{@conversation.id}"
+        else
+          @messages = []
+          Rails.logger.warn "[Widget] Invalid message finder: #{finder.class}, returning empty array"
+        end
       end
     rescue => e
       Rails.logger.error "[Widget] Error in messages index: #{e.message}"
@@ -106,7 +113,10 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def message_finder
     return nil unless @conversation.present?
-    @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
+    
+    finder = @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
+    Rails.logger.info "[Widget] Message finder created: #{finder.class} (#{finder.inspect})"
+    finder
   end
 
   def message_update_params

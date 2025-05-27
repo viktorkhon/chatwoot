@@ -96,7 +96,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     
     if conversation_token.present?
       Rails.logger.info "[Widget] 🔍 Found Redis conversation token for visitor: #{visitor_id}"
-      Rails.logger.info "[Widget] 🔍 Token preview: #{conversation_token[0..50]}..." if conversation_token.length > 50
+      Rails.logger.info "[Widget] 🔍 Token preview: #{conversation_token[0..50]}..." if conversation_token.is_a?(String) && conversation_token.length > 50
     else
       Rails.logger.info "[Widget] 🔍 No Redis conversation token found for visitor: #{visitor_id}"
       
@@ -287,6 +287,12 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def validate_redis_conversation_mapping(visitor_id, conversation_token)
     return false unless visitor_id.present? && conversation_token.present?
+    
+    # Ensure conversation_token is a string
+    unless conversation_token.is_a?(String)
+      Rails.logger.error "[Widget] ❌ Invalid conversation token type: #{conversation_token.class}, value: #{conversation_token.inspect}"
+      return false
+    end
     
     begin
       Rails.logger.info "[Widget] 🔍 Starting Redis validation for visitor: #{visitor_id}"

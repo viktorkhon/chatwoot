@@ -75,16 +75,16 @@ class VisitorConversationMapping
     def redis_operation
       return nil unless block_given?
       
-      $alfred.with do |conn|
+      result = $alfred.with do |conn|
         yield(conn)
       end
-      true
+      result
     rescue Redis::BaseError => e
       Rails.logger.error "[VisitorMapping] Redis operation failed: #{e.message}"
-      false
+      nil
     rescue StandardError => e
       Rails.logger.error "[VisitorMapping] Unexpected error: #{e.message}"
-      false
+      nil
     end
   end
 end 

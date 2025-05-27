@@ -26,11 +26,17 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
       ActiveRecord::Base.transaction do
         process_update_contact
         
+        Rails.logger.info "[Widget] Conversation creation request for visitor: #{visitor_id}"
+        Rails.logger.info "[Widget] Contact inbox present: #{@contact_inbox.present?}"
+        Rails.logger.info "[Widget] Contact inbox source_id: #{@contact_inbox&.source_id}"
+        
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
         existing_conversation = conversation
         
+        Rails.logger.info "[Widget] Existing conversation lookup result: #{existing_conversation&.id || 'nil'}"
+        
         if existing_conversation.present?
-          Rails.logger.info "[Widget] Using existing conversation #{existing_conversation.id} for visitor: #{visitor_id}"
+          Rails.logger.info "[Widget] ✅ Using existing conversation #{existing_conversation.id} for visitor: #{visitor_id}"
           @conversation = existing_conversation
           
           # Add the message to existing conversation if message content provided
@@ -39,6 +45,7 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
+                Rails.logger.info "[Widget] ✅ Message added to existing conversation #{@conversation.id}"
               else
                 Rails.logger.error "[Widget] Invalid message params for existing conversation"
               end
@@ -48,7 +55,8 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
             end
           end
         else
-          Rails.logger.info "[Widget] ⚠️ CREATING NEW CONVERSATION during page navigation for visitor: #{visitor_id}"
+          Rails.logger.warn "[Widget] ⚠️ CREATING NEW CONVERSATION - no existing conversation found for visitor: #{visitor_id}"
+          Rails.logger.warn "[Widget] This should only happen for first-time users or after conversation resolution"
           
           # Store page info in Redis before creating conversation (for incognito users)
           if visitor_id.present? && permitted_params[:message].present?
@@ -73,6 +81,7 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
+                Rails.logger.info "[Widget] ✅ Message added to new conversation #{@conversation.id}"
               else
                 Rails.logger.error "[Widget] Invalid message params for new conversation"
               end
@@ -159,6 +168,21 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
       # Clear Redis mapping when conversation is resolved
       if visitor_id.present?
         VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
+      end
+      
+      # Clear webwidget_triggered session to allow new webhook on next chat session
+      if @contact_inbox.present?
+        session_key = "webwidget_triggered:#{@contact_inbox.source_id}:#{@web_widget.inbox.account_id}"
+        bot_session_key = "webwidget_triggered_bot:#{@contact_inbox.source_id}:#{@web_widget.inbox.account_id}"
+        begin
+          $alfred.with do |conn|
+            conn.del(session_key)
+            conn.del(bot_session_key)
+          end
+          Rails.logger.info "[Widget] Cleared webwidget_triggered sessions for next chat: #{@contact_inbox.source_id}"
+        rescue => e
+          Rails.logger.error "[Widget] Redis error clearing webwidget_triggered sessions: #{e.message}"
+        end
       end
       
       conversation.save!

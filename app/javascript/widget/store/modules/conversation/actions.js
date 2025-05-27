@@ -15,7 +15,13 @@ import { createTemporaryMessage, getNonDeletedMessages } from './helpers';
 import { emitter } from 'shared/helpers/mitt';
 
 export const actions = {
-  createConversation: async ({ commit, dispatch }, params) => {
+  createConversation: async ({ commit, dispatch, state }, params) => {
+    // Prevent multiple conversation creation calls
+    if (state.uiFlags.isCreating) {
+      console.log('[Chatwoot] Conversation creation already in progress, skipping...');
+      return;
+    }
+    
     commit('setConversationUIFlag', { isCreating: true });
     try {
       const { data } = await createConversationAPI(params);
@@ -49,6 +55,20 @@ export const actions = {
       commit('pushMessageToConversation', { ...data, status: 'sent' });
     } catch (error) {
       if (error.response?.data?.code === 'NO_CONVERSATION') {
+        console.log('[Chatwoot] No conversation exists, creating one first...');
+        
+        // Check if we already have conversations to prevent unnecessary creation during navigation
+        const conversationSize = getters.getConversationSize;
+        if (conversationSize > 0) {
+          console.log('[Chatwoot] Conversations exist, this might be a timing issue. Retrying...');
+          commit('pushMessageToConversation', { ...message, status: 'failed' });
+          commit('updateMessageMeta', {
+            id,
+            meta: { ...meta, error: 'Message sending failed - please try again' },
+          });
+          return;
+        }
+        
         try {
           await dispatch('createConversation', {
             message: content,

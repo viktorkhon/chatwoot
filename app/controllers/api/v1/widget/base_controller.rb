@@ -10,12 +10,19 @@ class Api::V1::Widget::BaseController < ApplicationController
   private
 
   def conversations
-    return Conversation.none unless conversation_lookup_prerequisites_met?
+    return Conversation.none unless @contact_inbox.present?
 
-    inbox_id = resolve_inbox_id
+    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
     return Conversation.none if inbox_id.nil?
 
-    build_conversations_scope(inbox_id)
+    if @contact_inbox.hmac_verified?
+      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
+      @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
+    else
+      @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
+    end
+    
+    @conversations
   rescue StandardError => e
     Rails.logger.error "[Widget] Conversations lookup failed: #{e.message}"
     Conversation.none
@@ -39,26 +46,30 @@ class Api::V1::Widget::BaseController < ApplicationController
     raise
   end
 
-  # Core conversation lookup logic
+  # Core conversation lookup logic - this is the key method that needs to work properly
   def find_or_build_conversation
     return nil unless @contact_inbox.present?
+
+    Rails.logger.info "[Widget] Looking up conversation for visitor: #{visitor_id}"
 
     # Try Redis first for incognito users
     conversation_from_redis = find_conversation_via_redis
     if conversation_from_redis
-      Rails.logger.info "[Widget] Found conversation via Redis: #{conversation_from_redis.id}"
+      Rails.logger.info "[Widget] ✅ Found conversation via Redis: #{conversation_from_redis.id}"
       return conversation_from_redis
     end
 
     # Fallback to database lookup
     conversation_from_db = find_conversation_via_database
     if conversation_from_db
-      Rails.logger.info "[Widget] Found conversation via database: #{conversation_from_db.id}"
-    else
-      Rails.logger.info "[Widget] No existing conversation found for visitor: #{visitor_id}"
+      Rails.logger.info "[Widget] ✅ Found conversation via database: #{conversation_from_db.id}"
+      # Store in Redis for future lookups
+      store_conversation_in_redis(conversation_from_db) if should_store_in_redis?
+      return conversation_from_db
     end
     
-    conversation_from_db
+    Rails.logger.info "[Widget] ❌ No existing conversation found for visitor: #{visitor_id}"
+    nil
   end
 
   def find_conversation_via_redis
@@ -66,6 +77,8 @@ class Api::V1::Widget::BaseController < ApplicationController
 
     conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
     return nil unless conversation_token.present?
+
+    Rails.logger.info "[Widget] Found Redis conversation token for visitor: #{visitor_id}"
 
     if validate_redis_conversation_mapping(visitor_id, conversation_token)
       extract_conversation_from_token(conversation_token)
@@ -93,14 +106,18 @@ class Api::V1::Widget::BaseController < ApplicationController
     # Try specific conversation ID first
     if token_data[:conversation_id].present?
       specific_conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
-      return specific_conversation if specific_conversation&.open_or_pending?
+      if specific_conversation&.open_or_pending?
+        Rails.logger.info "[Widget] Found specific conversation from token: #{specific_conversation.id}"
+        return specific_conversation
+      end
     end
 
     # Fallback to last open conversation
-    inbox_id = resolve_inbox_id
+    inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
     open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
     
     if open_conversation
+      Rails.logger.info "[Widget] Found fallback conversation from token: #{open_conversation.id}"
       update_redis_mapping_for_conversation(open_conversation)
       open_conversation
     end
@@ -111,29 +128,11 @@ class Api::V1::Widget::BaseController < ApplicationController
     open_conversations = conversations_scope.where(status: [:open, :pending])
     
     conversation = open_conversations.last
-    store_conversation_in_redis(conversation) if conversation && should_store_in_redis?
-    
-    conversation
-  end
-
-  # Helper methods
-  def conversation_lookup_prerequisites_met?
-    @contact_inbox.present?
-  end
-
-  def resolve_inbox_id
-    auth_token_params[:inbox_id] || @web_widget&.inbox&.id
-  end
-
-  def build_conversations_scope(inbox_id)
-    if @contact_inbox.hmac_verified?
-      verified_contact_inbox_ids = @contact.contact_inboxes.where(inbox_id: inbox_id, hmac_verified: true).map(&:id)
-      @conversations = @contact.conversations.where(contact_inbox_id: verified_contact_inbox_ids)
-    else
-      @conversations = @contact_inbox.conversations.where(inbox_id: inbox_id)
+    if conversation
+      Rails.logger.info "[Widget] Found conversation via database query: #{conversation.id}"
     end
     
-    @conversations
+    conversation
   end
 
   def build_conversation_params_with_page_info
@@ -175,6 +174,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     conversation_token = generate_conversation_token_for_conversation(conversation)
     return unless conversation_token
 
+    Rails.logger.info "[Widget] Storing conversation #{conversation.id} in Redis for visitor: #{visitor_id}"
     VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, conversation_token)
     VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
   end
@@ -185,6 +185,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     updated_token = generate_conversation_token_for_conversation(conversation)
     return unless updated_token
 
+    Rails.logger.info "[Widget] Updating Redis mapping for conversation #{conversation.id}, visitor: #{visitor_id}"
     VisitorConversationMapping.set_conversation_for_visitor(visitor_id, @web_widget.website_token, updated_token)
   end
 

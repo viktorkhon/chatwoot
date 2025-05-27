@@ -1,0 +1,46 @@
+fix: Prevent duplicate webwidget_triggered webhooks during page navigation
+
+## Problem
+New conversations were being created during page navigation because webwidget.triggered events fired every time the widget opened, sending duplicate webhooks to n8n which interpreted each as a new chat session.
+
+## Root Cause
+- webwidget.triggered event fired on every widget open (including page navigation)
+- Webhook listener sent webwidget_triggered webhook to n8n on every event
+- n8n created new conversations for each webhook, breaking persistence
+
+## Solution
+### Session-Based Webhook Prevention
+- Added Redis-based session tracking (30-minute duration)
+- Prevent duplicate webwidget_triggered webhooks during same session
+- Only send webhook once per session, not per page navigation
+
+### Files Modified
+**Backend:**
+- `app/listeners/webhook_listener.rb` - Session-based webhook prevention
+- `app/listeners/agent_bot_listener.rb` - Session-based event prevention
+- `app/controllers/api/v1/widget/conversations_controller.rb` - Session cleanup on resolution
+- `app/controllers/api/v1/widget/base_controller.rb` - Restored conversation lookup logic
+
+**Frontend:**
+- `app/javascript/widget/store/modules/conversation/actions.js` - Conversation creation safeguards
+
+### Key Features
+- **Session Management:** 30-minute Redis-based session tracking
+- **Automatic Cleanup:** Sessions cleared when conversations resolved
+- **Error Handling:** Graceful degradation if Redis unavailable
+- **Comprehensive Logging:** Debug and monitoring capabilities
+
+## Expected Behavior
+✅ First chat open → webhook sent → new conversation created
+✅ Page navigation → no duplicate webhook → same conversation maintained  
+✅ Conversation resolution → session cleared → ready for next chat
+✅ Next chat session → webhook sent → new conversation created
+
+## Impact
+- Fixes conversation persistence across page navigation
+- Eliminates duplicate webhook spam to n8n
+- Maintains clean webhook lifecycle for automation workflows
+- Preserves all existing functionality while preventing the core issue
+
+Related to conversation persistence feature (sessions 32-42)
+Resolves the fundamental issue breaking conversation persistence during navigation 

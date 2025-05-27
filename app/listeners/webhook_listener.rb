@@ -101,6 +101,27 @@ class WebhookListener < BaseListener
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
 
+    # Prevent duplicate webwidget_triggered webhooks during the same session
+    # Check if we've already sent this webhook for this contact_inbox recently
+    session_key = "webwidget_triggered:#{contact_inbox.source_id}:#{inbox.account_id}"
+    
+    begin
+      # Check if webhook was already sent in the last 30 minutes (session duration)
+      if $alfred.with { |conn| conn.get(session_key) }
+        Rails.logger.info "[WebhookListener] Skipping duplicate webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
+        return
+      end
+      
+      # Mark this session as having sent the webhook (expires in 30 minutes)
+      $alfred.with do |conn|
+        conn.set(session_key, Time.current.to_i)
+        conn.expire(session_key, 30.minutes.to_i)
+      end
+    rescue => e
+      Rails.logger.error "[WebhookListener] Redis error in webwidget_triggered: #{e.message}"
+      # Continue with webhook if Redis fails
+    end
+
     event_info = event.data[:event_info] || {}
     page_url_from_event = event_info[:page_url]
     referer_url_from_event = event_info[:referer]
@@ -137,6 +158,7 @@ class WebhookListener < BaseListener
     # overwriting 'id' and providing 'account' from contact_inbox context.
     payload.merge!(contact_inbox_payload_data)
     
+    Rails.logger.info "[WebhookListener] Sending webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
     deliver_webhook_payloads(payload, inbox)
   end
 

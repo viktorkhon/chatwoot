@@ -44,6 +44,27 @@ class AgentBotListener < BaseListener
     inbox = contact_inbox.inbox
     return unless connected_agent_bot_exist?(inbox)
 
+    # Prevent duplicate webwidget_triggered events during the same session
+    # Check if we've already processed this event for this contact_inbox recently
+    session_key = "webwidget_triggered_bot:#{contact_inbox.source_id}:#{inbox.account_id}"
+    
+    begin
+      # Check if event was already processed in the last 30 minutes (session duration)
+      if $alfred.with { |conn| conn.get(session_key) }
+        Rails.logger.info "[AgentBotListener] Skipping duplicate webwidget_triggered event for contact_inbox: #{contact_inbox.source_id}"
+        return
+      end
+      
+      # Mark this session as having processed the event (expires in 30 minutes)
+      $alfred.with do |conn|
+        conn.set(session_key, Time.current.to_i)
+        conn.expire(session_key, 30.minutes.to_i)
+      end
+    rescue => e
+      Rails.logger.error "[AgentBotListener] Redis error in webwidget_triggered: #{e.message}"
+      # Continue with processing if Redis fails
+    end
+
     # Extract event info with page URL data
     event_info = event.data[:event_info]
     
@@ -67,6 +88,8 @@ class AgentBotListener < BaseListener
     event_name = __method__.to_s
     payload = contact_inbox.webhook_data.merge(event: event_name)
     payload[:event_info] = event_info
+    
+    Rails.logger.info "[AgentBotListener] Processing webwidget_triggered event for contact_inbox: #{contact_inbox.source_id}"
     process_webhook_bot_event(inbox.agent_bot, payload)
   end
 

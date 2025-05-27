@@ -33,7 +33,8 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
         existing_conversation = conversation
         
-        Rails.logger.info "[Widget] Existing conversation lookup result: #{existing_conversation&.id || 'nil'}"
+        Rails.logger.info "[Widget] 🔍 Conversation creation request - existing conversation lookup result: #{existing_conversation&.id || 'nil'}"
+        Rails.logger.info "[Widget] 🔍 Contact inbox: #{@contact_inbox&.source_id}, Visitor ID: #{visitor_id}"
         
         if existing_conversation.present?
           Rails.logger.info "[Widget] ✅ Using existing conversation #{existing_conversation.id} for visitor: #{visitor_id}"

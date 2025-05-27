@@ -25,6 +25,9 @@ export const generateVisitorId = () => {
 
     // Store in sessionStorage so it persists across page navigation in the same session
     sessionStorage.setItem('cw_visitor_id', visitorId);
+    console.log('[🔍 Chatwoot Debug] Generated new visitor ID:', visitorId);
+  } else {
+    console.log('[🔍 Chatwoot Debug] Using existing visitor ID:', visitorId);
   }
 
   return visitorId;

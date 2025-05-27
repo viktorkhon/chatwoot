@@ -50,7 +50,7 @@ class Api::V1::Widget::BaseController < ApplicationController
   def find_or_build_conversation
     return nil unless @contact_inbox.present?
 
-    Rails.logger.info "[Widget] Looking up conversation for visitor: #{visitor_id}"
+    Rails.logger.info "[Widget] 🔍 Looking up conversation for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox.source_id}"
 
     # Try Redis first for incognito users
     conversation_from_redis = find_conversation_via_redis
@@ -68,7 +68,7 @@ class Api::V1::Widget::BaseController < ApplicationController
       return conversation_from_db
     end
     
-    Rails.logger.info "[Widget] ❌ No existing conversation found for visitor: #{visitor_id}"
+    Rails.logger.info "[Widget] ❌ No existing conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox.source_id}"
     nil
   end
 
@@ -76,12 +76,15 @@ class Api::V1::Widget::BaseController < ApplicationController
     return nil unless visitor_id.present?
 
     conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
+    Rails.logger.info "[Widget] Redis lookup for visitor #{visitor_id}: #{conversation_token.present? ? 'token found' : 'no token'}"
     return nil unless conversation_token.present?
 
     Rails.logger.info "[Widget] Found Redis conversation token for visitor: #{visitor_id}"
 
     if validate_redis_conversation_mapping(visitor_id, conversation_token)
-      extract_conversation_from_token(conversation_token)
+      conversation = extract_conversation_from_token(conversation_token)
+      Rails.logger.info "[Widget] Redis token validation: #{conversation.present? ? "conversation #{conversation.id} found" : 'no conversation'}"
+      conversation
     else
       Rails.logger.warn "[Widget] Clearing stale Redis mapping for visitor: #{visitor_id}"
       VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
@@ -125,11 +128,16 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def find_conversation_via_database
     conversations_scope = conversations
+    Rails.logger.info "[Widget] Database lookup - total conversations for contact_inbox #{@contact_inbox.source_id}: #{conversations_scope.count}"
+    
     open_conversations = conversations_scope.where(status: [:open, :pending])
+    Rails.logger.info "[Widget] Database lookup - open conversations: #{open_conversations.count}"
     
     conversation = open_conversations.last
     if conversation
       Rails.logger.info "[Widget] Found conversation via database query: #{conversation.id}"
+    else
+      Rails.logger.info "[Widget] No open conversations found in database for contact_inbox #{@contact_inbox.source_id}"
     end
     
     conversation

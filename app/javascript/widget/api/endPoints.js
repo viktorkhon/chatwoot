@@ -17,7 +17,7 @@ const createConversation = params => {
     pageURL: pageURL,
     pageTitle: pageTitle,
     referrerURL: referrerURL,
-    params: params
+    messageContent: params.message
   });
 
   return {

@@ -48,18 +48,29 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   # Core conversation lookup logic - this is the key method that needs to work properly
   def find_or_build_conversation
-    return nil unless @contact_inbox.present?
+    Rails.logger.info "[Widget] 🔍 Looking up conversation for visitor: #{visitor_id}"
+    Rails.logger.info "[Widget] 🔍 Current contact_inbox: #{@contact_inbox&.source_id || 'nil (page navigation)'}"
 
-    Rails.logger.info "[Widget] 🔍 Looking up conversation for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox.source_id}"
-
-    # Try Redis first for incognito users
+    # Try Redis first for incognito users - this works even when @contact_inbox is nil
     conversation_from_redis = find_conversation_via_redis
     if conversation_from_redis
       Rails.logger.info "[Widget] ✅ Using Redis conversation: #{conversation_from_redis.id}"
+      
+      # CRITICAL: If we found a conversation via Redis but don't have @contact_inbox set,
+      # we need to set it based on the conversation we found
+      if @contact_inbox.nil?
+        @contact_inbox = conversation_from_redis.contact_inbox
+        @contact = @contact_inbox.contact
+        Rails.logger.info "[Widget] ✅ Set contact_inbox from Redis conversation: #{@contact_inbox.source_id}"
+      end
+      
       return conversation_from_redis
     end
 
     Rails.logger.info "[Widget] 🔍 Redis lookup failed, trying database lookup..."
+    
+    # For database lookup, we need @contact_inbox to be set
+    return nil unless @contact_inbox.present?
     
     # Fallback to database lookup
     conversation_from_db = find_conversation_via_database
@@ -71,14 +82,14 @@ class Api::V1::Widget::BaseController < ApplicationController
     end
     
     # Only log when no conversation is found - this is the critical issue
-    Rails.logger.warn "[Widget] ❌ No conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox.source_id}"
+    Rails.logger.warn "[Widget] ❌ No conversation found for visitor: #{visitor_id}, contact_inbox: #{@contact_inbox&.source_id}"
     nil
   end
 
   def find_conversation_via_redis
     return nil unless visitor_id.present?
 
-    Rails.logger.info "[Widget] 🔍 Checking Redis for visitor: #{visitor_id}"
+    Rails.logger.info "[Widget] 🔍 Checking Redis for visitor: #{visitor_id} (contact_inbox: #{@contact_inbox&.source_id || 'nil'})"
     Rails.logger.info "[Widget] 🔍 Website token: #{@web_widget&.website_token}"
     
     conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
@@ -99,7 +110,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     if validate_redis_conversation_mapping(visitor_id, conversation_token)
       conversation = extract_conversation_from_token(conversation_token)
       if conversation.present?
-        Rails.logger.info "[Widget] ✅ Found conversation via Redis: #{conversation.id}"
+        Rails.logger.info "[Widget] ✅ Found conversation via Redis: #{conversation.id} (contact_inbox: #{conversation.contact_inbox.source_id})"
       else
         Rails.logger.warn "[Widget] ❌ Redis token validation passed but conversation extraction failed"
       end
@@ -116,8 +127,13 @@ class Api::V1::Widget::BaseController < ApplicationController
     return nil unless token_data[:source_id].present?
 
     contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
-    return nil unless contact_inbox&.id == @contact_inbox&.id
-
+    return nil unless contact_inbox
+    
+    Rails.logger.info "[Widget] 🔍 Extracting conversation from token for contact_inbox: #{contact_inbox.source_id}"
+    
+    # CRITICAL FIX: Don't compare with @contact_inbox because it might be nil on page navigation
+    # The Redis system is designed to work when @contact_inbox is not set yet
+    
     find_conversation_from_token_data(contact_inbox, token_data)
   rescue StandardError => e
     Rails.logger.error "[Widget] Token extraction failed: #{e.message}"
@@ -282,23 +298,25 @@ class Api::V1::Widget::BaseController < ApplicationController
       
       Rails.logger.info "[Widget] 🔍 Validating Redis token - source_id: #{token_data[:source_id]}, conversation_id: #{token_data[:conversation_id]}"
       Rails.logger.info "[Widget] 🔍 Current contact_inbox source_id: #{@contact_inbox&.source_id}"
-      Rails.logger.info "[Widget] 🔍 Contact_inbox present: #{@contact_inbox.present?}"
       
-      # Use the current contact_inbox instead of looking up by source_id
-      # This ensures we're validating against the correct contact_inbox
-      contact_inbox = @contact_inbox
+      # CRITICAL FIX: On page navigation, @contact_inbox is nil because it gets reset
+      # We need to look up the contact_inbox by source_id from the token, not use current @contact_inbox
+      # This is the whole purpose of the Redis visitor ID system!
+      contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
       unless contact_inbox
-        Rails.logger.error "[Widget] ❌ No current contact_inbox available for validation"
+        Rails.logger.warn "[Widget] ❌ Contact_inbox not found for source_id: #{token_data[:source_id]}"
         return false
       end
       
-      # Check if the token's source_id matches the current contact_inbox
-      if token_data[:source_id] != contact_inbox.source_id
-        Rails.logger.warn "[Widget] ❌ Token source_id mismatch: token=#{token_data[:source_id]}, current=#{contact_inbox.source_id}"
+      Rails.logger.info "[Widget] ✅ Found contact_inbox from token: #{contact_inbox.source_id}"
+      
+      # If we have a current contact_inbox, verify it matches the token
+      if @contact_inbox.present? && token_data[:source_id] != @contact_inbox.source_id
+        Rails.logger.warn "[Widget] ❌ Token source_id mismatch: token=#{token_data[:source_id]}, current=#{@contact_inbox.source_id}"
         return false
       end
 
-      Rails.logger.info "[Widget] ✅ Source_id match confirmed, proceeding with conversation validation"
+      Rails.logger.info "[Widget] ✅ Source_id validation passed, proceeding with conversation validation"
       result = validate_conversation_from_token(contact_inbox, token_data)
       Rails.logger.info "[Widget] 🔍 Redis validation final result: #{result}"
       result

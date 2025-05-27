@@ -25,18 +25,13 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
     begin
       ActiveRecord::Base.transaction do
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request initiated"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - User-Agent: #{request.headers['User-Agent']}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Referer: #{request.headers['Referer']}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - X-Visitor-ID: #{request.headers['X-Visitor-ID']}"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request IP: #{request.remote_ip}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Has message content: #{permitted_params[:message]&.[](:content).present?}"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Initial contact_inbox: #{@contact_inbox&.source_id}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Initial contact: #{@contact&.id}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request source: #{request.headers['User-Agent']&.include?('chatwoot') ? 'Widget Frontend' : 'External API/Webhook'}"
         
         process_update_contact
-        
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - After process_update_contact contact_inbox: #{@contact_inbox&.source_id}"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - After process_update_contact contact: #{@contact&.id}"
         
         # Check if we already have a conversation - if so, don't create a new one or fire webhook
         existing_conversation = conversation
@@ -51,18 +46,13 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
-              else
-                Rails.logger.error "[Widget] Invalid message params for existing conversation"
               end
             rescue => e
-              Rails.logger.error "[Widget] Failed to add message to existing conversation: #{e.message}"
               raise e
             end
           end
         else
           Rails.logger.warn "[Widget] ⚠️ CREATING NEW CONVERSATION for visitor: #{visitor_id}"
-          Rails.logger.info "[Widget] 🔍 NEW CONVERSATION - contact_inbox for creation: #{@contact_inbox&.source_id}"
-          Rails.logger.info "[Widget] 🔍 NEW CONVERSATION - contact for creation: #{@contact&.id}"
           
           # Store page info in Redis before creating conversation (for incognito users)
           if visitor_id.present? && permitted_params[:message].present?
@@ -80,8 +70,6 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           # Create new conversation (this will trigger webhook)
           @conversation = create_conversation
           Rails.logger.info "[Widget] ✅ NEW conversation created: #{@conversation.id}"
-          Rails.logger.info "[Widget] 🔍 NEW CONVERSATION - created with contact_inbox: #{@conversation.contact_inbox&.source_id}"
-          Rails.logger.info "[Widget] 🔍 NEW CONVERSATION - created with contact: #{@conversation.contact&.id}"
           
           # Add the message to new conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
@@ -89,8 +77,6 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
               message_params_data = message_params
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
-              else
-                Rails.logger.error "[Widget] Invalid message params for new conversation"
               end
             rescue => e
               Rails.logger.error "[Widget] Failed to add message to new conversation: #{e.message}"
@@ -193,7 +179,6 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
             conn.del(session_key)
             conn.del(bot_session_key)
           end
-          Rails.logger.info "[Widget] Cleared webwidget_triggered sessions for next chat: #{@contact_inbox.source_id}"
         rescue => e
           Rails.logger.error "[Widget] Redis error clearing webwidget_triggered sessions: #{e.message}"
         end

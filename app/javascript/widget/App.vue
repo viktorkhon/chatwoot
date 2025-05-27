@@ -84,6 +84,9 @@ export default {
     // Initialize visitor tracking for conversation persistence
     this.initializeVisitorTracking();
     
+    // Check for existing conversations on initialization to set webhook prevention flag
+    this.checkExistingConversationsOnInit();
+    
     if (this.isIFrame) {
       this.registerListeners();
       this.sendLoadedEvent();
@@ -273,7 +276,9 @@ export default {
           hasTriggeredInSession: !!hasTriggeredInSession,
           conversationExists: !!conversationExists,
           sessionValue: hasTriggeredInSession,
-          conversationValue: conversationExists
+          conversationValue: conversationExists,
+          currentRoute: this.$route.name,
+          timestamp: Date.now()
         });
         
         // Only dispatch webwidget.triggered if:
@@ -425,6 +430,24 @@ export default {
       
       // Set up page navigation tracking for conversation persistence
       this.setupPageNavigationListeners();
+    },
+    
+    async checkExistingConversationsOnInit() {
+      // Check if we already have conversations to set webhook prevention flag early
+      try {
+        const conversationSize = this.$store.getters['conversation/getConversationSize'];
+        console.log('[Chatwoot] Initial conversation check:', { conversationSize });
+        
+        if (conversationSize > 0) {
+          // We have existing conversations, mark to prevent webhooks
+          if (!sessionStorage.getItem('chatwoot_conversation_exists')) {
+            sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+            console.log('[Chatwoot] Found existing conversations on init - marked to prevent webhooks');
+          }
+        }
+      } catch (error) {
+        console.log('[Chatwoot] Error checking existing conversations on init:', error.message);
+      }
     },
     setupPageNavigationListeners() {
       // Listen for page navigation events (for SPAs)

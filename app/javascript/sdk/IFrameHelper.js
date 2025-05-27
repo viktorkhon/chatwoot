@@ -255,10 +255,15 @@ export const IFrameHelper = {
         // 1. We haven't triggered it in this session AND
         // 2. No conversation exists yet (truly new chat session)
         if (!hasTriggeredInSession && !conversationExists) {
+          // Mark conversation as existing BEFORE sending the event to prevent race conditions
+          // This ensures that if the widget reopens during page navigation, no duplicate events are sent
+          sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+          
           // Send the webwidget.triggered event for new chat session
           // Session will be marked by events store after successful dispatch
           IFrameHelper.pushEvent('webwidget.triggered');
           console.log('[Chatwoot] Sending webwidget.triggered event for NEW chat session');
+          console.log('[Chatwoot] Pre-marked conversation as existing to prevent navigation duplicates');
         } else {
           if (hasTriggeredInSession) {
             console.log('[Chatwoot] Skipping webwidget.triggered - already sent in this session');

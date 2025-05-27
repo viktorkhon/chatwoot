@@ -48,8 +48,13 @@ export const actions = {
       emitter.emit(ON_CONVERSATION_CREATED);
       
       // Mark that a conversation now exists to prevent future webwidget.triggered events
-      sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
-      console.log('[Chatwoot] Conversation created - marked as existing to prevent duplicate webhooks');
+      // Only set if not already set (to preserve the original timestamp from IFrameHelper)
+      if (!sessionStorage.getItem('chatwoot_conversation_exists')) {
+        sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+        console.log('[Chatwoot] Conversation created - marked as existing to prevent duplicate webhooks');
+      } else {
+        console.log('[Chatwoot] Conversation created - already marked as existing (preserving original timestamp)');
+      }
     } catch (error) {
       console.error('[🔍 Chatwoot Debug] Conversation creation failed:', error.message);
     } finally {
@@ -182,9 +187,14 @@ export const actions = {
       commit('setMessagesInConversation', formattedMessages);
       
       // If we found existing conversations, mark that conversations exist to prevent webhooks
+      // Only set if not already set (to preserve the original timestamp from IFrameHelper)
       if (formattedMessages && formattedMessages.length > 0) {
-        sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
-        console.log('[Chatwoot] Found existing conversations - marked as existing to prevent duplicate webhooks');
+        if (!sessionStorage.getItem('chatwoot_conversation_exists')) {
+          sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+          console.log('[Chatwoot] Found existing conversations - marked as existing to prevent duplicate webhooks');
+        } else {
+          console.log('[Chatwoot] Found existing conversations - already marked as existing (preserving original timestamp)');
+        }
       }
     } catch (error) {
       if (error.response?.status === 500) {

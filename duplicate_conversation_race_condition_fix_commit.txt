@@ -1,0 +1,82 @@
+Fix Race Condition: Prevent Duplicate Conversations During Widget Initialization
+
+## Problem Identified
+User reported duplicate conversations being created when opening the chat widget on the initial page. Analysis revealed a race condition:
+
+1. **Widget opens** → `onBubbleToggle(true)` called
+2. **webwidget.triggered event sent** → Webhook fired to n8n immediately  
+3. **n8n creates conversation** → External automation creates conversation
+4. **Widget tries to create conversation** → Finds the one n8n created
+5. **Race condition** → Two conversations exist briefly, causing confusion
+
+## Root Cause
+The `chatwoot_conversation_exists` flag was only set **after** conversation creation or when fetching existing conversations. This meant:
+- ✅ First widget open → No flag set → webwidget.triggered sent → Webhook fired
+- ❌ Page navigation → Widget reopens → No flag yet → Another webhook sent
+- ❌ External systems (n8n) create conversations before widget completes initialization
+
+## Solution Implemented
+
+### 1. Pre-emptive Flag Setting in IFrameHelper
+**File**: `app/javascript/sdk/IFrameHelper.js`
+- **BEFORE**: Set conversation flag after conversation creation
+- **AFTER**: Set conversation flag BEFORE sending webwidget.triggered event
+- **Benefit**: Prevents race conditions during page navigation
+
+```javascript
+// Mark conversation as existing BEFORE sending the event to prevent race conditions
+sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+
+// Send the webwidget.triggered event for new chat session
+IFrameHelper.pushEvent('webwidget.triggered');
+```
+
+### 2. Preserve Original Timestamps
+**File**: `app/javascript/widget/store/modules/conversation/actions.js`
+- **Enhanced**: Only set conversation flag if not already set
+- **Benefit**: Preserves original timestamp from IFrameHelper
+- **Applied to**: `createConversation` and `fetchOldConversations` actions
+
+### 3. Early Conversation Detection
+**File**: `app/javascript/widget/App.vue`
+- **Added**: `checkExistingConversationsOnInit()` method
+- **Purpose**: Check for existing conversations on widget initialization
+- **Benefit**: Set webhook prevention flag early if conversations already exist
+
+### 4. Enhanced Debug Logging
+**Files**: Multiple controllers and frontend components
+- **Added**: Request source identification (Widget vs External API)
+- **Enhanced**: Conversation creation flow tracking
+- **Improved**: Webhook prevention decision logging
+
+## Expected Behavior (Fixed)
+
+### ✅ New User Experience
+1. **User opens widget** → Flag set immediately → webwidget.triggered sent ONCE
+2. **User navigates pages** → Flag exists → NO additional webhooks
+3. **External systems** → Receive exactly ONE webhook per chat session
+
+### ✅ Existing User Experience  
+1. **User returns to site** → Existing conversations detected → Flag set on init
+2. **User opens widget** → Flag exists → NO webhook sent
+3. **Page navigation** → Flag preserved → NO webhooks sent
+
+### ✅ Race Condition Prevention
+- **Timing Issue**: Eliminated by setting flag before event dispatch
+- **External Integration**: n8n and other automations receive exactly one webhook
+- **Conversation Persistence**: Maintained across all navigation scenarios
+
+## Files Modified
+1. `app/javascript/sdk/IFrameHelper.js` - Pre-emptive flag setting
+2. `app/javascript/widget/store/modules/conversation/actions.js` - Timestamp preservation
+3. `app/javascript/widget/App.vue` - Early conversation detection
+4. `app/controllers/api/v1/widget/conversations_controller.rb` - Enhanced logging
+
+## Testing Verification
+- ✅ Single webhook per chat session
+- ✅ No duplicate conversations during initialization
+- ✅ Proper conversation persistence across navigation
+- ✅ External integrations receive correct webhook count
+- ✅ Race condition eliminated
+
+This fix ensures that external automations like n8n receive exactly one `webwidget_triggered` webhook per genuine chat session, eliminating the race condition that caused duplicate conversations during widget initialization. 

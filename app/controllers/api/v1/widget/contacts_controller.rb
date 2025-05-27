@@ -33,6 +33,13 @@ class Api::V1::Widget::ContactsController < Api::V1::Widget::BaseController
 
   private
 
+  # Override conversation method to prevent conversation lookups in contacts controller
+  # Contacts operations don't need conversation data and shouldn't trigger Redis operations
+  def conversation
+    Rails.logger.info "[Widget] ContactsController - skipping conversation lookup (not needed for contact operations)"
+    nil
+  end
+
   def identify_contact(contact)
     contact_identify_action = ContactIdentifyAction.new(
       contact: contact,

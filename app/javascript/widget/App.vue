@@ -2,7 +2,7 @@
 import { mapGetters, mapActions } from 'vuex';
 import { setHeader } from 'widget/helpers/axios';
 import addHours from 'date-fns/addHours';
-import { IFrameHelper, RNHelper } from 'widget/helpers/utils';
+import { IFrameHelper, RNHelper, generateVisitorId } from 'widget/helpers/utils';
 import configMixin from './mixins/configMixin';
 import availabilityMixin from 'widget/mixins/availability';
 import { getLocale } from './helpers/urlParamsHelper';
@@ -80,6 +80,10 @@ export default {
     this.setLocale(locale);
     this.setWidgetColor(widgetColor);
     setHeader(window.authToken);
+    
+    // Initialize visitor tracking for conversation persistence
+    this.initializeVisitorTracking();
+    
     if (this.isIFrame) {
       this.registerListeners();
       this.sendLoadedEvent();
@@ -88,11 +92,14 @@ export default {
       this.fetchAvailableAgents(websiteToken);
       this.setLocale(getLocale(window.location.search));
     }
+    
     if (this.isRNWebView) {
       this.registerListeners();
       this.sendRNWebViewLoadedEvent();
     }
-    this.$store.dispatch('conversationAttributes/getAttributes');
+    
+    // Don't automatically fetch conversation attributes on mount
+    // Only fetch when widget is actually opened to prevent unnecessary API calls
     this.registerUnreadEvents();
     this.registerCampaignEvents();
   },
@@ -191,6 +198,7 @@ export default {
         !isEmptyObject(activeCampaign) &&
         !messageCount &&
         !shouldSnoozeCampaign;
+      
       if (this.isIFrame && isCampaignReadyToExecute) {
         this.replaceRoute('campaigns').then(() => {
           this.setIframeHeight(true);
@@ -251,7 +259,9 @@ export default {
         if (message.event === 'config-set') {
           this.setLocale(message.locale);
           this.setBubbleLabel();
-          this.fetchOldConversations().then(() => this.setUnreadView());
+          // Don't fetch conversations automatically on initialization
+          // Only fetch when widget is actually opened to prevent unnecessary API calls
+          this.setUnreadView();
           this.fetchAvailableAgents(websiteToken);
           this.setAppConfig(message);
           this.$store.dispatch('contacts/get');
@@ -267,6 +277,9 @@ export default {
           });
           window.referrerURL = referrerURL;
           this.setReferrerHost(referrerHost);
+          
+          // Ensure conversation persistence during page navigation
+          this.ensureConversationPersistence();
         } else if (message.event === 'toggle-close-button') {
           this.isMobile = message.isMobile;
         } else if (message.event === 'push-event') {
@@ -305,6 +318,12 @@ export default {
         } else if (message.event === 'toggle-open') {
           this.$store.dispatch('appConfig/toggleWidgetOpen', message.isOpen);
 
+          // Fetch conversations when widget is opened
+          if (message.isOpen) {
+            this.fetchOldConversations();
+            this.$store.dispatch('conversationAttributes/getAttributes');
+          }
+
           const shouldShowMessageView =
             ['home'].includes(this.$route.name) &&
             message.isOpen &&
@@ -338,6 +357,55 @@ export default {
     setCampaignReadData(snoozedTill) {
       if (snoozedTill) {
         this.campaignsSnoozedTill = Number(snoozedTill);
+      }
+    },
+    async fetchOldConversations() {
+      try {
+        await this.$store.dispatch('conversation/fetchOldConversations');
+      } catch (error) {
+        console.error('[Chatwoot] Failed to fetch conversations:', error);
+      }
+    },
+    initializeVisitorTracking() {
+      // Generate or retrieve visitor ID for session persistence
+      generateVisitorId();
+      
+      // Set up page navigation tracking for conversation persistence
+      this.setupPageNavigationListeners();
+    },
+    setupPageNavigationListeners() {
+      // Listen for page navigation events (for SPAs)
+      window.addEventListener('popstate', this.handlePageNavigation);
+      window.addEventListener('hashchange', this.handlePageNavigation);
+    },
+    handlePageNavigation() {
+      // Update page info for conversation persistence
+      this.updatePageInfo();
+      
+      // Ensure we have the latest conversation data after navigation
+      this.ensureConversationPersistence();
+    },
+    updatePageInfo() {
+      const pageInfo = {
+        page_url: window.location.href,
+        page_title: document.title,
+        referer_url: document.referrer
+      };
+      
+      // Store page info in the store for later use
+      this.$store.dispatch('appConfig/updatePageInfo', pageInfo);
+    },
+    async ensureConversationPersistence() {
+      try {
+        // Fetch existing conversations to maintain persistence
+        await this.fetchOldConversations();
+        
+        const conversationSize = this.$store.getters['conversation/getConversationSize'];
+        if (conversationSize === 0) {
+          console.log('[Chatwoot] No existing conversation found after navigation');
+        }
+      } catch (error) {
+        console.error('[Chatwoot] Error ensuring conversation persistence:', error.message);
       }
     },
   },

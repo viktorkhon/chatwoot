@@ -1,0 +1,36 @@
+# Development Dockerfile that extends the pre-built base
+# Uses the existing base image and only adds development gems
+
+FROM vkhon00/my-chatwoot-base:latest
+
+# Override environment for development
+ENV RAILS_ENV="development"
+ENV NODE_ENV="development"
+ENV BUNDLE_WITHOUT=""
+
+WORKDIR /app
+
+# Install development and test gems that weren't in the production base
+COPY Gemfile Gemfile.lock ./
+RUN bundle config set without "" \
+    && bundle install --jobs "$(nproc)" --retry 3
+
+# Copy application code
+COPY . .
+
+# Install missing development dependencies for Vite after copying code
+# The base image is missing esbuild and other dev dependencies
+RUN pnpm install -D esbuild @esbuild/linux-x64 \
+    && pnpm install
+
+# Copy and setup Rails development entrypoint
+COPY docker/entrypoints/rails-dev.sh /usr/local/bin/rails-dev.sh
+RUN chmod +x /usr/local/bin/rails-dev.sh
+
+# Create essential directories
+RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/public/packs
+
+# Override the base image entrypoint for development
+ENTRYPOINT []
+
+CMD ["/usr/local/bin/rails-dev.sh"]

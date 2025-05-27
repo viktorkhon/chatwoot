@@ -86,8 +86,13 @@ class ActionCableConnector extends BaseActionCableConnector {
     this.app.$store.dispatch('conversation/addOrUpdateMessage', data);
   };
 
-  onConversationCreated = () => {
-    this.app.$store.dispatch('conversationAttributes/getAttributes');
+  onConversationCreated = (data) => {
+    // Only fetch attributes if we don't already have conversation data
+    const currentConversationId = this.app.$store.getters['conversationAttributes/getConversationParams'].id;
+    
+    if (!currentConversationId) {
+      this.app.$store.dispatch('conversationAttributes/getAttributes');
+    }
   };
 
   onPresenceUpdate = data => {

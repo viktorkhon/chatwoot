@@ -1,9 +1,25 @@
-FROM chatwoot:development
+# Vite Development Dockerfile
+FROM vkhon00/my-chatwoot-base:latest
 
-ENV PNPM_HOME="/root/.local/share/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+ENV RAILS_ENV="development"
+ENV NODE_ENV="development"
 
-RUN chmod +x docker/entrypoints/vite.sh
+WORKDIR /app
 
+# Copy application code needed for Vite first
+# This ensures Vite has access to its config and the frontend source files.
+COPY . .
+
+# Install missing development dependencies for Vite after copying code
+# The base image is missing esbuild and other dev dependencies
+RUN pnpm install -D esbuild @esbuild/linux-x64 \
+    && pnpm install
+
+# Expose the Vite development server port
 EXPOSE 3036
-CMD ["bin/vite", "dev"]
+
+# Clear any entrypoint from base image
+ENTRYPOINT []
+
+# The command to run Vite dev server
+CMD ["pnpm", "exec", "vite", "dev", "--host", "0.0.0.0", "--port", "3036"]

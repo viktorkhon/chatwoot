@@ -3,9 +3,25 @@ description:
 globs: 
 alwaysApply: true
 ---
-Before working on any solution, please review the project context file at `.cursor/project_context.md`. This file contains information about the project's history, current focus, and important notes from previous sessions.
+I've created a new folder at \.cursor\project_context
 
-The context file is updated after each session to maintain continuity between chats. Use this information to understand the project's current state and recent work that has been done.
+The purpose of the folder is to store context on the performed work in different chats, but that can be helpful when working on a new, or updating existing feature, or trying to fix bugs. 
 
-Avoid repeating work that has already been completed as documented in the context file.
+The ides is to create a separate file per session, so it's easier to find relevant information.
 
+At the same time, if we are working on a feature in multiple session, the naming of the files should be the same and appended by a number to see continuity.
+
+For example:
+- Monday, May 24, 2025 - Implementing solution to persisten conversation id throughout the same user session [1]
+- Monday, May 25, 2025 - Implementing solution to persisten conversation id throughout the same user session [2]
+- Monday, May 25, 2025 - Implementing solution to persisten conversation id throughout the same user session [3]
+- Monday, May 26, 2025 - Implementing solution to persisten conversation id throughout the same user session [4]
+- Monday, May 26, 2025 - Implementing solution to persisten conversation id throughout the same user session [5]
+
+Make sure to use keywords that will be relevant during subsequent searches that can include:
+- file names changed, and summary of changes and why
+- related feature that this was for
+- specific problem and solution of a bug
+- etc.
+
+In order to keep the context smaller, if the change is small, instead of creating a new file, you can UPDATE the latest existing file, with updated changed or even overwrite text if it was for a wrong solution

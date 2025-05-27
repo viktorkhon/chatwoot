@@ -35,6 +35,14 @@ module Redis::RedisKeys
   MESSAGE_SOURCE_KEY = 'MESSAGE_SOURCE_KEY::%<id>s'.freeze
   OPENAI_CONVERSATION_KEY = 'OPEN_AI_CONVERSATION_KEY::V1::%<event_name>s::%<conversation_id>d::%<updated_at>d'.freeze
 
+  ## Widget Visitor Mapping Keys
+  # Maps visitor fingerprint to conversation tokens for incognito users
+  VISITOR_CONVERSATION_MAPPING = 'VISITOR_CONVERSATION::%<visitor_id>s::%<website_token>s'.freeze
+  # Maps visitor fingerprint to contact source_id
+  VISITOR_CONTACT_MAPPING = 'VISITOR_CONTACT::%<visitor_id>s::%<website_token>s'.freeze
+  # Tracks page info for visitors before conversation creation
+  VISITOR_PAGE_INFO = 'VISITOR_PAGE_INFO::%<visitor_id>s::%<website_token>s'.freeze
+
   ## Sempahores / Locks
   # We don't want to process messages from the same sender concurrently to prevent creating double conversations
   FACEBOOK_MESSAGE_MUTEX = 'FB_MESSAGE_CREATE_LOCK::%<sender_id>s::%<recipient_id>s'.freeze

@@ -12,5 +12,10 @@ json.payload do
   end
 end
 json.meta do
-  json.contact_last_seen_at @conversation.contact_last_seen_at.to_i if @conversation.present?
+  if @conversation.present?
+    json.contact_last_seen_at @conversation.contact_last_seen_at.to_i
+  else
+    # Return empty meta when no conversation exists
+    json.contact_last_seen_at nil
+  end
 end

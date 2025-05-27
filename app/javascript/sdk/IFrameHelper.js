@@ -239,7 +239,19 @@ export const IFrameHelper = {
     onBubbleToggle: isOpen => {
       IFrameHelper.sendMessage('toggle-open', { isOpen });
       if (isOpen) {
-        IFrameHelper.pushEvent('webwidget.triggered');
+        // Session-based webhook prevention: Only send webwidget.triggered once per session
+        // Check if we've already sent this event in this session
+        const sessionKey = 'chatwoot_webwidget_triggered_session';
+        const hasTriggeredInSession = sessionStorage.getItem(sessionKey);
+        
+        if (!hasTriggeredInSession) {
+          // Mark this session as having triggered the event
+          sessionStorage.setItem(sessionKey, Date.now().toString());
+          IFrameHelper.pushEvent('webwidget.triggered');
+          console.log('[Chatwoot] Sending webwidget.triggered event for new session');
+        } else {
+          console.log('[Chatwoot] Skipping webwidget.triggered event - already sent in this session');
+        }
       }
     },
     onLocationChange: ({ referrerURL, referrerHost }) => {

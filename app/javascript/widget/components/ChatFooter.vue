@@ -84,18 +84,10 @@ export default {
       this.inReplyTo = null;
     },
     startNewConversation() {
-      // Clear all conversation data
-      this.clearConversations();
-      this.clearConversationAttributes();
+      // Use the centralized resolution logic
+      this.$store.dispatch('conversation/resolveConversation');
       
-      // Reset the widget state
-      window.$chatwoot.reset();
-      
-      // Clear any stored conversation data
-      localStorage.removeItem('cw_conversation');
-      localStorage.removeItem('cw_contact');
-      
-      // Redirect to pre-chat form
+      // Then redirect to pre-chat form
       this.replaceRoute('prechat-form');
       
       // Notify about new conversation

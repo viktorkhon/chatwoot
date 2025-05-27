@@ -3,13 +3,71 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   before_action :set_message, only: [:update]
 
   def index
-    @messages = conversation.nil? ? [] : message_finder.perform
+    # Handle case where no conversation exists yet
+    begin
+      @conversation = conversation
+      Rails.logger.info "[Widget] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"
+      
+      if @conversation.nil?
+        @messages = []
+        Rails.logger.info "[Widget] No conversation found for messages index, returning empty array"
+      else
+        finder = message_finder
+        if finder && finder.respond_to?(:perform)
+          @messages = finder.perform
+          @messages = @messages.to_a if @messages.respond_to?(:to_a) # Ensure it's an array
+          Rails.logger.info "[Widget] Found #{@messages.length} messages for conversation #{@conversation.id}"
+        else
+          @messages = []
+          Rails.logger.warn "[Widget] Invalid message finder: #{finder.class}, returning empty array"
+        end
+      end
+    rescue => e
+      Rails.logger.error "[Widget] Error in messages index: #{e.message}"
+      @conversation = nil
+      @messages = []
+    end
   end
 
   def create
-    @message = conversation.messages.new(message_params)
-    build_attachment
-    @message.save!
+    begin
+      # Ensure we have a conversation first
+      current_conversation = conversation
+      Rails.logger.info "[Widget] Message create - conversation: #{current_conversation.class} (#{current_conversation.inspect})"
+      
+      if current_conversation.nil?
+        render json: { error: 'No conversation available' }, status: :unprocessable_entity
+        return
+      end
+      
+      # Ensure we have a valid conversation object
+      unless current_conversation.respond_to?(:messages)
+        Rails.logger.error "[Widget] Invalid conversation object for message creation: #{current_conversation.class}"
+        render json: { error: 'Invalid conversation state' }, status: :unprocessable_entity
+        return
+      end
+
+      # Ensure message params are valid
+      message_params_data = message_params
+      Rails.logger.info "[Widget] Message params: #{message_params_data.inspect}"
+      
+      if message_params_data.empty?
+        render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
+        return
+      end
+
+      @message = current_conversation.messages.new(message_params_data)
+      build_attachment
+      @message.save!
+      Rails.logger.info "[Widget] Message created successfully: #{@message.id}"
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "[Widget] Message validation failed: #{e.message}"
+      render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
+    rescue => e
+      Rails.logger.error "[Widget] Error creating message: #{e.message}"
+      Rails.logger.error "[Widget] Error backtrace: #{e.backtrace.first(5).join(', ')}"
+      render json: { error: 'Message creation failed' }, status: :internal_server_error
+    end
   end
 
   def update
@@ -43,7 +101,21 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    @conversation = create_conversation if conversation.nil?
+    current_conversation = conversation
+    
+    if current_conversation.nil?
+      Rails.logger.error "[MessagesController] ❌ NO_CONVERSATION: Visitor #{visitor_id}, Contact #{@contact_inbox&.source_id}"
+      
+      # Instead of creating a new conversation, return an error
+      # Messages should only be sent to existing conversations
+      render json: { 
+        error: 'No active conversation found. Please start a conversation first.',
+        code: 'NO_CONVERSATION'
+      }, status: :unprocessable_entity
+      return
+    else
+      @conversation = current_conversation
+    end
   end
 
   def message_finder_params
@@ -55,7 +127,11 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def message_finder
-    @message_finder ||= MessageFinder.new(conversation, message_finder_params)
+    return nil unless @conversation.present?
+    
+    finder = @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
+    Rails.logger.info "[Widget] Message finder created: #{finder.class} (#{finder.inspect})"
+    finder
   end
 
   def message_update_params
@@ -64,7 +140,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def permitted_params
     # timestamp parameter is used in create conversation method
-    params.permit(:id, :before, :after, :website_token, contact: [:name, :email], 
+    params.permit(:id, :before, :after, :website_token, :visitor_id, contact: [:name, :email], 
                   message: [:content, :referer_url, :page_url, :page_title, :timestamp, :echo_id, :reply_to, 
                            { content_attributes: { page_info: [:referer_url, :page_url, :page_title] } }])
   end

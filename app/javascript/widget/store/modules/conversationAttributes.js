@@ -17,14 +17,33 @@ export const getters = {
 };
 
 export const actions = {
-  getAttributes: async ({ commit }) => {
+  getAttributes: async ({ commit, state }) => {
+    // Prevent unnecessary calls if we already have conversation data
+    if (state.id) {
+      return;
+    }
+    
     try {
       const { data } = await getConversationAPI();
-      const { contact_last_seen_at: lastSeen } = data;
+      
+      // Handle case where no conversation exists yet (empty response)
+      if (!data || !data.id) {
+        commit('CLEAR_CONVERSATION_ATTRIBUTES');
+        return;
+      }
+      
+      const lastSeen = data.contact_last_seen_at;
       commit(SET_CONVERSATION_ATTRIBUTES, data);
-      commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      if (lastSeen) {
+        commit('conversation/setMetaUserLastSeenAt', lastSeen, { root: true });
+      }
     } catch (error) {
-      // Ignore error
+      // Clear attributes on error to ensure clean state
+      // Don't log errors for expected cases (no conversation exists yet)
+      if (error.response?.status !== 500) {
+        console.log('[Chatwoot] No conversation attributes available yet');
+      }
+      commit('CLEAR_CONVERSATION_ATTRIBUTES');
     }
   },
   update({ commit }, data) {

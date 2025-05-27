@@ -25,10 +25,8 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
     begin
       ActiveRecord::Base.transaction do
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request initiated"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Referer: #{request.headers['Referer']}"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - X-Visitor-ID: #{request.headers['X-Visitor-ID']}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Visitor ID: #{visitor_id}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Has message content: #{permitted_params[:message]&.[](:content).present?}"
-        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Initial contact: #{@contact&.id}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request source: #{request.headers['User-Agent']&.include?('chatwoot') ? 'Widget Frontend' : 'External API/Webhook'}"
         
         process_update_contact

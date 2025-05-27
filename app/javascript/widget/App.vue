@@ -241,12 +241,26 @@ export default {
     createWidgetEvents(message) {
       const { eventName } = message;
       const isWidgetTriggerEvent = eventName === 'webwidget.triggered';
+      
+      console.log('[Chatwoot] Widget event triggered:', {
+        eventName,
+        isWidgetTriggerEvent,
+        currentRoute: this.$route.name,
+        isWidgetOpen: this.isWidgetOpen
+      });
+      
       if (
         isWidgetTriggerEvent &&
         ['unread-messages', 'campaigns'].includes(this.$route.name)
       ) {
+        console.log('[Chatwoot] Skipping webwidget.triggered event - widget in unread/campaigns view');
         return;
       }
+      
+      if (isWidgetTriggerEvent) {
+        console.log('[Chatwoot] Dispatching webwidget.triggered event to backend');
+      }
+      
       this.$store.dispatch('events/create', { name: eventName });
     },
     registerListeners() {
@@ -270,6 +284,14 @@ export default {
           this.scrollConversationToBottom();
         } else if (message.event === 'change-url') {
           const { referrerURL, referrerHost } = message;
+          
+          console.log('[Chatwoot] Page navigation detected:', {
+            referrerURL,
+            referrerHost,
+            isWidgetOpen: this.isWidgetOpen,
+            currentConversationSize: this.$store.getters['conversation/getConversationSize']
+          });
+          
           this.initCampaigns({
             currentURL: referrerURL,
             websiteToken,
@@ -397,12 +419,13 @@ export default {
     },
     async ensureConversationPersistence() {
       try {
-        // Fetch existing conversations to maintain persistence
-        await this.fetchOldConversations();
-        
+        // Check existing conversation state without fetching from server
+        // Only fetch when widget is actually opened to prevent unnecessary API calls
         const conversationSize = this.$store.getters['conversation/getConversationSize'];
         if (conversationSize === 0) {
-          console.log('[Chatwoot] No existing conversation found after navigation');
+          console.log('[Chatwoot] No existing conversation found after navigation - will fetch when widget opens');
+        } else {
+          console.log('[Chatwoot] Conversation persistence maintained after navigation:', conversationSize);
         }
       } catch (error) {
         console.error('[Chatwoot] Error ensuring conversation persistence:', error.message);

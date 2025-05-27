@@ -13,6 +13,7 @@ import {
 import { ON_CONVERSATION_CREATED } from 'widget/constants/widgetBusEvents';
 import { createTemporaryMessage, getNonDeletedMessages } from './helpers';
 import { emitter } from 'shared/helpers/mitt';
+import { IFrameHelper } from 'widget/helpers/utils';
 
 export const actions = {
   createConversation: async ({ commit, dispatch, state }, params) => {
@@ -45,6 +46,10 @@ export const actions = {
       commit('pushMessageToConversation', message);
       dispatch('conversationAttributes/getAttributes', {}, { root: true });
       emitter.emit(ON_CONVERSATION_CREATED);
+      
+      // Mark that a conversation now exists to prevent future webwidget.triggered events
+      sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+      console.log('[Chatwoot] Conversation created - marked as existing to prevent duplicate webhooks');
     } catch (error) {
       console.error('[🔍 Chatwoot Debug] Conversation creation failed:', error.message);
     } finally {
@@ -175,6 +180,12 @@ export const actions = {
       }
       
       commit('setMessagesInConversation', formattedMessages);
+      
+      // If we found existing conversations, mark that conversations exist to prevent webhooks
+      if (formattedMessages && formattedMessages.length > 0) {
+        sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+        console.log('[Chatwoot] Found existing conversations - marked as existing to prevent duplicate webhooks');
+      }
     } catch (error) {
       if (error.response?.status === 500) {
         commit('setMessagesInConversation', []);
@@ -259,7 +270,7 @@ export const actions = {
   },
 
   clearVisitorData: () => {
-    const storageKeys = ['cw_visitor_id', 'cw_conversation', 'cw_contact', 'chatwoot_webwidget_triggered_session'];
+    const storageKeys = ['cw_visitor_id', 'cw_conversation', 'cw_contact', 'chatwoot_webwidget_triggered_session', 'chatwoot_conversation_exists'];
     storageKeys.forEach(key => {
       sessionStorage.removeItem(key);
       localStorage.removeItem(key);
@@ -279,9 +290,11 @@ export const actions = {
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
       dispatch('clearVisitorData');
       
-      // Clear webwidget triggered session flag to allow new webhook for next conversation
+      // Clear both webwidget triggered session flag and conversation existence flag
+      // This allows new webhook for next conversation
       sessionStorage.removeItem('chatwoot_webwidget_triggered_session');
-      console.log('[Chatwoot] Cleared webwidget triggered session flag for next conversation');
+      sessionStorage.removeItem('chatwoot_conversation_exists');
+      console.log('[Chatwoot] Cleared conversation state - next widget open will send webwidget.triggered');
       
       if (window.$chatwoot?.reset) {
         window.$chatwoot.reset(); 

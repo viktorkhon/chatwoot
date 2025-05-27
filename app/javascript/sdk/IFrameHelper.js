@@ -239,18 +239,35 @@ export const IFrameHelper = {
     onBubbleToggle: isOpen => {
       IFrameHelper.sendMessage('toggle-open', { isOpen });
       if (isOpen) {
-        // Session-based webhook prevention: Only send webwidget.triggered once per session
-        // Check if we've already sent this event in this session
+        // Enhanced webhook prevention: Only send webwidget.triggered for truly new chat sessions
+        // Check multiple conditions to prevent unnecessary webhooks during page navigation
+        
         const sessionKey = 'chatwoot_webwidget_triggered_session';
+        const conversationKey = 'chatwoot_conversation_exists';
+        
+        // Check if we've already sent this event in this session
         const hasTriggeredInSession = sessionStorage.getItem(sessionKey);
         
-        if (!hasTriggeredInSession) {
+        // Check if a conversation already exists (from previous widget interactions)
+        const conversationExists = sessionStorage.getItem(conversationKey);
+        
+        // Only send webwidget.triggered if:
+        // 1. We haven't triggered it in this session AND
+        // 2. No conversation exists yet (truly new chat session)
+        if (!hasTriggeredInSession && !conversationExists) {
           // Mark this session as having triggered the event
           sessionStorage.setItem(sessionKey, Date.now().toString());
+          
+          // Send the webwidget.triggered event for new chat session
           IFrameHelper.pushEvent('webwidget.triggered');
-          console.log('[Chatwoot] Sending webwidget.triggered event for new session');
+          console.log('[Chatwoot] Sending webwidget.triggered event for NEW chat session');
         } else {
-          console.log('[Chatwoot] Skipping webwidget.triggered event - already sent in this session');
+          if (hasTriggeredInSession) {
+            console.log('[Chatwoot] Skipping webwidget.triggered - already sent in this session');
+          }
+          if (conversationExists) {
+            console.log('[Chatwoot] Skipping webwidget.triggered - conversation already exists');
+          }
         }
       }
     },
@@ -298,6 +315,18 @@ export const IFrameHelper = {
   },
   pushEvent: eventName => {
     IFrameHelper.sendMessage('push-event', { eventName });
+  },
+
+  // Helper methods for conversation state tracking
+  markConversationExists: () => {
+    sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+    console.log('[Chatwoot] Marked conversation as existing - no more webwidget.triggered events will be sent');
+  },
+
+  clearConversationState: () => {
+    sessionStorage.removeItem('chatwoot_webwidget_triggered_session');
+    sessionStorage.removeItem('chatwoot_conversation_exists');
+    console.log('[Chatwoot] Cleared conversation state - next widget open will send webwidget.triggered');
   },
 
   onLoad: ({ widgetColor }) => {

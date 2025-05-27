@@ -1,0 +1,59 @@
+Debug and Fix Conversation Creation During Page Navigation
+
+## Problem
+User reported that new conversations were being created during page navigation even without opening the widget, despite Redis persistence working correctly. This suggested that either frontend API calls or external services (like n8n automation) were triggering conversation creation.
+
+## Root Cause Investigation
+- **Frontend Analysis**: Found that `ensureConversationPersistence()` was calling `fetchOldConversations()` on every page navigation, triggering unnecessary API calls
+- **Backend Analysis**: Confirmed that conversation creation only happens via explicit API calls to `/api/v1/widget/conversations`
+- **Suspected External Cause**: n8n automation likely receiving `webwidget_triggered` webhooks and making API calls back to Chatwoot to create conversations
+
+## Fixes Implemented
+
+### 1. Removed Unnecessary API Calls During Navigation
+- **File**: `app/javascript/widget/App.vue`
+- **Change**: Modified `ensureConversationPersistence()` to only check existing frontend state instead of calling `fetchOldConversations()`
+- **Impact**: Eliminates unnecessary server requests during page navigation, prevents potential side effects
+
+### 2. Enhanced Debug Logging for Conversation Creation
+- **File**: `app/controllers/api/v1/widget/conversations_controller.rb`
+- **Change**: Added comprehensive request tracking including User-Agent, Referer, IP, and visitor ID
+- **Impact**: Identifies the source of conversation creation requests (widget frontend vs external services like n8n)
+
+### 3. Enhanced Debug Logging for Widget Events
+- **File**: `app/controllers/api/v1/widget/events_controller.rb`
+- **Change**: Added event tracking with request details for webwidget.triggered events
+- **Impact**: Tracks when and from where widget events are created
+
+### 4. Enhanced Frontend Debug Logging
+- **File**: `app/javascript/widget/App.vue`
+- **Change**: Added logging for widget events and page navigation with conversation state
+- **Impact**: Tracks frontend behavior during navigation and event triggering
+
+### 5. Cleaned Up Excessive Debug Logging
+- **File**: `app/controllers/api/v1/widget/base_controller.rb`
+- **Change**: Removed excessive Redis and database lookup logs while keeping essential conversation tracking
+- **Impact**: Reduces log noise while maintaining debugging capabilities
+
+## Expected Results
+- **Performance**: Reduced API calls during page navigation
+- **Debugging**: Enhanced ability to identify the source of conversation creation requests
+- **Root Cause Detection**: Logs will show if n8n or other external services are creating conversations
+
+## Next Steps for User
+1. Monitor Railway logs for conversation creation patterns with User-Agent and Referer headers
+2. Check n8n automation for any API calls back to Chatwoot that create conversations
+3. Test page navigation without opening widget to see if issue persists
+4. Review enhanced logs to identify the actual source of conversation creation
+
+## Files Modified
+- `app/javascript/widget/App.vue` - Removed unnecessary API calls, added debug logging
+- `app/controllers/api/v1/widget/conversations_controller.rb` - Added conversation creation tracking
+- `app/controllers/api/v1/widget/events_controller.rb` - Added event creation tracking  
+- `app/controllers/api/v1/widget/base_controller.rb` - Cleaned up excessive logging
+- `.cursor/project_context/Monday, May 26, 2025 - Debug Conversation Creation During Page Navigation [48].md` - Session documentation
+
+## Technical Impact
+- **Performance**: Faster page navigation with reduced server requests
+- **Debugging**: Complete audit trail for conversation creation requests
+- **Maintenance**: Cleaner, more focused logging for troubleshooting 

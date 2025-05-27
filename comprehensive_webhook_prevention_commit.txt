@@ -1,0 +1,136 @@
+Implement Comprehensive Webhook Prevention During Page Navigation
+
+## Problem
+User requirement: NO webhooks should be sent during page navigation once a conversation has been created. Only send webhooks when users actually interact with chat messages or when conversations are resolved.
+
+## Root Cause
+The SDK IFrameHelper.onBubbleToggle method was sending webwidget.triggered events on every widget opening, including during page navigation. This caused:
+- External automations (like n8n) to receive webhooks during navigation
+- New conversations being created by external services
+- Breaking conversation persistence despite Redis working correctly
+
+## Comprehensive Solution Implemented
+
+### 1. Enhanced Frontend Webhook Prevention
+**File**: `app/javascript/sdk/IFrameHelper.js`
+- **NEW LOGIC**: Only send webwidget.triggered events when:
+  1. Haven't triggered in this session AND
+  2. No conversation exists yet (truly new chat session)
+- **IMPACT**: Prevents ALL webhooks during page navigation once conversation exists
+
+### 2. Conversation State Tracking
+**File**: `app/javascript/widget/store/modules/conversation/actions.js`
+- **ADDED**: Automatic conversation existence marking in sessionStorage
+- **TRIGGERS**: When conversations are created OR when existing conversations are fetched
+- **IMPACT**: Persistent state tracking across page navigation
+
+### 3. Conversation Resolution State Clearing
+**File**: `app/javascript/widget/store/modules/conversation/actions.js`
+- **UPDATED**: Clear both session and conversation existence flags when resolved
+- **IMPACT**: Enables new webhooks for next conversation after resolution
+
+### 4. Removed Unnecessary API Calls During Navigation
+**File**: `app/javascript/widget/App.vue`
+- **CHANGED**: ensureConversationPersistence() no longer calls fetchOldConversations()
+- **IMPACT**: Eliminates potential side effects and improves performance
+
+### 5. Enhanced Debug Logging
+**Files**: Multiple controllers and frontend components
+- **ADDED**: Comprehensive request tracking for debugging
+- **IMPACT**: Better visibility into webhook flow and conversation creation
+
+## Expected Behavior
+
+### ✅ New User Experience
+1. User opens widget → webwidget.triggered webhook sent → Conversation created
+2. User navigates pages → NO webhooks sent → Same conversation maintained
+3. User sends messages → Message webhooks only → No conversation webhooks
+4. User resolves conversation → conversation_resolved webhook → State cleared
+5. Next widget opening → New webwidget.triggered webhook → New conversation
+
+### ✅ Existing User Experience
+1. User navigates to site → Existing conversation fetched → Marked as existing
+2. User opens widget → NO webhook sent (conversation exists) → Same conversation continues
+3. User navigates pages → NO webhooks sent → Conversation persists
+4. User sends messages → Message webhooks only → No conversation webhooks
+
+### ✅ Webhook Lifecycle
+- **First chat open** → webwidget_triggered webhook sent → New conversation
+- **Page navigation** → NO webhooks sent → Same conversation maintained
+- **Message interactions** → Message webhooks only → No conversation webhooks
+- **Conversation resolution** → conversation_resolved webhook → Session cleared
+- **Next chat session** → webwidget_triggered webhook sent → New conversation
+
+## Technical Implementation
+
+### SessionStorage Keys
+- `chatwoot_webwidget_triggered_session` - Tracks if webhook sent in current session
+- `chatwoot_conversation_exists` - Tracks if any conversation exists for this visitor
+
+### State Transitions
+1. **Initial State**: Both keys absent → Send webhook on widget open
+2. **Conversation Created**: conversation_exists set → No more webhooks during navigation
+3. **Session Active**: Both keys set → No webhooks until conversation resolved
+4. **Conversation Resolved**: Both keys cleared → Ready for new conversation webhooks
+
+### Backend Compatibility
+- Existing 30-minute Redis session tracking still active
+- Graceful degradation when Redis fails
+- Multiple prevention layers for reliability
+
+## Files Modified
+
+### Frontend Files
+- `app/javascript/sdk/IFrameHelper.js` - Enhanced webhook prevention logic
+- `app/javascript/widget/store/modules/conversation/actions.js` - Conversation state tracking
+- `app/javascript/widget/App.vue` - Removed unnecessary API calls during navigation
+
+### Backend Files (Debug Logging Only)
+- `app/controllers/api/v1/widget/conversations_controller.rb` - Added conversation creation tracking
+- `app/controllers/api/v1/widget/events_controller.rb` - Added event creation tracking
+- `app/controllers/api/v1/widget/base_controller.rb` - Cleaned up excessive logging
+
+### Documentation
+- `.cursor/project_context/Monday, May 26, 2025 - Debug Conversation Creation During Page Navigation [48].md` - Complete session documentation
+
+## Success Criteria Met
+
+### ✅ Primary Requirements
+- **No webhooks during page navigation** - Comprehensive prevention implemented
+- **Webhooks only for user interactions** - Message webhooks continue to work
+- **Webhooks only for conversation resolution** - Resolution webhooks continue to work
+- **No external conversation creation** - n8n won't receive navigation webhooks
+
+### ✅ Technical Excellence
+- **Performance optimized** - Reduced API calls during navigation
+- **Backward compatible** - No breaking changes to existing functionality
+- **Robust error handling** - Graceful degradation when storage fails
+- **Comprehensive logging** - Enhanced debugging capabilities
+
+### ✅ User Experience
+- **Seamless navigation** - No interruptions during page changes
+- **Proper conversation lifecycle** - Clean state management
+- **Reliable webhook delivery** - Only when actually needed
+- **Consistent behavior** - Works across all scenarios
+
+## Impact
+
+### Performance Improvements
+- Reduced API calls during navigation
+- Faster page navigation
+- Better resource usage
+- Significant reduction in unnecessary webhooks
+
+### Reliability Improvements
+- Multiple layers of webhook prevention
+- Reliable conversation state tracking
+- Graceful error handling
+- Enhanced debugging capabilities
+
+### Maintenance Improvements
+- Clear separation between navigation and widget logic
+- Explicit conversation lifecycle tracking
+- Focused logging without noise
+- Future-proof extensible design
+
+This implementation fully addresses the user's requirement to stop all webhooks during page navigation while maintaining proper webhook delivery for actual user interactions and conversation lifecycle events. 

@@ -24,6 +24,12 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   def create
     begin
       ActiveRecord::Base.transaction do
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request initiated"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - User-Agent: #{request.headers['User-Agent']}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Referer: #{request.headers['Referer']}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - X-Visitor-ID: #{request.headers['X-Visitor-ID']}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Request IP: #{request.remote_ip}"
+        Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Has message content: #{permitted_params[:message]&.[](:content).present?}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Initial contact_inbox: #{@contact_inbox&.source_id}"
         Rails.logger.info "[Widget] 🔍 CONVERSATION CREATE - Initial contact: #{@contact&.id}"
         

@@ -170,3 +170,168 @@ The comprehensive debugging will help us quickly identify whether the issue is:
 
 ## Related Sessions
 This debugging session follows the comprehensive checklist review in session 44 and addresses the core functionality issue reported by the user despite 90% implementation completeness. 
+
+## Root Cause Analysis
+
+From the server logs, I identified the exact issue:
+
+```
+03:36:50 web.1 | [Widget] ✅ Found conversation via database: 519
+03:36:50 web.1 | [Widget] Storing conversation 519 in Redis for visitor: visitor_1748314811374_x3bpfkk4pet
+
+03:36:54 web.1 | [Widget] Found Redis conversation token for visitor: visitor_1748314811374_x3bpfkk4pet  
+03:36:54 web.1 | [Widget] Clearing stale Redis mapping for visitor: visitor_1748314811374_x3bpfkk4pet
+03:36:54 web.1 | [Widget] ✅ Found conversation via database: 520
+```
+
+**The Issue**: Redis validation logic was incorrectly marking valid Redis mappings as "stale":
+
+1. **First request**: Finds conversation 519, stores it in Redis ✅
+2. **Second request**: Redis token found but marked as "stale" and cleared ❌
+3. **Fallback**: Database lookup finds conversation 520 (latest) instead of 519 ❌
+
+## Root Cause: Redis Validation Logic Flaw
+
+**File**: `app/controllers/api/v1/widget/base_controller.rb`
+**Method**: `validate_redis_conversation_mapping`
+
+**Problem**: The validation was looking up contact_inbox by source_id from the token:
+```ruby
+contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
+```
+
+**Issue**: This could return a different contact_inbox than the current `@contact_inbox`, causing validation to fail even for valid conversations.
+
+## Solution Implemented
+
+### 1. Fixed Redis Validation Logic
+**Change**: Use current `@contact_inbox` instead of looking up by source_id:
+
+```ruby
+def validate_redis_conversation_mapping(visitor_id, conversation_token)
+  # ... existing code ...
+  
+  # Use the current contact_inbox instead of looking up by source_id
+  # This ensures we're validating against the correct contact_inbox
+  contact_inbox = @contact_inbox
+  return false unless contact_inbox
+  
+  # Check if the token's source_id matches the current contact_inbox
+  if token_data[:source_id] != contact_inbox.source_id
+    Rails.logger.warn "[Widget] ❌ Token source_id mismatch: token=#{token_data[:source_id]}, current=#{contact_inbox.source_id}"
+    return false
+  end
+
+  result = validate_conversation_from_token(contact_inbox, token_data)
+  result
+end
+```
+
+### 2. Enhanced Debugging Infrastructure
+**Added comprehensive logging to track**:
+- Redis token lookup process
+- Validation steps with detailed results
+- Conversation storage in Redis
+- Database lookup with all available conversations
+- Complete conversation lookup flow
+
+**Files Modified**:
+- `app/controllers/api/v1/widget/base_controller.rb` - Enhanced all conversation lookup methods with detailed logging
+
+### 3. Validation Process Improvements
+**Enhanced `validate_conversation_from_token`**:
+```ruby
+def validate_conversation_from_token(contact_inbox, token_data)
+  return true unless token_data[:conversation_id].present?
+
+  conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
+  Rails.logger.info "[Widget] 🔍 Validating conversation #{token_data[:conversation_id]}: found=#{conversation.present?}, status=#{conversation&.status}"
+  
+  conversation.present? && conversation.status != 'resolved'
+end
+```
+
+## Expected Behavior After Fix
+
+### ✅ Correct Flow:
+1. **First request**: Finds conversation 519, stores in Redis
+2. **Second request**: Redis token found and validates correctly
+3. **Result**: Uses conversation 519 consistently
+4. **No more**: "Clearing stale Redis mapping" warnings for valid conversations
+
+### ✅ Conversation Persistence:
+- Same conversation ID used across all page navigation
+- Messages accumulate in single conversation
+- No duplicate conversations created
+- Clean webhook lifecycle (one creation, one resolution per session)
+
+### ✅ Enhanced Debugging:
+- Detailed logging of Redis validation process
+- Clear tracking of conversation lookup flow
+- Visibility into token validation steps
+- Database lookup shows all available conversations
+
+## Technical Details
+
+### Conversation Lookup Flow (Fixed)
+1. **Redis Lookup**: Check for existing conversation token
+2. **Token Validation**: Validate against current contact_inbox (FIXED)
+3. **Conversation Extraction**: Extract conversation from validated token
+4. **Database Fallback**: Only if Redis lookup fails
+5. **Redis Storage**: Store database result for future lookups
+
+### Key Components Fixed
+- **Redis Validation**: Now uses current `@contact_inbox` for validation
+- **Token Matching**: Ensures source_id consistency between token and current session
+- **Conversation Consistency**: Same conversation ID used throughout session
+- **Error Handling**: Proper validation without false positives
+
+## Files Modified
+
+### Backend Files
+1. `app/controllers/api/v1/widget/base_controller.rb`
+   - Fixed `validate_redis_conversation_mapping` method
+   - Enhanced `find_conversation_via_redis` with detailed logging
+   - Added comprehensive logging to `find_or_build_conversation`
+   - Enhanced `store_conversation_in_redis` with logging
+   - Improved `find_conversation_via_database` with detailed conversation tracking
+
+## Testing Verification
+
+**Expected Log Flow** (after fix):
+```
+[Widget] 🔍 Looking up conversation for visitor: visitor_xxx, contact_inbox: source_id_xxx
+[Widget] 🔍 Checking Redis for visitor: visitor_xxx
+[Widget] 🔍 Found Redis conversation token for visitor: visitor_xxx
+[Widget] 🔍 Validating Redis token - source_id: source_id_xxx, conversation_id: 519
+[Widget] 🔍 Current contact_inbox source_id: source_id_xxx
+[Widget] 🔍 Validating conversation 519: found=true, status=open
+[Widget] 🔍 Redis validation result: true
+[Widget] ✅ Found conversation via Redis: 519
+[Widget] ✅ Using Redis conversation: 519
+```
+
+**No More**:
+- "Clearing stale Redis mapping" warnings for valid conversations
+- Different conversation IDs between requests for same visitor
+- New conversations created during page navigation
+
+## Keywords for Future Reference
+- Redis validation logic fix
+- conversation persistence debugging
+- stale mapping false positives
+- contact_inbox validation
+- conversation lookup consistency
+- Redis token validation
+- multiple conversations bug fix
+- page navigation persistence
+- conversation ID consistency
+- widget conversation flow
+
+## Related Sessions
+- Session [44]: Comprehensive checklist review
+- Session [43]: Webhook prevention implementation  
+- Session [33]: Multiple conversations bug investigation
+- Ongoing: Conversation persistence feature across 45+ sessions
+
+This fix addresses the core Redis validation issue that was causing valid conversations to be marked as stale and cleared, leading to new conversations being created during page navigation. 

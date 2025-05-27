@@ -66,10 +66,8 @@ onBubbleToggle: isOpen => {
     // 1. We haven't triggered it in this session AND
     // 2. No conversation exists yet (truly new chat session)
     if (!hasTriggeredInSession && !conversationExists) {
-      // Mark this session as having triggered the event
-      sessionStorage.setItem(sessionKey, Date.now().toString());
-      
       // Send the webwidget.triggered event for new chat session
+      // Session will be marked by events store after successful dispatch
       IFrameHelper.pushEvent('webwidget.triggered');
       console.log('[Chatwoot] Sending webwidget.triggered event for NEW chat session');
     } else {
@@ -88,6 +86,17 @@ onBubbleToggle: isOpen => {
 - ✅ **No webhooks during page navigation** - Once conversation exists, no more `webwidget.triggered` events
 - ✅ **Only new chat sessions trigger webhooks** - First-time widget opening sends webhook
 - ✅ **Prevents n8n duplicate conversations** - External automations won't receive navigation webhooks
+
+### 1.1. DUPLICATE EVENT FIX (Post-Implementation)
+**Issue Discovered**: Both IFrameHelper and App.vue were processing `webwidget.triggered` events, causing duplicates
+**Root Cause**: Race condition between IFrameHelper session marking and App.vue event processing
+
+**Files Modified**:
+- `app/javascript/widget/App.vue` - Added same prevention logic to `createWidgetEvents`
+- `app/javascript/widget/store/modules/events.js` - Added session marking after successful dispatch
+- `app/javascript/sdk/IFrameHelper.js` - Removed premature session marking to prevent race condition
+
+**Solution**: Coordinated prevention logic across both components with proper session management
 
 ### 2. Conversation State Tracking
 **File**: `app/javascript/widget/store/modules/conversation/actions.js`

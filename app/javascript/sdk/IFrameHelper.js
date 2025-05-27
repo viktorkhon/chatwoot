@@ -255,10 +255,8 @@ export const IFrameHelper = {
         // 1. We haven't triggered it in this session AND
         // 2. No conversation exists yet (truly new chat session)
         if (!hasTriggeredInSession && !conversationExists) {
-          // Mark this session as having triggered the event
-          sessionStorage.setItem(sessionKey, Date.now().toString());
-          
           // Send the webwidget.triggered event for new chat session
+          // Session will be marked by events store after successful dispatch
           IFrameHelper.pushEvent('webwidget.triggered');
           console.log('[Chatwoot] Sending webwidget.triggered event for NEW chat session');
         } else {

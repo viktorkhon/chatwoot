@@ -246,7 +246,8 @@ export default {
         eventName,
         isWidgetTriggerEvent,
         currentRoute: this.$route.name,
-        isWidgetOpen: this.isWidgetOpen
+        isWidgetOpen: this.isWidgetOpen,
+        timestamp: Date.now()
       });
       
       if (
@@ -257,8 +258,38 @@ export default {
         return;
       }
       
+      // Enhanced webhook prevention for webwidget.triggered events
       if (isWidgetTriggerEvent) {
-        console.log('[Chatwoot] Dispatching webwidget.triggered event to backend');
+        const sessionKey = 'chatwoot_webwidget_triggered_session';
+        const conversationKey = 'chatwoot_conversation_exists';
+        
+        // Check if we've already sent this event in this session
+        const hasTriggeredInSession = sessionStorage.getItem(sessionKey);
+        
+        // Check if a conversation already exists
+        const conversationExists = sessionStorage.getItem(conversationKey);
+        
+        console.log('[Chatwoot] Webhook prevention check:', {
+          hasTriggeredInSession: !!hasTriggeredInSession,
+          conversationExists: !!conversationExists,
+          sessionValue: hasTriggeredInSession,
+          conversationValue: conversationExists
+        });
+        
+        // Only dispatch webwidget.triggered if:
+        // 1. We haven't triggered it in this session AND
+        // 2. No conversation exists yet (truly new chat session)
+        if (hasTriggeredInSession || conversationExists) {
+          if (hasTriggeredInSession) {
+            console.log('[Chatwoot] Skipping webwidget.triggered dispatch - already sent in this session');
+          }
+          if (conversationExists) {
+            console.log('[Chatwoot] Skipping webwidget.triggered dispatch - conversation already exists');
+          }
+          return;
+        }
+        
+        console.log('[Chatwoot] Dispatching webwidget.triggered event to backend - NEW chat session');
       }
       
       this.$store.dispatch('events/create', { name: eventName });

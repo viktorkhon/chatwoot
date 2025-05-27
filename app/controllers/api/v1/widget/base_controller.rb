@@ -31,6 +31,12 @@ class Api::V1::Widget::BaseController < ApplicationController
   def conversation
     # Only perform lookup if we don't have a conversation cached
     # AND we're in a context that should trigger conversation lookup
+    Rails.logger.info "[Widget] 🔍 BaseController CONVERSATION METHOD CALLED"
+    Rails.logger.info "[Widget] 🔍 BaseController - Request ID: #{request.request_id}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Controller: #{params[:controller]}, Action: #{params[:action]}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Request Path: #{request.path}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Caller: #{caller[0..3].join(', ')}"
+    
     @conversation ||= find_conversation_for_context
   end
 
@@ -417,26 +423,20 @@ class Api::V1::Widget::BaseController < ApplicationController
   end
 
   def message_params
+    Rails.logger.info "[Widget] 🔍 MESSAGE_PARAMS METHOD CALLED"
+    Rails.logger.info "[Widget] 🔍 MESSAGE_PARAMS - Request ID: #{request.request_id}"
+    Rails.logger.info "[Widget] 🔍 MESSAGE_PARAMS - Controller: #{params[:controller]}, Action: #{params[:action]}"
+    Rails.logger.info "[Widget] 🔍 MESSAGE_PARAMS - Caller: #{caller[0..3].join(', ')}"
+    
+    Rails.logger.warn "[Widget] ⚠️ WARNING: message_params method called - this should use build_message_params_for_conversation instead"
+    
     message_data = permitted_params[:message] || {}
-    current_conversation = conversation
     
-    # Ensure we have a valid conversation object
-    unless current_conversation.respond_to?(:account_id) && current_conversation.respond_to?(:inbox_id)
-      Rails.logger.error "[Widget] Invalid conversation object for message_params: #{current_conversation.class}"
-      return {}
-    end
+    # DEPRECATED: This method should not be used anymore
+    # Use build_message_params_for_conversation instead to avoid conversation lookups
+    Rails.logger.error "[Widget] ❌ DEPRECATED: message_params method should not be called - use build_message_params_for_conversation"
     
-    return {} unless current_conversation.account_id && current_conversation.inbox_id
-    
-    {
-      account_id: current_conversation.account_id,
-      sender: @contact,
-      content: message_data[:content],
-      inbox_id: current_conversation.inbox_id,
-      content_attributes: build_message_content_attributes(message_data),
-      echo_id: message_data[:echo_id],
-      message_type: :incoming
-    }
+    return {}
   end
 
   def build_message_content_attributes(message_data)
@@ -455,16 +455,28 @@ class Api::V1::Widget::BaseController < ApplicationController
     action_name = params[:action]
     controller_name = params[:controller]
     
+    # Enhanced logging to track down the source of conversation lookups
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Controller: #{controller_name}, Action: #{action_name}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Request ID: #{request.request_id}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - User Agent: #{request.headers['User-Agent']}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Referer: #{request.headers['Referer']}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Request Path: #{request.path}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Request Method: #{request.method}"
+    Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP REQUEST - Params: #{params.inspect}"
+    
     # Only perform full conversation lookup for specific actions that need it
     case "#{controller_name}##{action_name}"
     when 'api/v1/widget/conversations#index', 'api/v1/widget/conversations#create'
       # These actions need full conversation lookup with Redis
+      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using FULL lookup for conversation management"
       find_or_build_conversation
     when 'api/v1/widget/messages#index', 'api/v1/widget/messages#create'
       # For message operations, try to use existing conversation without Redis lookup
+      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for message operations"
       find_existing_conversation_without_redis
     else
       # For other actions, try lightweight lookup
+      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for other operations (#{controller_name}##{action_name})"
       find_existing_conversation_without_redis
     end
   end

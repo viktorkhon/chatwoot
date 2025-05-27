@@ -42,7 +42,7 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           # Add the message to existing conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
-              message_params_data = message_params
+              message_params_data = build_message_params_for_conversation(existing_conversation)
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
               end
@@ -73,7 +73,7 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
           # Add the message to new conversation if message content provided
           if permitted_params[:message].present? && permitted_params[:message][:content].present?
             begin
-              message_params_data = message_params
+              message_params_data = build_message_params_for_conversation(@conversation)
               if message_params_data.present? && !message_params_data.empty?
                 @conversation.messages.create!(message_params_data)
               end
@@ -205,6 +205,39 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   private
+
+  def build_message_params_for_conversation(conversation)
+    message_data = permitted_params[:message] || {}
+    
+    # Ensure we have a valid conversation object
+    unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
+      Rails.logger.error "[Widget] Invalid conversation object for message_params: #{conversation.class}"
+      return {}
+    end
+    
+    return {} unless conversation.account_id && conversation.inbox_id
+    
+    {
+      account_id: conversation.account_id,
+      sender: @contact,
+      content: message_data[:content],
+      inbox_id: conversation.inbox_id,
+      content_attributes: build_message_content_attributes(message_data),
+      echo_id: message_data[:echo_id],
+      message_type: :incoming
+    }
+  end
+
+  def build_message_content_attributes(message_data)
+    {
+      in_reply_to: message_data[:reply_to],
+      page_info: {
+        page_url: message_data[:page_url],
+        page_title: message_data[:page_title],
+        referer_url: message_data[:referer_url]
+      }.compact
+    }.compact
+  end
 
   def trigger_typing_event(event)
     current_conversation = conversation

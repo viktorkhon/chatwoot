@@ -36,7 +36,12 @@ class Api::V1::Widget::ContactsController < Api::V1::Widget::BaseController
   # Override conversation method to prevent conversation lookups in contacts controller
   # Contacts operations don't need conversation data and shouldn't trigger Redis operations
   def conversation
-    Rails.logger.info "[Widget] ContactsController - skipping conversation lookup (not needed for contact operations)"
+    Rails.logger.info "[Widget] 🚫 ContactsController - CONVERSATION LOOKUP BLOCKED"
+    Rails.logger.info "[Widget] 🚫 ContactsController - Request ID: #{request.request_id}"
+    Rails.logger.info "[Widget] 🚫 ContactsController - Action: #{params[:action]}"
+    Rails.logger.info "[Widget] 🚫 ContactsController - Request Path: #{request.path}"
+    Rails.logger.info "[Widget] 🚫 ContactsController - Caller: #{caller[0..2].join(', ')}"
+    Rails.logger.info "[Widget] 🚫 ContactsController - Skipping conversation lookup (not needed for contact operations)"
     nil
   end
 

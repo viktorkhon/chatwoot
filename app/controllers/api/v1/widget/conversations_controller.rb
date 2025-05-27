@@ -1,6 +1,6 @@
 class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   include Events::Types
-  before_action :render_not_found_if_empty, only: [:toggle_typing, :toggle_status, :set_custom_attributes, :destroy_custom_attributes]
+  before_action :render_not_found_if_empty, only: [:toggle_status, :set_custom_attributes, :destroy_custom_attributes]
 
   def index
     # Handle case where user hasn't interacted with chat yet
@@ -147,16 +147,23 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   end
 
   def toggle_typing
-    current_conversation = conversation
-    
-    # Allow toggle_typing to work even without an active conversation
-    if current_conversation.present?
-      case permitted_params[:typing_status]
-      when 'on'
-        trigger_typing_event(CONVERSATION_TYPING_ON)
-      when 'off'
-        trigger_typing_event(CONVERSATION_TYPING_OFF)
+    begin
+      current_conversation = conversation
+      
+      # Allow toggle_typing to work even without an active conversation
+      # Ensure we have a valid conversation object, not just a truthy value
+      if current_conversation.present? && current_conversation.respond_to?(:id)
+        case permitted_params[:typing_status]
+        when 'on'
+          trigger_typing_event(CONVERSATION_TYPING_ON)
+        when 'off'
+          trigger_typing_event(CONVERSATION_TYPING_OFF)
+        end
+      else
+        Rails.logger.info "[Widget] Toggle typing called without valid conversation: #{current_conversation.class}"
       end
+    rescue => e
+      Rails.logger.error "[Widget] Error in toggle_typing: #{e.message}"
     end
 
     head :ok
@@ -208,7 +215,13 @@ class Api::V1::Widget::ConversationsController < Api::V1::Widget::BaseController
   private
 
   def trigger_typing_event(event)
-    Rails.configuration.dispatcher.dispatch(event, Time.zone.now, conversation: conversation, user: @contact)
+    current_conversation = conversation
+    # Only dispatch if we have a valid conversation object
+    if current_conversation.respond_to?(:id)
+      Rails.configuration.dispatcher.dispatch(event, Time.zone.now, conversation: current_conversation, user: @contact)
+    else
+      Rails.logger.warn "[Widget] Skipping typing event dispatch - invalid conversation: #{current_conversation.class}"
+    end
   end
 
   def render_not_found_if_empty

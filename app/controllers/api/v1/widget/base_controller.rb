@@ -426,13 +426,21 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def message_params
     message_data = permitted_params[:message] || {}
-    return {} unless conversation&.account_id && conversation&.inbox_id
+    current_conversation = conversation
+    
+    # Ensure we have a valid conversation object
+    unless current_conversation.respond_to?(:account_id) && current_conversation.respond_to?(:inbox_id)
+      Rails.logger.error "[Widget] Invalid conversation object for message_params: #{current_conversation.class}"
+      return {}
+    end
+    
+    return {} unless current_conversation.account_id && current_conversation.inbox_id
     
     {
-      account_id: conversation.account_id,
+      account_id: current_conversation.account_id,
       sender: @contact,
       content: message_data[:content],
-      inbox_id: conversation.inbox_id,
+      inbox_id: current_conversation.inbox_id,
       content_attributes: build_message_content_attributes(message_data),
       echo_id: message_data[:echo_id],
       message_type: :incoming

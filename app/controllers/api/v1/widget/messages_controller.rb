@@ -30,27 +30,42 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def create
-    # Ensure we have a conversation first
-    if conversation.nil?
-      render json: { error: 'No conversation available' }, status: :unprocessable_entity
-      return
-    end
-
-    # Ensure message params are valid
-    message_params_data = message_params
-    if message_params_data.empty?
-      render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
-      return
-    end
-
     begin
-      @message = conversation.messages.new(message_params_data)
+      # Ensure we have a conversation first
+      current_conversation = conversation
+      Rails.logger.info "[Widget] Message create - conversation: #{current_conversation.class} (#{current_conversation.inspect})"
+      
+      if current_conversation.nil?
+        render json: { error: 'No conversation available' }, status: :unprocessable_entity
+        return
+      end
+      
+      # Ensure we have a valid conversation object
+      unless current_conversation.respond_to?(:messages)
+        Rails.logger.error "[Widget] Invalid conversation object for message creation: #{current_conversation.class}"
+        render json: { error: 'Invalid conversation state' }, status: :unprocessable_entity
+        return
+      end
+
+      # Ensure message params are valid
+      message_params_data = message_params
+      Rails.logger.info "[Widget] Message params: #{message_params_data.inspect}"
+      
+      if message_params_data.empty?
+        render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
+        return
+      end
+
+      @message = current_conversation.messages.new(message_params_data)
       build_attachment
       @message.save!
+      Rails.logger.info "[Widget] Message created successfully: #{@message.id}"
     rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "[Widget] Message validation failed: #{e.message}"
       render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
     rescue => e
       Rails.logger.error "[Widget] Error creating message: #{e.message}"
+      Rails.logger.error "[Widget] Error backtrace: #{e.backtrace.first(5).join(', ')}"
       render json: { error: 'Message creation failed' }, status: :internal_server_error
     end
   end

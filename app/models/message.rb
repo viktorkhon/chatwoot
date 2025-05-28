@@ -291,9 +291,11 @@ class Message < ApplicationRecord
 
   def update_waiting_since
     if human_response? && !private && conversation.waiting_since.present?
-      Rails.configuration.dispatcher.dispatch(
-        REPLY_CREATED, Time.zone.now, waiting_since: conversation.waiting_since, message: self
-      )
+      if Rails.configuration.respond_to?(:dispatcher) && Rails.configuration.dispatcher.present?
+        Rails.configuration.dispatcher.dispatch(
+          REPLY_CREATED, Time.zone.now, waiting_since: conversation.waiting_since, message: self
+        )
+      end
       conversation.update(waiting_since: nil)
     end
     conversation.update(waiting_since: created_at) if incoming? && conversation.waiting_since.blank?
@@ -320,11 +322,14 @@ class Message < ApplicationRecord
   end
 
   def dispatch_update_event
+    # ref: https://github.com/rails/rails/issues/44500
+    # we want to skip the update event if the message is not updated
+    return if previous_changes.blank?
+
+    Rails.configuration.dispatcher.dispatch(MESSAGE_UPDATED, Time.zone.now, message: self, performed_by: Current.executed_by,
+                                                                            previous_changes: previous_changes)
     Rails.logger.info "[CONVERSATION DEBUG] Message dispatch_update_events - Message ID: #{id}, Conversation: #{conversation.id}, Type: #{message_type}"
     
-    dispatcher_dispatch(MESSAGE_UPDATED)
-    
-    Rails.logger.info "[CONVERSATION DEBUG] Message update events dispatched successfully - Message ID: #{id}"
   end
 
   def send_reply

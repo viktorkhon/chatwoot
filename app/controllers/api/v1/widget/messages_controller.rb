@@ -80,15 +80,18 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def update
-    Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Message update started - Message ID: #{@message.id}, Conversation: #{@message.conversation.id}, Content Type: #{@message.content_type}"
+    Rails.logger.info "[CONVERSATION DEBUG] ========== RAW PARAMS =========="
+    Rails.logger.info "[CONVERSATION DEBUG] All params: #{params.inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] Params except system: #{params.except(:controller, :action, :format, :website_token).inspect}"
+    update_params = message_update_params
+    Rails.logger.info "[CONVERSATION DEBUG] message_update_params result: #{update_params.inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] message_update_params[:message]: #{update_params[:message].inspect}"
     
     # Message update should not trigger conversation lookups
     # The message already exists and has a conversation associated
     Rails.logger.info "[Widget] Message update - message: #{@message.id}, conversation: #{@message.conversation.id}"
     
     if @message.content_type == 'input_email'
-      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Updating email input message - Email: #{contact_email}, Name: #{contact_name}"
-      
       @message.update!(submitted_email: contact_email)
       ContactIdentifyAction.new(
         contact: @contact,
@@ -96,17 +99,21 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
         retain_original_contact_name: true
       ).perform
       
-      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Email input message updated successfully - Message: #{@message.id}, Contact updated: #{@contact.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] Email input message updated successfully"
     else
-      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Updating regular message - Params: #{message_update_params[:message]}"
+      Rails.logger.info "[CONVERSATION DEBUG] Update params for regular message: #{message_update_params[:message]}"
+      
       @message.update!(message_update_params[:message])
-      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Regular message updated successfully - Message: #{@message.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] Regular message updated successfully"
     end
     
-    Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Message update completed - Message: #{@message.id}, will trigger message_updated event"
   rescue StandardError => e
-    Rails.logger.error "[🔍 MESSAGE UPDATE DEBUG] Message update failed - Message: #{@message.id}, Error: #{e.message}, Backtrace: #{e.backtrace.first(3).join(', ')}"
-    render json: { error: @contact.errors, message: e.message }.to_json, status: :internal_server_error
+    Rails.logger.error "[CONVERSATION DEBUG] ========== MESSAGE UPDATE FAILED =========="
+    Rails.logger.error "[CONVERSATION DEBUG] Error: #{e.message}"
+    Rails.logger.error "[CONVERSATION DEBUG] Error class: #{e.class}"
+    Rails.logger.error "[CONVERSATION DEBUG] Backtrace: #{e.backtrace.first(10).join(', ')}"
+    
+    render json: { error: 'Message update failed', message: e.message }, status: :internal_server_error
   end
 
   private
@@ -160,7 +167,23 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def message_update_params
+    Rails.logger.info "[🔍 PARAMS DEBUG] ========== MESSAGE_UPDATE_PARAMS STARTED =========="
+    Rails.logger.info "[🔍 PARAMS DEBUG] Raw params: #{params.inspect}"
+    Rails.logger.info "[🔍 PARAMS DEBUG] params[:message]: #{params[:message].inspect}"
+    Rails.logger.info "[🔍 PARAMS DEBUG] params[:message].present?: #{params[:message].present?}"
+    
+    if params[:message].present?
+      Rails.logger.info "[🔍 PARAMS DEBUG] params[:message] keys: #{params[:message].keys.inspect}" if params[:message].respond_to?(:keys)
+      Rails.logger.info "[🔍 PARAMS DEBUG] params[:message][:submitted_values]: #{params[:message][:submitted_values].inspect}" if params[:message].respond_to?(:dig)
+    end
+    
     params.permit(message: [{ submitted_values: [:name, :title, :value, { csat_survey_response: [:feedback_message, :rating] }] }])
+    
+    Rails.logger.info "[🔍 PARAMS DEBUG] Permitted params: #{permitted_params.inspect}"
+    Rails.logger.info "[🔍 PARAMS DEBUG] Permitted params[:message]: #{permitted_params[:message].inspect}"
+    Rails.logger.info "[🔍 PARAMS DEBUG] ========== MESSAGE_UPDATE_PARAMS COMPLETED =========="
+    
+    permitted_params
   end
 
   def permitted_params

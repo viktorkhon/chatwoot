@@ -343,7 +343,8 @@ class Conversation < ApplicationRecord
       if contact_inbox&.source_id.present? && inbox&.channel&.website_token.present?
       
       end
-    rescue => e"
+    rescue => e
+      Rails.logger.error "[CONVERSATION DEBUG] Error during Redis cleanup for conversation #{id}: #{e.message}"
     end
   end
 

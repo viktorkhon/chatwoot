@@ -211,4 +211,18 @@ To analyze the issue, search logs for:
 
 **Solution**: Fix n8n configuration to distinguish between webhook types and use appropriate ID fields for each endpoint.
 
-**Status**: Enhanced debugging infrastructure implemented ✅, n8n configuration fix required ⚠️ 
+**Status**: Enhanced debugging infrastructure implemented ✅, n8n configuration fix required ⚠️
+
+## Syntax Error Fix
+**Issue**: Deployment failed due to syntax error in `app/models/conversation.rb` line 346
+```ruby
+rescue => e"  # ❌ Unterminated string
+```
+
+**Fixed**: Corrected the rescue clause
+```ruby
+rescue => e  # ✅ Proper syntax
+  Rails.logger.error "[CONVERSATION DEBUG] Error during Redis cleanup for conversation #{id}: #{e.message}"
+```
+
+**Files Modified**: `app/models/conversation.rb` - Fixed syntax error in cleanup_redis_mappings_on_resolution method 

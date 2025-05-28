@@ -67,7 +67,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     if conversation_from_db
       return conversation_from_db
     end
-    {@contact_inbox&.source_id}"
+    {@contact_inbox&.source_id}
     nil
   end
 

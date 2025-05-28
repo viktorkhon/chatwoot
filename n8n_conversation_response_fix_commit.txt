@@ -1,0 +1,56 @@
+fix: Capture message creation result in conversation response for n8n integration
+
+## Problem Fixed
+When conversations were created, the response contained an empty messages array instead of the created message, breaking n8n integration.
+
+## Root Cause
+In the conversation creation method, the message creation result was not being captured properly, causing the conversation response to show `"messages": []` instead of the actual message data.
+
+## Before (BROKEN)
+```ruby
+Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+# Message created but not assigned to instance variable
+# Conversation response shows empty messages array
+```
+
+## After (FIXED)
+```ruby
+@message = Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+# Reload conversation to ensure it includes the newly created message
+@conversation.reload if @message.present?
+```
+
+## What n8n Now Receives
+Complete conversation response with message data:
+```json
+{
+  "id": 543,
+  "messages": [
+    {
+      "id": 2340,
+      "content": "Message content",
+      "account_id": 2,
+      "inbox_id": 10,
+      "conversation_id": 543,
+      "message_type": 1,
+      "created_at": 1748410379,
+      "updated_at": "2025-05-28T05:32:59.055Z",
+      "private": false,
+      "status": "sent",
+      "content_type": "text",
+      "content_attributes": {}
+    }
+  ]
+}
+```
+
+## Files Modified
+- `app/controllers/api/v1/accounts/conversations_controller.rb` - Fixed message creation capture and conversation reload
+
+## Impact
+- ✅ Fixes n8n integration - Message data now included in conversation response
+- ✅ Maintains API compatibility - No breaking changes for other consumers
+- ✅ Preserves debugging infrastructure - All conversation debug logging intact
+- ✅ Proper transaction handling - Message creation properly captured within transaction
+
+**Result**: n8n now receives complete conversation data with message information in the expected format, restoring proper integration functionality. 

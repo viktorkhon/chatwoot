@@ -226,3 +226,103 @@ rescue => e  # ✅ Proper syntax
 ```
 
 **Files Modified**: `app/models/conversation.rb` - Fixed syntax error in cleanup_redis_mappings_on_resolution method 
+
+## Conversation Response Messages Array Fix - REAL ISSUE ✅
+**Issue**: n8n was calling the conversation creation endpoint but not receiving the complete messages array in the response
+**Symptoms**: 
+- n8n successfully creates conversations
+- n8n tries to use conversation ID from response
+- But conversation response only included the last message, not all messages
+- n8n expects full messages array with all message data
+
+**Root Cause**: The conversation partial `app/views/api/v1/conversations/partials/_conversation.json.jbuilder` was only returning the **last message** in the messages array instead of **all messages**
+
+**Before (WRONG)**:
+```ruby
+json.messages [
+  conversation.messages.where(account_id: conversation.account_id)
+              .includes([{ attachments: [{ file_attachment: [:blob] }] }]).last.try(:push_event_data)
+]
+```
+
+**After (CORRECT)**:
+```ruby
+json.messages conversation.messages.where(account_id: conversation.account_id)
+                            .includes([{ attachments: [{ file_attachment: [:blob] }] }])
+                            .map(&:push_event_data)
+```
+
+**What n8n expects in conversation response**:
+```json
+{
+  "id": 543,
+  "messages": [
+    {
+      "id": 2340,
+      "content": "Message content",
+      "account_id": 2,
+      "inbox_id": 10,
+      "conversation_id": 543,
+      "message_type": 1,
+      "created_at": 1748410379,
+      "updated_at": "2025-05-28T05:32:59.055Z",
+      "private": false,
+      "status": "sent",
+      "content_type": "text",
+      "content_attributes": {}
+    }
+  ]
+}
+```
+
+**Files Modified**: 
+- `app/views/api/v1/conversations/partials/_conversation.json.jbuilder` - Fixed messages array to include all messages
+- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - Reverted unnecessary changes (message_params was never the issue)
+
+## Empty Messages Array in Conversation Creation Response - REAL ISSUE FIXED ✅
+**Issue**: When conversations were created, the response contained an empty messages array instead of the created message
+**Symptoms**: 
+- n8n successfully creates conversations
+- But conversation response shows `"messages": []` instead of message data
+- n8n cannot extract message information from the response
+
+**Root Cause**: In the conversation creation method, the message creation result was not being captured properly:
+
+**Before (BROKEN)**:
+```ruby
+Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+# Message created but not assigned to instance variable
+```
+
+**After (FIXED)**:
+```ruby
+@message = Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+# Reload conversation to ensure it includes the newly created message
+@conversation.reload if @message.present?
+```
+
+**What n8n now receives in conversation response**:
+```json
+{
+  "id": 543,
+  "messages": [
+    {
+      "id": 2340,
+      "content": "Message content",
+      "account_id": 2,
+      "inbox_id": 10,
+      "conversation_id": 543,
+      "message_type": 1,
+      "created_at": 1748410379,
+      "updated_at": "2025-05-28T05:32:59.055Z",
+      "private": false,
+      "status": "sent",
+      "content_type": "text",
+      "content_attributes": {}
+    }
+  ]
+}
+```
+
+**Files Modified**: 
+- `app/controllers/api/v1/accounts/conversations_controller.rb` - Fixed message creation capture and conversation reload

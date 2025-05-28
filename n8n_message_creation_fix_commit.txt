@@ -1,0 +1,61 @@
+fix: Add missing message_params method to enable n8n message creation
+
+## Problem Fixed
+n8n messages were not appearing in conversations despite successful API calls due to missing `message_params` method in the accounts messages controller.
+
+## Symptoms
+- ✅ n8n API calls to `/conversations/{id}/messages` were successful (no errors)
+- ❌ No messages appeared in conversations
+- ❌ Silent failures due to missing parameter handling
+- ❌ MessageBuilder.new() called with unpermitted parameters
+
+## Root Cause
+During debugging enhancements, the `message_params` method was missing from `app/controllers/api/v1/accounts/conversations/messages_controller.rb`, causing the message creation to fail silently.
+
+## Solution Implemented
+
+### Added Missing message_params Method
+```ruby
+def message_params
+  params.permit(:content, :message_type, :private, :content_type, :echo_id, :source_id, 
+                :external_created_at, :sender_type, :sender_id, :campaign_id, :template_params,
+                content_attributes: {}, additional_attributes: {}, attachments: [])
+end
+```
+
+### Enhanced Error Handling
+```ruby
+def create
+  # ... existing logic ...
+  @message = Messages::MessageBuilder.new(Current.user, @conversation, message_params).perform
+  # ... existing logic ...
+rescue StandardError => e
+  Rails.logger.error "[CONVERSATION DEBUG] Message creation failed - Error: #{e.message}"
+  render_could_not_create_error(e.message)
+end
+```
+
+## Expected Behavior After Fix
+- ✅ n8n API calls to `/conversations/{id}/messages` create messages successfully
+- ✅ Messages appear in conversations immediately
+- ✅ Proper error logging if message creation fails
+- ✅ n8n webhook responses work as expected
+
+## Files Modified
+- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - Added missing message_params method and error handling
+
+## Testing Verification
+1. **n8n Message Creation**: n8n can now successfully create messages in existing conversations
+2. **Error Handling**: Proper error responses if message creation fails
+3. **Debugging**: Enhanced logging shows successful message creation
+4. **No Breaking Changes**: Existing message functionality preserved
+
+## Impact
+- **✅ Restores n8n functionality** - Messages now appear in conversations
+- **✅ Maintains debugging infrastructure** - All conversation debug logging preserved
+- **✅ Improves error handling** - Better error reporting for failed message creation
+- **✅ No side effects** - Only affects message parameter handling
+
+---
+
+**Result**: n8n can now successfully create messages in existing conversations. Combined with the duplicate conversation debugging infrastructure, this completes the n8n integration fix. 

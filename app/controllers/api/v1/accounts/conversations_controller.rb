@@ -95,10 +95,13 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
       
       Rails.logger.warn "[CONVERSATION DEBUG] NEW conversation created - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}"
       
-      Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+      @message = Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
       
-      Rails.logger.warn "[CONVERSATION DEBUG] Message added to new conversation - Conversation: #{@conversation.id}"
+      Rails.logger.warn "[CONVERSATION DEBUG] Message added to new conversation - Conversation: #{@conversation.id}, Message: #{@message&.id}"
     end
+    
+    # Reload conversation to ensure it includes the newly created message
+    @conversation.reload if @message.present?
     
     Rails.logger.error "[CONVERSATION DEBUG] DUPLICATE CONVERSATION CREATED - This is the root cause of the duplicate conversation issue!"
   end

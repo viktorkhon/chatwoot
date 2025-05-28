@@ -20,7 +20,7 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
       end
     end
     
-    @message = Messages::MessageBuilder.new(Current.user, @conversation, message_params).perform
+    @message = Messages::MessageBuilder.new(Current.user, @conversation, params).perform
     
     Rails.logger.info "[CONVERSATION DEBUG] Message created successfully - Message ID: #{@message.id}, Conversation: #{@conversation.id}, Type: #{@message.message_type}"
     

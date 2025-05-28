@@ -5,6 +5,14 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   def index
     # Handle case where no conversation exists yet
     begin
+      Rails.logger.info "[Widget] 📨 MESSAGES INDEX CALLED"
+      Rails.logger.info "[Widget] 📨 Messages Index - Request ID: #{request.request_id}"
+      Rails.logger.info "[Widget] 📨 Messages Index - Request Method: #{request.method}"
+      Rails.logger.info "[Widget] 📨 Messages Index - User Agent: #{request.headers['User-Agent']&.truncate(100)}"
+      Rails.logger.info "[Widget] 📨 Messages Index - Referer: #{request.headers['Referer']}"
+      Rails.logger.info "[Widget] 📨 Messages Index - Params: #{params.except(:controller, :action, :website_token).inspect}"
+      Rails.logger.info "[Widget] 📨 Messages Index - Visitor ID: #{visitor_id}"
+      
       # Use lightweight lookup for message operations to avoid Redis overhead
       @conversation = find_existing_conversation_without_redis
       Rails.logger.info "[Widget] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"

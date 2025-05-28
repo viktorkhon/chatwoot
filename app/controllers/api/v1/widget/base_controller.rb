@@ -35,7 +35,11 @@ class Api::V1::Widget::BaseController < ApplicationController
     Rails.logger.info "[Widget] 🔍 BaseController - Request ID: #{request.request_id}"
     Rails.logger.info "[Widget] 🔍 BaseController - Controller: #{params[:controller]}, Action: #{params[:action]}"
     Rails.logger.info "[Widget] 🔍 BaseController - Request Path: #{request.path}"
-    Rails.logger.info "[Widget] 🔍 BaseController - Caller: #{caller[0..3].join(', ')}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Request Method: #{request.method}"
+    Rails.logger.info "[Widget] 🔍 BaseController - User Agent: #{request.headers['User-Agent']&.truncate(100)}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Referer: #{request.headers['Referer']}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Visitor ID: #{visitor_id}"
+    Rails.logger.info "[Widget] 🔍 BaseController - Caller Stack: #{caller[0..5].join(' | ')}"
     
     @conversation ||= find_conversation_for_context
   end

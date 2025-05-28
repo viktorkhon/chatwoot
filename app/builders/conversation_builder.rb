@@ -15,6 +15,10 @@ class ConversationBuilder
 
   def create_new_conversation
     conversation_params_with_page_info = conversation_params.dup
+    Rails.logger.info "[CONVERSATION DEBUG] ConversationBuilder.create_new_conversation called"
+    caller.first(10).each_with_index do |line, index|
+      Rails.logger.info "[CONVERSATION DEBUG]   #{index + 1}. #{line}"
+    end
     
     # Check if custom_attributes already has page URL info
     custom_attributes = conversation_params_with_page_info[:custom_attributes] || {}
@@ -33,7 +37,7 @@ class ConversationBuilder
             page_info = JSON.parse(cached_page_info, symbolize_names: true)
             
             # Log that we found cached page info
-            Rails.logger.info "ConversationBuilder - Found cached page info for #{@contact_inbox.source_id}: #{page_info}"
+            Rails.logger.info "[CONVERSATION DEBUG] - Found cached page info for #{@contact_inbox.source_id}: #{page_info}"
             
             # Add the page info to custom_attributes using string keys
             string_keys_custom_attrs['page_url'] = page_info[:page_url]

@@ -161,8 +161,21 @@ export default {
     registerUnreadEvents() {
       emitter.on(ON_AGENT_MESSAGE_RECEIVED, () => {
         const { name: routeName } = this.$route;
-        if ((this.isWidgetOpen || !this.isIFrame) && routeName === 'messages') {
+        
+        console.log('[Widget] ON_AGENT_MESSAGE_RECEIVED event:', {
+          isWidgetOpen: this.isWidgetOpen,
+          routeName,
+          willUpdateLastSeen: this.isWidgetOpen && routeName === 'messages'
+        });
+        
+        // Only update last seen if the widget is actually open and user is viewing messages
+        // This prevents unnecessary API calls when messages are received via ActionCable
+        // but the user is not actively viewing the conversation
+        if (this.isWidgetOpen && routeName === 'messages') {
+          console.log('[Widget] Updating last seen - user is actively viewing messages');
           this.$store.dispatch('conversation/setUserLastSeen');
+        } else {
+          console.log('[Widget] Skipping last seen update - widget not open or not on messages route');
         }
         this.setUnreadView();
       });

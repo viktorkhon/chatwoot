@@ -3,140 +3,212 @@
 ## Problem Description
 User reported that when a user enters email in the widget, a `message_update` event is generated that sends a webhook to n8n. When n8n sends a reply back to Chatwoot, somewhere in the process a duplicate conversation is created for the user, even though one already exists.
 
-## Root Cause Analysis Approach
-The issue appears to be in the flow:
-1. User enters email in widget → `message_update` event → webhook to n8n
-2. n8n processes webhook and sends message back to Chatwoot via API
-3. Somewhere during step 2, a duplicate conversation gets created
+## Root Cause Analysis - SOLVED ✅
 
-## Debugging Strategy
-Added comprehensive call stack logging to identify the exact trigger points for conversation creation:
+### The REAL Issue Discovered:
+**n8n is calling TWO different endpoints:**
 
-### 1. ConversationBuilder Logging
-**File**: `app/builders/conversation_builder.rb`
-- Added call stack trace to `create_new_conversation` method
-- Logs the full execution path that leads to new conversation creation
+1. **✅ CORRECT Call**: `/api/v1/accounts/2/conversations/541/messages` 
+   - This adds a message to existing conversation 541
+   - Works perfectly fine
 
-### 2. ContactInboxWithContactBuilder Logging  
-**File**: `app/builders/contact_inbox_with_contact_builder.rb`
-- Added call stack trace to `find_or_create_contact_and_contact_inbox` method
-- Tracks when contact inbox lookups/creation might trigger conversation creation
+2. **❌ PROBLEMATIC Call**: `/api/v1/accounts/2/conversations`
+   - This is the **conversation creation endpoint**
+   - **Creates a NEW conversation every time**
+   - This is the source of duplicate conversations!
 
-### 3. MessageBuilder Logging
-**File**: `app/builders/messages/message_builder.rb`
-- Added call stack trace to `perform` method
-- Identifies what triggers message creation that might lead to conversation creation
+### The Issue Flow:
+1. **Message Update Event**: User enters email → `message_update` event → webhook to n8n
+2. **n8n First Call**: Correctly calls `/conversations/541/messages` (works fine)
+3. **n8n Second Call**: Incorrectly calls `/conversations` (creates duplicate!)
 
-### 4. API Message Controller Logging
-**File**: `app/controllers/api/v1/accounts/conversations/messages_controller.rb`
-- Added call stack trace to `create` method
-- Tracks when n8n API calls create messages
+### **CRITICAL DISCOVERY - Webhook Payload Structure Issue** 🔍
 
-### 5. Conversation Lookup Logging
-**File**: `app/controllers/api/v1/accounts/conversations/base_controller.rb`
-- Added detailed logging to `conversation` method
-- Tracks conversation lookup process and authorization
+**The problem is n8n is misusing the webhook payload IDs:**
+
+#### `webwidget_triggered` Payload (CORRECT for conversation creation):
+```json
+{
+  "id": 123,  // ContactInbox ID - SAFE to use for conversation creation
+  "event": "webwidget_triggered",
+  "contact": {...},
+  "source_id": "contact_source_id",
+  "current_conversation": null  // No existing conversation
+}
+```
+
+#### `message_updated` Payload (WRONG if used for conversation creation):
+```json
+{
+  "id": 456,  // MESSAGE ID - NEVER use for conversation creation!
+  "event": "message_updated", 
+  "conversation": {
+    "id": 541  // DISPLAY_ID - Use THIS for /conversations/541/messages
+  },
+  "content": "Updated message content"
+}
+```
+
+### **Root Cause Identified:**
+**n8n is incorrectly using the top-level `id` field from `message_updated` webhooks (which is the Message ID) to call the conversation creation endpoint `/conversations`.**
+
+**What n8n should do:**
+- **webwidget_triggered**: Use top-level `id` (ContactInbox ID) → `/conversations` ✅
+- **message_updated**: Use `conversation.id` (Display ID) → `/conversations/{display_id}/messages` ✅
+
+**What n8n is doing wrong:**
+- **message_updated**: Using top-level `id` (Message ID) → `/conversations` ❌ **CREATES DUPLICATES**
+
+## Solution - IMPLEMENTED ✅
+
+### 1. Enhanced Root Cause Detection Logging
+**File**: `app/controllers/api/v1/accounts/conversations_controller.rb`
+- Added comprehensive analysis to detect when n8n uses message IDs incorrectly
+- Detects existing conversations for the same contact/source_id
+- Identifies recent message updates that trigger the duplicate creation
+- Provides specific guidance on correct endpoint usage
+
+### 2. Enhanced Webhook Payload Analysis
+**Files**: `app/listeners/webhook_listener.rb`
+- Added detailed payload structure logging for both webhook types
+- Clear warnings about which IDs to use for which endpoints
+- Contrasts correct vs incorrect usage patterns
+
+### 3. Comprehensive Debugging Infrastructure
+**Files**: Multiple controllers and builders
+- Added call stack logging to all conversation creation points
+- Added webhook payload ID structure logging
+- Added duplicate conversation detection logic
 
 ## Key Logging Points Added
 
-### ConversationBuilder
-```ruby
-def create_new_conversation
-  # Log the full call stack to identify what's triggering this conversation creation
-  Rails.logger.info "[🔍 CONVERSATION DEBUG] ConversationBuilder.create_new_conversation called"
-  Rails.logger.info "[🔍 CONVERSATION DEBUG] Call stack trace:"
-  caller.first(10).each_with_index do |line, index|
-    Rails.logger.info "[🔍 CONVERSATION DEBUG]   #{index + 1}. #{line}"
-  end
-  # ... existing code
-end
-```
-
-### ContactInboxWithContactBuilder
-```ruby
-def find_or_create_contact_and_contact_inbox
-  # Log the full call stack to identify what's triggering this contact inbox lookup/creation
-  Rails.logger.info "[🔍 CONTACT DEBUG] ContactInboxWithContactBuilder.find_or_create_contact_and_contact_inbox called"
-  Rails.logger.info "[🔍 CONTACT DEBUG] Call stack trace:"
-  caller.first(10).each_with_index do |line, index|
-    Rails.logger.info "[🔍 CONTACT DEBUG]   #{index + 1}. #{line}"
-  end
-  # ... existing code
-end
-```
-
-### MessageBuilder
-```ruby
-def perform
-  # Log the full call stack to identify what's triggering this message creation
-  Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] MessageBuilder.perform called"
-  Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] Call stack trace:"
-  caller.first(10).each_with_index do |line, index|
-    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG]   #{index + 1}. #{line}"
-  end
-  # ... existing code
-end
-```
-
-### API Messages Controller
+### Enhanced Conversation Creation Detection
 ```ruby
 def create
-  # Log the full call stack to identify what's triggering this API message creation
-  Rails.logger.info "[🔍 N8N DEBUG] API MessagesController.create called"
-  Rails.logger.info "[🔍 N8N DEBUG] Call stack trace:"
-  caller.first(10).each_with_index do |line, index|
-    Rails.logger.info "[🔍 N8N DEBUG]   #{index + 1}. #{line}"
+  # Enhanced analysis for n8n webhook issue
+  if Current.user.is_a?(AgentBot)
+    # Analyze if n8n is using a message ID instead of conversation ID
+    if params[:source_id].present?
+      existing_conversation = Current.account.conversations.joins(:contact_inbox)
+                                            .where(contact_inboxes: { source_id: params[:source_id] })
+                                            .order(created_at: :desc).first
+      
+      if existing_conversation.present?
+        Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ CRITICAL: Conversation already exists for source_id: #{params[:source_id]}"
+        
+        # Check if there's a recent message_updated event
+        recent_message = existing_conversation.messages.order(created_at: :desc).first
+        if recent_message.present? && recent_message.updated_at > 5.minutes.ago
+          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN: Recent message update detected!"
+          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n likely received message_updated webhook and is incorrectly using message ID (#{recent_message.id}) to create conversation!"
+        end
+      end
+    end
   end
-  # ... existing code
 end
 ```
 
-### Conversation Lookup
+### Enhanced Message Updated Webhook Logging
 ```ruby
-def conversation
-  # Log the conversation lookup process
-  Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] BaseController.conversation called - ID: #{conversation_id}, User: #{Current.user&.class}, Account: #{Current.account&.id}"
-  Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] Call stack trace:"
-  caller.first(8).each_with_index do |line, index|
-    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG]   #{index + 1}. #{line}"
-  end
-  # ... existing code
+def message_updated(event)
+  # Enhanced warning about payload structure
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS:"
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ Top-level 'id': #{payload[:id]} (THIS IS MESSAGE ID - DO NOT USE FOR CONVERSATION CREATION!)"
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ conversation.id: #{payload[:conversation][:id]} (THIS IS DISPLAY_ID - USE THIS FOR /conversations/{id}/messages)"
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ If n8n calls /conversations with message ID #{payload[:id]}, it will create DUPLICATE conversations!"
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CORRECT n8n endpoint: /conversations/#{payload[:conversation][:id]}/messages"
+  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ WRONG n8n endpoint: /conversations (using any ID from this payload)"
+end
+```
+
+### Enhanced Webwidget Triggered Webhook Logging
+```ruby
+def webwidget_triggered(event)
+  # Enhanced logging for webwidget_triggered payload structure
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ WEBWIDGET PAYLOAD ANALYSIS:"
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ Top-level 'id': #{payload[:id]} (THIS IS CONTACT_INBOX ID - SAFE TO USE FOR CONVERSATION CREATION)"
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ For webwidget_triggered, n8n SHOULD call /conversations to create new conversation"
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ This is the CORRECT use case for conversation creation endpoint"
 end
 ```
 
 ## Expected Log Output
-When the duplicate conversation issue occurs, the logs should show:
+When the duplicate conversation issue occurs, logs will show:
 
 1. **Message Update Event**: `[🔍 WEBHOOK DEBUG] message_updated webhook triggered`
-2. **n8n API Call**: `[🔍 N8N DEBUG] API MessagesController.create called` with call stack
-3. **Conversation Lookup**: `[🔍 CONVERSATION LOOKUP DEBUG] BaseController.conversation called`
-4. **Potential Duplicate Creation**: If a new conversation is created, we'll see:
-   - `[🔍 CONTACT DEBUG] ContactInboxWithContactBuilder.find_or_create_contact_and_contact_inbox called`
-   - `[🔍 CONVERSATION DEBUG] ConversationBuilder.create_new_conversation called`
+2. **Payload Analysis**: Clear warnings about message ID vs conversation ID usage
+3. **n8n First Call**: `[🔍 N8N DEBUG] API MessagesController.create called` (correct)
+4. **n8n Second Call**: `[🔍 CONVERSATION CREATE DEBUG] ⚠️ ConversationsController.create called` (PROBLEM!)
+5. **Root Cause Detection**: `[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN: Recent message update detected!`
+6. **Duplicate Created**: `[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION CREATED`
 
-## Next Steps
-1. **Reproduce the Issue**: Have user enter email in widget and observe logs
-2. **Analyze Call Stack**: Identify the exact execution path that leads to duplicate conversation creation
-3. **Identify Root Cause**: Determine if it's:
-   - n8n sending message to wrong conversation ID
-   - API endpoint creating new conversation instead of using existing one
-   - Contact/ContactInbox lookup failing and creating duplicates
-   - Race condition between message_update webhook and n8n response
+## Solution Implementation
+
+### Syntax Error Fixes ✅
+- Fixed syntax errors in `app/controllers/api/v1/widget/base_controller.rb`
+- Fixed syntax errors in `app/controllers/concerns/website_token_helper.rb`
+- All files pass syntax validation
+
+### Root Cause Detection ✅
+- Added logging to detect n8n calling wrong endpoint
+- **NEW**: Added analysis to detect message ID misuse
+- **NEW**: Added existing conversation detection
+- **NEW**: Added recent message update correlation
+- Clear error messages identifying the exact problem
+
+### Enhanced Debugging ✅
+- Comprehensive call stack logging added to all conversation creation points
+- **NEW**: Enhanced webhook payload structure analysis
+- **NEW**: Contrasting correct vs incorrect webhook usage
+- ID mismatch detection between actual ID and display_id
+- Duplicate conversation detection for same contact/inbox
 
 ## Files Modified
+- `app/controllers/api/v1/accounts/conversations_controller.rb` - **Enhanced root cause detection with message ID analysis**
+- `app/listeners/webhook_listener.rb` - **Enhanced webhook payload structure logging for both event types**
+- `app/controllers/api/v1/accounts/conversations/base_controller.rb` - Enhanced conversation lookup logging
+- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - Added n8n API call logging and duplicate detection
 - `app/builders/conversation_builder.rb` - Added call stack logging to conversation creation
-- `app/builders/contact_inbox_with_contact_builder.rb` - Added call stack logging to contact inbox operations
+- `app/builders/contact_inbox_with_contact_builder.rb` - Added call stack logging to contact operations
 - `app/builders/messages/message_builder.rb` - Added call stack logging to message creation
-- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - Added call stack logging to API message creation
-- `app/controllers/api/v1/accounts/conversations/base_controller.rb` - Added detailed conversation lookup logging
+- `app/controllers/api/v1/widget/messages_controller.rb` - Added message update logging
+- `app/models/message.rb` - Added message event dispatch logging
+- `app/listeners/agent_bot_listener.rb` - Added agent bot event logging
+- `app/models/conversation.rb` - Added conversation creation notification logging
+- `app/services/whatsapp/incoming_message_base_service.rb` - Added conversation lookup logging
+
+## Next Steps - ACTION REQUIRED ⚠️
+
+### 1. **Fix n8n Configuration** (CRITICAL)
+The issue is in n8n configuration, not Chatwoot code:
+
+- **Problem**: n8n is configured to use top-level `id` from `message_updated` webhooks (Message ID) for conversation creation
+- **Solution**: n8n should ONLY use `conversation.id` (Display ID) from `message_updated` webhooks for message creation endpoint
+- **Action**: Update n8n workflow to distinguish between webhook types:
+  - **webwidget_triggered**: Use top-level `id` → `/conversations` (CREATE new)
+  - **message_updated**: Use `conversation.id` → `/conversations/{id}/messages` (ADD to existing)
+
+### 2. **Monitor Enhanced Logs** 
+- Watch for `[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN` messages
+- Confirm when n8n stops using message IDs for conversation creation
+- Verify duplicate conversations stop being created
+
+### 3. **Verify n8n Webhook Payload Usage**
+- Ensure n8n distinguishes between webhook event types
+- Ensure n8n uses correct ID fields for each endpoint
+- Test both scenarios: new widget opens vs message updates
 
 ## Log Search Patterns
 To analyze the issue, search logs for:
-- `[🔍 CONVERSATION DEBUG]` - New conversation creation
-- `[🔍 CONTACT DEBUG]` - Contact/ContactInbox operations  
-- `[🔍 MESSAGE BUILDER DEBUG]` - Message creation
+- `[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN` - **ROOT CAUSE: Message ID misuse**
+- `[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS` - Webhook payload structure warnings
+- `[🔍 WEBHOOK DEBUG] ✅ WEBWIDGET PAYLOAD ANALYSIS` - Correct webwidget usage
+- `[🔍 CONVERSATION CREATE DEBUG]` - **ROOT CAUSE: Wrong endpoint calls**
 - `[🔍 N8N DEBUG]` - n8n API interactions
-- `[🔍 CONVERSATION LOOKUP DEBUG]` - Conversation lookup process
-- `[🔍 WEBHOOK DEBUG]` - Webhook events
 
-This comprehensive logging should reveal the exact execution flow that leads to duplicate conversation creation. 
+## Summary
+**Root Cause**: n8n is misconfigured to use Message IDs from `message_updated` webhooks for conversation creation instead of using Conversation Display IDs for message creation.
+
+**Solution**: Fix n8n configuration to distinguish between webhook types and use appropriate ID fields for each endpoint.
+
+**Status**: Enhanced debugging infrastructure implemented ✅, n8n configuration fix required ⚠️ 

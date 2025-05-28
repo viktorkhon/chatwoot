@@ -103,6 +103,19 @@ class WebhookListener < BaseListener
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, message.conversation, message)
     
+    # Log the conversation IDs being sent to n8n
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] Webhook payload conversation IDs - Actual ID: #{message.conversation.id}, Display ID: #{message.conversation.display_id}"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] Payload structure - conversation.id: #{payload[:conversation][:id]}, top-level id: #{payload[:id]}"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ⚠️  n8n should use conversation.id (#{payload[:conversation][:id]}) for API calls, NOT the top-level id (#{payload[:id]})"
+    
+    # Enhanced warning about payload structure
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS:"
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ Top-level 'id': #{payload[:id]} (THIS IS MESSAGE ID - DO NOT USE FOR CONVERSATION CREATION!)"
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ conversation.id: #{payload[:conversation][:id]} (THIS IS DISPLAY_ID - USE THIS FOR /conversations/{id}/messages)"
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ If n8n calls /conversations with message ID #{payload[:id]}, it will create DUPLICATE conversations!"
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CORRECT n8n endpoint: /conversations/#{payload[:conversation][:id]}/messages"
+    Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ WRONG n8n endpoint: /conversations (using any ID from this payload)"
+    
     Rails.logger.info "[🔍 WEBHOOK DEBUG] Sending message_updated webhook to external systems - Conversation: #{message.conversation.id}, Message: #{message.id}, Event: message_updated"
     
     deliver_webhook_payloads(payload, inbox)
@@ -170,6 +183,15 @@ class WebhookListener < BaseListener
     # This will add keys like 'id', 'contact', 'inbox', 'account', 'source_id' to the top level,
     # overwriting 'id' and providing 'account' from contact_inbox context.
     payload.merge!(contact_inbox_payload_data)
+    
+    # Enhanced logging for webwidget_triggered payload structure
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] webwidget_triggered webhook triggered - ContactInbox ID: #{contact_inbox.id}, Source ID: #{contact_inbox.source_id}"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ WEBWIDGET PAYLOAD ANALYSIS:"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ Top-level 'id': #{payload[:id]} (THIS IS CONTACT_INBOX ID - SAFE TO USE FOR CONVERSATION CREATION)"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ source_id: #{payload[:source_id]} (THIS IS CONTACT SOURCE ID)"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ current_conversation: #{payload[:current_conversation]&.dig(:id) || 'nil'} (Existing conversation if any)"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ For webwidget_triggered, n8n SHOULD call /conversations to create new conversation"
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ This is the CORRECT use case for conversation creation endpoint"
     
     Rails.logger.info "[WebhookListener] Sending webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
     deliver_webhook_payloads(payload, inbox)

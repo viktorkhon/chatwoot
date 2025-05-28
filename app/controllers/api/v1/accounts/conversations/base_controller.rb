@@ -6,8 +6,9 @@ class Api::V1::Accounts::Conversations::BaseController < Api::V1::Accounts::Base
   def conversation
     conversation_id = params[:id] || params[:conversation_id]
     
-    # Log the conversation lookup process
-    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] BaseController.conversation called - ID: #{conversation_id}, User: #{Current.user&.class}, Account: #{Current.account&.id}"
+    # Log the conversation lookup process with more detail
+    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] BaseController.conversation called - Requested ID: #{conversation_id}, User: #{Current.user&.class}, Account: #{Current.account&.id}"
+    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] Request params: #{params.except(:controller, :action, :format).to_unsafe_h}"
     Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] Call stack trace:"
     caller.first(8).each_with_index do |line, index|
       Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG]   #{index + 1}. #{line}"
@@ -17,12 +18,22 @@ class Api::V1::Accounts::Conversations::BaseController < Api::V1::Accounts::Base
     @conversation = Current.account.conversations.find_by(display_id: conversation_id.to_i)
     
     if @conversation.nil?
-      Rails.logger.error "[🔍 CONVERSATION LOOKUP DEBUG] Conversation not found with ID: #{conversation_id} in account #{Current.account&.id}"
+      Rails.logger.error "[🔍 CONVERSATION LOOKUP DEBUG] ❌ Conversation NOT FOUND with display_id: #{conversation_id} in account #{Current.account&.id}"
+      
+      # Try to find by actual ID to see if that's the issue
+      conversation_by_id = Current.account.conversations.find_by(id: conversation_id.to_i)
+      if conversation_by_id
+        Rails.logger.error "[🔍 CONVERSATION LOOKUP DEBUG] ❌ FOUND conversation with actual ID: #{conversation_id} (display_id: #{conversation_by_id.display_id}) - n8n is using wrong ID!"
+        Rails.logger.error "[🔍 CONVERSATION LOOKUP DEBUG] ❌ n8n should use display_id: #{conversation_by_id.display_id} instead of actual id: #{conversation_id}"
+      else
+        Rails.logger.error "[🔍 CONVERSATION LOOKUP DEBUG] ❌ Conversation not found with either display_id OR actual id: #{conversation_id}"
+      end
+      
       render json: { error: "Conversation not found with ID: #{conversation_id}" }, status: :not_found
       return
     end
     
-    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] Found conversation - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}, Inbox: #{@conversation.inbox.id}"
+    Rails.logger.info "[🔍 CONVERSATION LOOKUP DEBUG] ✅ Found conversation - Actual ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}, Inbox: #{@conversation.inbox.id}"
     
     # Special case for agent bots: bypass normal authorization if they're properly authenticated
     if Current.user.is_a?(AgentBot)

@@ -11,7 +11,31 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
       Rails.logger.info "[🔍 N8N DEBUG]   #{index + 1}. #{line}"
     end
     
-    Rails.logger.info "[🔍 N8N DEBUG] API message creation started - Conversation ID: #{@conversation.id}, User: #{Current.user&.id || @resource&.class}, Params: #{params.except(:attachments).to_unsafe_h}"
+    Rails.logger.info "[🔍 N8N DEBUG] API message creation started - Conversation ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, User: #{Current.user&.id || @resource&.class}"
+    Rails.logger.info "[🔍 N8N DEBUG] Request URL params - conversation_id from URL: #{params[:conversation_id] || params[:id]}"
+    Rails.logger.info "[🔍 N8N DEBUG] Request body params: #{params.except(:attachments, :controller, :action, :format, :conversation_id, :id).to_unsafe_h}"
+    
+    # CRITICAL: Verify this is not a duplicate conversation creation scenario
+    if Current.user.is_a?(AgentBot) && params[:content].present?
+      Rails.logger.info "[🔍 N8N DEBUG] Agent bot message creation - Bot ID: #{Current.user.id}, Bot Name: #{Current.user.name}"
+      
+      # Check if there are recent similar conversations that might indicate duplication
+      similar_conversations = Current.account.conversations
+        .joins(:contact)
+        .where(contact: { id: @conversation.contact.id })
+        .where(inbox_id: @conversation.inbox_id)
+        .where('conversations.created_at > ?', 5.minutes.ago)
+        .where.not(id: @conversation.id)
+      
+      if similar_conversations.exists?
+        Rails.logger.warn "[🔍 N8N DEBUG] ⚠️  POTENTIAL DUPLICATE DETECTED - Found #{similar_conversations.count} recent conversations for same contact/inbox"
+        similar_conversations.each do |conv|
+          Rails.logger.warn "[🔍 N8N DEBUG] ⚠️  Similar conversation - ID: #{conv.id}, Display ID: #{conv.display_id}, Created: #{conv.created_at}"
+        end
+      else
+        Rails.logger.info "[🔍 N8N DEBUG] ✅ No duplicate conversations detected for this contact/inbox combination"
+      end
+    end
     
     user = Current.user || @resource
     
@@ -21,9 +45,11 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
     @message = mb.perform
     
     Rails.logger.info "[🔍 N8N DEBUG] Message created successfully - Message ID: #{@message.id}, Conversation: #{@conversation.id}, Type: #{@message.message_type}"
+    Rails.logger.info "[🔍 N8N DEBUG] ✅ n8n message creation completed successfully - no new conversation created"
   rescue StandardError => e
-    Rails.logger.error "[🔍 N8N DEBUG] Message creation failed - Conversation: #{@conversation.id}, Error: #{e.message}, Backtrace: #{e.backtrace.first(5).join(', ')}"
-    render_could_not_create_error(e.message)
+    Rails.logger.error "[🔍 N8N DEBUG] ❌ Error creating message: #{e.message}"
+    Rails.logger.error "[🔍 N8N DEBUG] ❌ Error backtrace: #{e.backtrace.first(5).join(', ')}"
+    raise
   end
 
   def destroy
@@ -81,7 +107,24 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
   # Override the conversation method from BaseController to support both :id and :conversation_id parameters
   def conversation
     conversation_id = params[:conversation_id] || params[:id]
+    
+    Rails.logger.info "[🔍 CONVERSATION OVERRIDE DEBUG] MessagesController.conversation called - Requested ID: #{conversation_id}"
+    Rails.logger.info "[🔍 CONVERSATION OVERRIDE DEBUG] Account: #{Current.account&.id}, User: #{Current.user&.class}"
+    
     @conversation ||= Current.account.conversations.find_by!(display_id: conversation_id)
+    
+    Rails.logger.info "[🔍 CONVERSATION OVERRIDE DEBUG] ✅ Found conversation - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}"
+    
     authorize @conversation.inbox, :show?
+    
+    Rails.logger.info "[🔍 CONVERSATION OVERRIDE DEBUG] ✅ Authorization passed for inbox: #{@conversation.inbox.id}"
+    
+    @conversation
+  rescue ActiveRecord::RecordNotFound => e
+    Rails.logger.error "[🔍 CONVERSATION OVERRIDE DEBUG] ❌ Conversation not found with display_id: #{conversation_id}"
+    raise
+  rescue Pundit::NotAuthorizedError => e
+    Rails.logger.error "[🔍 CONVERSATION OVERRIDE DEBUG] ❌ Authorization failed for inbox: #{@conversation&.inbox&.id} - #{e.message}"
+    raise
   end
 end

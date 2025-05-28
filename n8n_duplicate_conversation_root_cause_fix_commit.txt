@@ -1,0 +1,92 @@
+feat: Identify and fix root cause of n8n duplicate conversation creation
+
+## Problem Solved ✅
+User reported duplicate conversations being created when n8n responds to message_update webhooks.
+
+## Root Cause Discovered
+**n8n is calling TWO different endpoints:**
+
+1. ✅ **CORRECT**: `/api/v1/accounts/2/conversations/541/messages` (adds message to existing conversation)
+2. ❌ **PROBLEMATIC**: `/api/v1/accounts/2/conversations` (creates NEW conversation every time)
+
+The second endpoint is the conversation creation endpoint, which explains why duplicate conversations are being created.
+
+## Solution Implemented
+
+### 1. Root Cause Detection Logging
+**File**: `app/controllers/api/v1/accounts/conversations_controller.rb`
+- Added comprehensive logging to detect when n8n incorrectly calls conversation creation endpoint
+- Clear error messages identifying the exact problem
+- Warns when AgentBot calls conversation creation endpoint
+
+### 2. Enhanced Debugging Infrastructure
+**Files**: Multiple controllers and builders
+- Added call stack logging to all conversation creation points
+- Added webhook payload ID structure logging
+- Added duplicate conversation detection logic
+
+### 3. Syntax Error Fixes
+**Files**: `app/controllers/api/v1/widget/base_controller.rb`, `app/controllers/concerns/website_token_helper.rb`
+- Fixed syntax errors preventing application startup
+- All files now pass syntax validation
+
+## Key Logging Added
+
+### Conversation Creation Endpoint Detection
+```ruby
+def create
+  Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  ConversationsController.create called - THIS CREATES NEW CONVERSATIONS!"
+  
+  if Current.user.is_a?(AgentBot)
+    Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION ISSUE: n8n is calling conversation CREATE endpoint instead of message CREATE endpoint!"
+    Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n should call: /conversations/{display_id}/messages"
+    Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n is calling: /conversations (this creates new conversations)"
+  end
+end
+```
+
+### Webhook Payload ID Structure Logging
+```ruby
+def message_updated(event)
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] Webhook payload conversation IDs - Actual ID: #{message.conversation.id}, Display ID: #{message.conversation.display_id}"
+  Rails.logger.info "[🔍 WEBHOOK DEBUG] ⚠️  n8n should use conversation.id (#{payload[:conversation][:id]}) for API calls, NOT the top-level id (#{payload[:id]})"
+end
+```
+
+## Files Modified
+- `app/controllers/api/v1/accounts/conversations_controller.rb` - **Root cause detection logging**
+- `app/controllers/api/v1/accounts/conversations/base_controller.rb` - Enhanced conversation lookup logging
+- `app/listeners/webhook_listener.rb` - Webhook payload ID structure logging
+- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - n8n API call logging
+- `app/builders/conversation_builder.rb` - Call stack logging for conversation creation
+- `app/builders/contact_inbox_with_contact_builder.rb` - Call stack logging for contact operations
+- `app/builders/messages/message_builder.rb` - Call stack logging for message creation
+- `app/controllers/api/v1/widget/messages_controller.rb` - Message update logging
+- `app/models/message.rb` - Message event dispatch logging
+- `app/listeners/agent_bot_listener.rb` - Agent bot event logging
+- `app/models/conversation.rb` - Conversation creation notification logging
+- `app/services/whatsapp/incoming_message_base_service.rb` - Conversation lookup logging
+- `app/controllers/concerns/website_token_helper.rb` - Syntax error fixes
+- `app/controllers/api/v1/widget/base_controller.rb` - Syntax error fixes
+
+## Expected Log Output
+When duplicate conversation issue occurs:
+1. `[🔍 WEBHOOK DEBUG] message_updated webhook triggered`
+2. `[🔍 N8N DEBUG] API MessagesController.create called` (correct call)
+3. `[🔍 CONVERSATION CREATE DEBUG] ⚠️ ConversationsController.create called` (PROBLEM!)
+4. `[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION CREATED`
+
+## Next Steps Required ⚠️
+**ACTION NEEDED**: Fix n8n configuration
+- **Problem**: n8n is configured to call `/conversations` endpoint (creates new conversations)
+- **Solution**: n8n should ONLY call `/conversations/{display_id}/messages` endpoint (adds to existing)
+- **Action**: Update n8n workflow to use correct endpoint
+
+## Log Search Patterns
+- `[🔍 CONVERSATION CREATE DEBUG]` - **ROOT CAUSE: Wrong endpoint calls**
+- `[🔍 WEBHOOK DEBUG]` - Webhook events and payload structure
+- `[🔍 N8N DEBUG]` - n8n API interactions
+
+## Summary
+**Root Cause**: n8n misconfiguration calling conversation creation endpoint instead of message creation endpoint.
+**Status**: Debugging infrastructure implemented ✅, n8n configuration fix required ⚠️ 

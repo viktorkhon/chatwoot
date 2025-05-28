@@ -310,22 +310,21 @@ class Message < ApplicationRecord
   end
 
   def dispatch_create_events
-    Rails.configuration.dispatcher.dispatch(MESSAGE_CREATED, Time.zone.now, message: self, performed_by: Current.executed_by)
-
-    if valid_first_reply?
-      Rails.configuration.dispatcher.dispatch(FIRST_REPLY_CREATED, Time.zone.now, message: self, performed_by: Current.executed_by)
-      conversation.update(first_reply_created_at: created_at, waiting_since: nil)
-    else
-      update_waiting_since
-    end
+    Rails.logger.info "[CONVERSATION DEBUG] Message dispatch_create_events - Message ID: #{id}, Conversation: #{conversation.id}, Type: #{message_type}"
+    
+    dispatcher_dispatch(MESSAGE_CREATED)
+    send_reply
+    execute_message_template_hooks
+    
+    Rails.logger.info "[CONVERSATION DEBUG] Message create events dispatched successfully - Message ID: #{id}"
   end
 
   def dispatch_update_event
-    Rails.logger.info "[🔍 MESSAGE EVENT DEBUG] Dispatching message update events - Message: #{id}, Conversation: #{conversation.id}, Changes: #{previous_changes.keys}"
+    Rails.logger.info "[CONVERSATION DEBUG] Message dispatch_update_events - Message ID: #{id}, Conversation: #{conversation.id}, Type: #{message_type}"
     
-    Rails.configuration.dispatcher.dispatch(MESSAGE_UPDATED, Time.zone.now, message: self, previous_changes: previous_changes)
+    dispatcher_dispatch(MESSAGE_UPDATED)
     
-    Rails.logger.info "[🔍 MESSAGE EVENT DEBUG] MESSAGE_UPDATED event dispatched - Message: #{id}, will trigger webhooks"
+    Rails.logger.info "[CONVERSATION DEBUG] Message update events dispatched successfully - Message ID: #{id}"
   end
 
   def send_reply

@@ -38,20 +38,20 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
 
   def create
     # Log when conversation creation endpoint is called - this should NOT happen from n8n
-    Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  ConversationsController.create called - THIS CREATES NEW CONVERSATIONS!"
-    Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  Call stack trace:"
+    Rails.logger.warn "[CONVERSATION DEBUG] ConversationsController.create called - THIS CREATES NEW CONVERSATIONS!"
+    Rails.logger.warn "[CONVERSATION DEBUG] Call stack trace:"
     caller.first(10).each_with_index do |line, index|
-      Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG]   #{index + 1}. #{line}"
+      Rails.logger.warn "[CONVERSATION DEBUG]   #{index + 1}. #{line}"
     end
     
-    Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  User: #{Current.user&.class} (#{Current.user&.id}), Account: #{Current.account&.id}"
-    Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  Request params: #{params.except(:controller, :action, :format).to_unsafe_h}"
+    Rails.logger.warn "[CONVERSATION DEBUG] User: #{Current.user&.class} (#{Current.user&.id}), Account: #{Current.account&.id}"
+    Rails.logger.warn "[CONVERSATION DEBUG] Request params: #{params.except(:controller, :action, :format).to_unsafe_h}"
     
     # Enhanced analysis for n8n webhook issue
     if Current.user.is_a?(AgentBot)
-      Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION ISSUE: n8n is calling conversation CREATE endpoint instead of message CREATE endpoint!"
-      Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n should call: /conversations/{display_id}/messages"
-      Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n is calling: /conversations (this creates new conversations)"
+      Rails.logger.error "[CONVERSATION DEBUG] DUPLICATE CONVERSATION ISSUE: n8n is calling conversation CREATE endpoint instead of message CREATE endpoint!"
+      Rails.logger.error "[CONVERSATION DEBUG] n8n should call: /conversations/{display_id}/messages"
+      Rails.logger.error "[CONVERSATION DEBUG] n8n is calling: /conversations (this creates new conversations)"
       
       # Analyze if n8n is using a message ID instead of conversation ID
       if params[:source_id].present?
@@ -61,17 +61,17 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
                                               .order(created_at: :desc).first
         
         if existing_conversation.present?
-          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ CRITICAL: Conversation already exists for source_id: #{params[:source_id]}"
-          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ Existing conversation ID: #{existing_conversation.id}, Display ID: #{existing_conversation.display_id}"
-          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n should use display_id #{existing_conversation.display_id} in URL: /conversations/#{existing_conversation.display_id}/messages"
+          Rails.logger.error "[CONVERSATION DEBUG] CRITICAL: Conversation already exists for source_id: #{params[:source_id]}"
+          Rails.logger.error "[CONVERSATION DEBUG] Existing conversation ID: #{existing_conversation.id}, Display ID: #{existing_conversation.display_id}"
+          Rails.logger.error "[CONVERSATION DEBUG] n8n should use display_id #{existing_conversation.display_id} in URL: /conversations/#{existing_conversation.display_id}/messages"
           
           # Check if there's a recent message_updated event for this conversation
           recent_message = existing_conversation.messages.order(created_at: :desc).first
           if recent_message.present? && recent_message.updated_at > 5.minutes.ago
-            Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN: Recent message update detected!"
-            Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ Message ID: #{recent_message.id}, Updated: #{recent_message.updated_at}"
-            Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n likely received message_updated webhook and is incorrectly using message ID (#{recent_message.id}) to create conversation!"
-            Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ SOLUTION: n8n should use conversation.id from webhook payload, NOT top-level id (message ID)"
+            Rails.logger.error "[CONVERSATION DEBUG] SMOKING GUN: Recent message update detected!"
+            Rails.logger.error "[CONVERSATION DEBUG] Message ID: #{recent_message.id}, Updated: #{recent_message.updated_at}"
+            Rails.logger.error "[CONVERSATION DEBUG] n8n likely received message_updated webhook and is incorrectly using message ID (#{recent_message.id}) to create conversation!"
+            Rails.logger.error "[CONVERSATION DEBUG] SOLUTION: n8n should use conversation.id from webhook payload, NOT top-level id (message ID)"
           end
         end
       end
@@ -82,9 +82,9 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
                                                .order(created_at: :desc).limit(3)
         
         if existing_conversations.any?
-          Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ Contact #{params[:contact_id]} already has #{existing_conversations.count} conversations:"
+          Rails.logger.error "[CONVERSATION DEBUG] Contact #{params[:contact_id]} already has #{existing_conversations.count} conversations:"
           existing_conversations.each_with_index do |conv, index|
-            Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌   #{index + 1}. ID: #{conv.id}, Display ID: #{conv.display_id}, Status: #{conv.status}, Created: #{conv.created_at}"
+            Rails.logger.error "[CONVERSATION DEBUG]   #{index + 1}. ID: #{conv.id}, Display ID: #{conv.display_id}, Status: #{conv.status}, Created: #{conv.created_at}"
           end
         end
       end
@@ -93,14 +93,14 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
     ActiveRecord::Base.transaction do
       @conversation = ConversationBuilder.new(params: params, contact_inbox: @contact_inbox).perform
       
-      Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  NEW conversation created - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}"
+      Rails.logger.warn "[CONVERSATION DEBUG] NEW conversation created - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}, Contact: #{@conversation.contact.id}"
       
       Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
       
-      Rails.logger.warn "[🔍 CONVERSATION CREATE DEBUG] ⚠️  Message added to new conversation - Conversation: #{@conversation.id}"
+      Rails.logger.warn "[CONVERSATION DEBUG] Message added to new conversation - Conversation: #{@conversation.id}"
     end
     
-    Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION CREATED - This is the root cause of the duplicate conversation issue!"
+    Rails.logger.error "[CONVERSATION DEBUG] DUPLICATE CONVERSATION CREATED - This is the root cause of the duplicate conversation issue!"
   end
 
   def update

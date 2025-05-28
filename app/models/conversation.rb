@@ -255,28 +255,12 @@ class Conversation < ApplicationRecord
   end
 
   def notify_conversation_creation
-    Rails.logger.info "[🔍 CONVERSATION DEBUG] New conversation created - ID: #{id}, Contact: #{contact.id}, Inbox: #{inbox.id}, Source: #{contact_inbox.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] Conversation created notification - ID: #{id}, Display ID: #{display_id}, Contact: #{contact.id}, Inbox: #{inbox.id}"
+    Rails.logger.info "[CONVERSATION DEBUG] Dispatching conversation_created event"
     
-    # Extract page info from custom_attributes to include in the event data
-    event_info = {}
+    dispatcher_dispatch(CONVERSATION_CREATED)
     
-    # Add page URL data to custom_attributes if present
-    if custom_attributes.present? && custom_attributes['page_url'].present?
-      Rails.logger.info "[🔍 CONVERSATION DEBUG] Conversation has page info - URL: #{custom_attributes['page_url']}, Title: #{custom_attributes['page_title']}"
-      # URL information is already in custom_attributes, which is included in webhook data
-      # We don't need to duplicate it in event_info
-    end
-    
-    # Include event_info in the dispatched event
-    Rails.logger.info "[🔍 CONVERSATION DEBUG] Dispatching CONVERSATION_CREATED event - Conversation: #{id}"
-    Rails.configuration.dispatcher.dispatch(
-      CONVERSATION_CREATED, 
-      Time.zone.now, 
-      conversation: self, 
-      event_info: event_info,
-      performed_by: Current.executed_by
-    )
-    Rails.logger.info "[🔍 CONVERSATION DEBUG] CONVERSATION_CREATED event dispatched - Conversation: #{id}"
+    Rails.logger.info "[CONVERSATION DEBUG] conversation_created event dispatched successfully"
   end
 
   def notify_conversation_updation
@@ -357,18 +341,9 @@ class Conversation < ApplicationRecord
       # Find all visitor mappings that might point to this conversation
       # We need to check the contact_inbox source_id to find potential mappings
       if contact_inbox&.source_id.present? && inbox&.channel&.website_token.present?
-        Rails.logger.info "[Conversation] Cleaning up Redis mappings for resolved conversation #{id}"
-        
-        # We can't easily find all visitor IDs that might point to this conversation
-        # But the validation logic in BaseController will clean up stale mappings
-        # when they're accessed, so this is handled automatically
-        
-        # For now, we'll just log that the conversation was resolved
-        # The cleanup happens in BaseController#validate_redis_conversation_mapping
-        Rails.logger.info "[Conversation] Conversation #{id} resolved, stale Redis mappings will be cleaned up on next access"
+      
       end
-    rescue => e
-      Rails.logger.error "[Conversation] Error during Redis cleanup for conversation #{id}: #{e.message}"
+    rescue => e"
     end
   end
 

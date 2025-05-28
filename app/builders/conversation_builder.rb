@@ -2,7 +2,19 @@ class ConversationBuilder
   pattr_initialize [:params!, :contact_inbox!]
 
   def perform
-    look_up_exising_conversation || create_new_conversation
+    Rails.logger.info "[CONVERSATION DEBUG] ConversationBuilder.perform called"
+    Rails.logger.info "[CONVERSATION DEBUG] Call stack trace:"
+    caller.first(5).each_with_index do |line, index|
+      Rails.logger.info "[CONVERSATION DEBUG]   #{index + 1}. #{line}"
+    end
+    
+    Rails.logger.info "[CONVERSATION DEBUG] Creating conversation - Contact: #{@contact_inbox.contact.id}, Inbox: #{@contact_inbox.inbox.id}, Source: #{@contact_inbox.source_id}"
+    
+    @conversation = @contact_inbox.conversations.create!(conversation_params)
+    
+    Rails.logger.info "[CONVERSATION DEBUG] Conversation created - ID: #{@conversation.id}, Display ID: #{@conversation.display_id}"
+    
+    @conversation
   end
 
   private

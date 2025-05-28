@@ -95,7 +95,7 @@ Added logging to track setUserLastSeen decisions:
 
 **Result**: This fix completes the conversation lookup optimization project. Combined with Sessions 51-52, the system now achieves optimal performance with conversation lookups only occurring when truly necessary for user interactions or conversation management operations. 
 
-feat: Enhanced root cause analysis - n8n using message IDs for conversation creation
+feat: Standardize debug logging and enhance n8n duplicate conversation detection
 
 ## Problem Solved ✅
 User reported duplicate conversations being created when n8n responds to message_update webhooks.
@@ -136,20 +136,26 @@ User reported duplicate conversations being created when n8n responds to message
 
 ## Solution Implemented
 
-### 1. Enhanced Root Cause Detection
+### 1. Standardized Debug Logging Format
+**All Files**: Unified debug logging to use consistent `[CONVERSATION DEBUG]` format
+- **Before**: Mixed formats like `[🔍 WEBHOOK DEBUG]`, `[🔍 N8N DEBUG]`, `[🔍 MESSAGE BUILDER DEBUG]`
+- **After**: Consistent `[CONVERSATION DEBUG]` format across all files
+- **Benefit**: Easy filtering with `grep "[CONVERSATION DEBUG]"` to see complete flow
+
+### 2. Enhanced Root Cause Detection
 **File**: `app/controllers/api/v1/accounts/conversations_controller.rb`
 - Added analysis to detect when n8n uses message IDs incorrectly
 - Detects existing conversations for the same contact/source_id
 - Identifies recent message updates that trigger duplicate creation
 - Provides "smoking gun" detection when message ID misuse occurs
 
-### 2. Enhanced Webhook Payload Analysis
+### 3. Enhanced Webhook Payload Analysis
 **File**: `app/listeners/webhook_listener.rb`
 - Added detailed payload structure logging for both webhook types
 - Clear warnings about which IDs to use for which endpoints
 - Contrasts correct vs incorrect webhook usage patterns
 
-### 3. Comprehensive Debugging Infrastructure
+### 4. Comprehensive Debugging Infrastructure
 **Files**: Multiple controllers and builders
 - Enhanced call stack logging to all conversation creation points
 - Added webhook payload ID structure analysis
@@ -157,64 +163,51 @@ User reported duplicate conversations being created when n8n responds to message
 
 ## Key Enhanced Logging
 
-### Smoking Gun Detection
+### Standardized Format Examples
 ```ruby
-def create
-  if Current.user.is_a?(AgentBot) && params[:source_id].present?
-    existing_conversation = Current.account.conversations.joins(:contact_inbox)
-                                          .where(contact_inboxes: { source_id: params[:source_id] })
-                                          .order(created_at: :desc).first
-    
-    if existing_conversation.present?
-      recent_message = existing_conversation.messages.order(created_at: :desc).first
-      if recent_message.present? && recent_message.updated_at > 5.minutes.ago
-        Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN: Recent message update detected!"
-        Rails.logger.error "[🔍 CONVERSATION CREATE DEBUG] ❌ n8n likely received message_updated webhook and is incorrectly using message ID (#{recent_message.id}) to create conversation!"
-      end
-    end
-  end
-end
-```
+# Conversation Creation Detection
+Rails.logger.warn "[CONVERSATION DEBUG] ConversationsController.create called - THIS CREATES NEW CONVERSATIONS!"
+Rails.logger.error "[CONVERSATION DEBUG] SMOKING GUN: Recent message update detected!"
 
-### Enhanced Webhook Payload Warnings
-```ruby
-def message_updated(event)
-  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS:"
-  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ Top-level 'id': #{payload[:id]} (THIS IS MESSAGE ID - DO NOT USE FOR CONVERSATION CREATION!)"
-  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ conversation.id: #{payload[:conversation][:id]} (THIS IS DISPLAY_ID - USE THIS FOR /conversations/{id}/messages)"
-  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ CORRECT n8n endpoint: /conversations/#{payload[:conversation][:id]}/messages"
-  Rails.logger.warn "[🔍 WEBHOOK DEBUG] ❌ WRONG n8n endpoint: /conversations (using any ID from this payload)"
-end
+# Webhook Payload Analysis
+Rails.logger.warn "[CONVERSATION DEBUG] CRITICAL PAYLOAD ANALYSIS:"
+Rails.logger.warn "[CONVERSATION DEBUG] Top-level 'id': #{payload[:id]} (THIS IS MESSAGE ID - DO NOT USE FOR CONVERSATION CREATION!)"
 
-def webwidget_triggered(event)
-  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ WEBWIDGET PAYLOAD ANALYSIS:"
-  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ Top-level 'id': #{payload[:id]} (THIS IS CONTACT_INBOX ID - SAFE TO USE FOR CONVERSATION CREATION)"
-  Rails.logger.info "[🔍 WEBHOOK DEBUG] ✅ For webwidget_triggered, n8n SHOULD call /conversations to create new conversation"
-end
+# API Call Tracking
+Rails.logger.info "[CONVERSATION DEBUG] API MessagesController.create called - User: #{Current.user&.class}"
+Rails.logger.info "[CONVERSATION DEBUG] n8n message creation completed successfully - no new conversation created"
 ```
 
 ## Files Modified
-- `app/controllers/api/v1/accounts/conversations_controller.rb` - **Enhanced root cause detection with message ID analysis**
-- `app/listeners/webhook_listener.rb` - **Enhanced webhook payload structure logging for both event types**
-- `app/controllers/api/v1/accounts/conversations/base_controller.rb` - Enhanced conversation lookup logging
-- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - n8n API call logging
-- `app/builders/conversation_builder.rb` - Call stack logging for conversation creation
-- `app/builders/contact_inbox_with_contact_builder.rb` - Call stack logging for contact operations
-- `app/builders/messages/message_builder.rb` - Call stack logging for message creation
-- `app/controllers/api/v1/widget/messages_controller.rb` - Message update logging
-- `app/models/message.rb` - Message event dispatch logging
-- `app/listeners/agent_bot_listener.rb` - Agent bot event logging
-- `app/models/conversation.rb` - Conversation creation notification logging
-- `app/services/whatsapp/incoming_message_base_service.rb` - Conversation lookup logging
+- `app/controllers/api/v1/accounts/conversations_controller.rb` - **Standardized logging + enhanced root cause detection**
+- `app/listeners/webhook_listener.rb` - **Standardized logging + enhanced webhook payload analysis**
+- `app/controllers/api/v1/accounts/conversations/base_controller.rb` - **Standardized logging + conversation lookup**
+- `app/controllers/api/v1/accounts/conversations/messages_controller.rb` - **Standardized logging + n8n API call tracking**
+- `app/builders/conversation_builder.rb` - **Standardized logging + conversation creation tracking**
+- `app/builders/messages/message_builder.rb` - **Standardized logging + message creation tracking**
+- `app/models/conversation.rb` - **Standardized logging + conversation creation events**
+- `app/models/message.rb` - **Standardized logging + message event dispatch**
 
 ## Expected Log Output
-When duplicate conversation issue occurs:
-1. `[🔍 WEBHOOK DEBUG] message_updated webhook triggered`
-2. `[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS` - Payload structure warnings
-3. `[🔍 N8N DEBUG] API MessagesController.create called` (correct call)
-4. `[🔍 CONVERSATION CREATE DEBUG] ⚠️ ConversationsController.create called` (PROBLEM!)
-5. `[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN: Recent message update detected!` (ROOT CAUSE)
-6. `[🔍 CONVERSATION CREATE DEBUG] ❌ DUPLICATE CONVERSATION CREATED`
+When duplicate conversation issue occurs, filter with `grep "[CONVERSATION DEBUG]"`:
+1. `[CONVERSATION DEBUG] message_updated webhook triggered`
+2. `[CONVERSATION DEBUG] CRITICAL PAYLOAD ANALYSIS` - Payload structure warnings
+3. `[CONVERSATION DEBUG] API MessagesController.create called` (correct call)
+4. `[CONVERSATION DEBUG] ConversationsController.create called` (PROBLEM!)
+5. `[CONVERSATION DEBUG] SMOKING GUN: Recent message update detected!` (ROOT CAUSE)
+6. `[CONVERSATION DEBUG] DUPLICATE CONVERSATION CREATED`
+
+## Log Filtering Commands
+```bash
+# See all conversation debug logs
+grep "[CONVERSATION DEBUG]" logs/production.log
+
+# See only critical issues
+grep "[CONVERSATION DEBUG].*SMOKING GUN\|CRITICAL\|DUPLICATE" logs/production.log
+
+# See conversation creation flow
+grep "[CONVERSATION DEBUG].*ConversationsController.create\|conversation created" logs/production.log
+```
 
 ## Next Steps Required ⚠️
 **ACTION NEEDED**: Fix n8n configuration
@@ -223,11 +216,6 @@ When duplicate conversation issue occurs:
   - **webwidget_triggered**: Use top-level `id` → `/conversations` (CREATE new)
   - **message_updated**: Use `conversation.id` → `/conversations/{id}/messages` (ADD to existing)
 
-## Log Search Patterns
-- `[🔍 CONVERSATION CREATE DEBUG] ❌ SMOKING GUN` - **ROOT CAUSE: Message ID misuse**
-- `[🔍 WEBHOOK DEBUG] ❌ CRITICAL PAYLOAD ANALYSIS` - Webhook payload structure warnings
-- `[🔍 WEBHOOK DEBUG] ✅ WEBWIDGET PAYLOAD ANALYSIS` - Correct webwidget usage
-
 ## Summary
 **Root Cause**: n8n is misconfigured to use Message IDs from `message_updated` webhooks for conversation creation instead of using Conversation Display IDs for message creation.
-**Status**: Enhanced debugging infrastructure implemented ✅, n8n configuration fix required ⚠️ 
+**Status**: Standardized debugging infrastructure implemented ✅, n8n configuration fix required ⚠️ 

@@ -83,6 +83,11 @@ class WebhookListener < BaseListener
     message = extract_message_and_account(event)[0]
     inbox = message.inbox
 
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - message: #{message.id}, conversation: #{message.conversation_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - inbox: #{inbox.id} (#{inbox.inbox_type})"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - webhook_sendable?: #{message.webhook_sendable?}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - event_data: #{event.data.keys.inspect}"
+
     return unless message.webhook_sendable?
 
     # Create the base payload
@@ -94,12 +99,22 @@ class WebhookListener < BaseListener
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, message.conversation, message)
     
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - Delivering webhook for message: #{message.id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK - Event type: #{payload[:event]}"
+    
     deliver_webhook_payloads(payload, inbox)
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATED WEBHOOK COMPLETED - message: #{message.id}"
   end
 
   def webwidget_triggered(event)
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
+
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - contact_inbox: #{contact_inbox.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - inbox: #{inbox.id} (#{inbox.inbox_type})"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - event_data: #{event.data.keys.inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - caller: #{caller[0..2].join(', ')}"
 
     # Prevent duplicate webwidget_triggered webhooks during the same session
     # Check if we've already sent this webhook for this contact_inbox recently
@@ -108,7 +123,7 @@ class WebhookListener < BaseListener
     begin
       # Check if webhook was already sent in the last 30 minutes (session duration)
       if $alfred.with { |conn| conn.get(session_key) }
-        Rails.logger.info "[WebhookListener] Skipping duplicate webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
+        Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Skipping duplicate webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
         return
       end
       
@@ -118,7 +133,7 @@ class WebhookListener < BaseListener
         conn.expire(session_key, 30.minutes.to_i)
       end
     rescue => e
-      Rails.logger.error "[WebhookListener] Redis error in webwidget_triggered: #{e.message}"
+      Rails.logger.error "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Redis error in webwidget_triggered: #{e.message}"
       # Continue with webhook if Redis fails
     end
 
@@ -158,8 +173,11 @@ class WebhookListener < BaseListener
     # overwriting 'id' and providing 'account' from contact_inbox context.
     payload.merge!(contact_inbox_payload_data)
     
-    Rails.logger.info "[WebhookListener] Sending webwidget_triggered webhook for contact_inbox: #{contact_inbox.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Delivering webhook for contact_inbox: #{contact_inbox.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Event type: #{payload[:event]}"
     deliver_webhook_payloads(payload, inbox)
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK COMPLETED - contact_inbox: #{contact_inbox.source_id}"
   end
 
   def contact_created(event)

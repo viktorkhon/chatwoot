@@ -5,34 +5,34 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   def index
     # Handle case where no conversation exists yet
     begin
-      Rails.logger.info "[Widget] 📨 MESSAGES INDEX CALLED"
-      Rails.logger.info "[Widget] 📨 Messages Index - Request ID: #{request.request_id}"
-      Rails.logger.info "[Widget] 📨 Messages Index - Request Method: #{request.method}"
-      Rails.logger.info "[Widget] 📨 Messages Index - User Agent: #{request.headers['User-Agent']&.truncate(100)}"
-      Rails.logger.info "[Widget] 📨 Messages Index - Referer: #{request.headers['Referer']}"
-      Rails.logger.info "[Widget] 📨 Messages Index - Params: #{params.except(:controller, :action, :website_token).inspect}"
-      Rails.logger.info "[Widget] 📨 Messages Index - Visitor ID: #{visitor_id}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 MESSAGES INDEX CALLED"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - Request ID: #{request.request_id}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - Request Method: #{request.method}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - User Agent: #{request.headers['User-Agent']&.truncate(100)}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - Referer: #{request.headers['Referer']}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - Params: #{params.except(:controller, :action, :website_token).inspect}"
+      Rails.logger.info "[CONVERSATION DEBUG] 📨 Messages Index - Visitor ID: #{visitor_id}"
       
       # Use lightweight lookup for message operations to avoid Redis overhead
       @conversation = find_existing_conversation_without_redis
-      Rails.logger.info "[Widget] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"
+      Rails.logger.info "[CONVERSATION DEBUG] Messages index - conversation: #{@conversation.class} (#{@conversation.inspect})"
       
       if @conversation.nil?
         @messages = []
-        Rails.logger.info "[Widget] No conversation found for messages index, returning empty array"
+        Rails.logger.info "[CONVERSATION DEBUG] No conversation found for messages index, returning empty array"
       else
         finder = message_finder
         if finder && finder.respond_to?(:perform)
           @messages = finder.perform
           @messages = @messages.to_a if @messages.respond_to?(:to_a) # Ensure it's an array
-          Rails.logger.info "[Widget] Found #{@messages.length} messages for conversation #{@conversation.id}"
+          Rails.logger.info "[CONVERSATION DEBUG] Found #{@messages.length} messages for conversation #{@conversation.id}"
         else
           @messages = []
-          Rails.logger.warn "[Widget] Invalid message finder: #{finder.class}, returning empty array"
+          Rails.logger.warn "[CONVERSATION DEBUG] Invalid message finder: #{finder.class}, returning empty array"
         end
       end
     rescue => e
-      Rails.logger.error "[Widget] Error in messages index: #{e.message}"
+      Rails.logger.error "[CONVERSATION DEBUG] Error in messages index: #{e.message}"
       @conversation = nil
       @messages = []
     end
@@ -42,7 +42,8 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     begin
       # Use lightweight lookup for message operations to avoid Redis overhead
       current_conversation = find_existing_conversation_without_redis
-      Rails.logger.info "[Widget] Message create - conversation: #{current_conversation.class} (#{current_conversation.inspect})"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE START - conversation: #{current_conversation.class} (#{current_conversation.inspect})"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE - Referer: #{request.headers['Referer']}"
       
       if current_conversation.nil?
         render json: { error: 'No conversation available' }, status: :unprocessable_entity
@@ -51,16 +52,17 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
       
       # Ensure we have a valid conversation object
       unless current_conversation.respond_to?(:messages)
-        Rails.logger.error "[Widget] Invalid conversation object for message creation: #{current_conversation.class}"
+        Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE - Invalid conversation object for message creation: #{current_conversation.class}"
         render json: { error: 'Invalid conversation state' }, status: :unprocessable_entity
         return
       end
 
       # Build message params with the conversation we already have
       message_params_data = build_message_params_for_conversation(current_conversation)
-      Rails.logger.info "[Widget] Message params: #{message_params_data.inspect}"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE - Message params: #{message_params_data.inspect}"
       
       if message_params_data.empty?
+        Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE - Invalid message data"
         render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
         return
       end
@@ -68,13 +70,13 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
       @message = current_conversation.messages.new(message_params_data)
       build_attachment
       @message.save!
-      Rails.logger.info "[Widget] Message created successfully: #{@message.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE COMPLETED - Message created successfully: #{@message.id}"
     rescue ActiveRecord::RecordInvalid => e
-      Rails.logger.error "[Widget] Message validation failed: #{e.message}"
+      Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE ERROR - Message validation failed: #{e.message}"
       render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
     rescue => e
-      Rails.logger.error "[Widget] Error creating message: #{e.message}"
-      Rails.logger.error "[Widget] Error backtrace: #{e.backtrace.first(5).join(', ')}"
+      Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE ERROR - Error creating message: #{e.message}"
+      Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE CREATE ERROR - Error backtrace: #{e.backtrace.first(5).join(', ')}"
       render json: { error: 'Message creation failed' }, status: :internal_server_error
     end
   end
@@ -82,19 +84,30 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   def update
     # Message update should not trigger conversation lookups
     # The message already exists and has a conversation associated
-    Rails.logger.info "[Widget] Message update - message: #{@message.id}, conversation: #{@message.conversation.id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE START - message: #{@message.id}, conversation: #{@message.conversation.id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - Update Params: #{message_update_params.inspect}"
     
     if @message.content_type == 'input_email'
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - Email input type detected, updating submitted_email and performing ContactIdentifyAction"
       @message.update!(submitted_email: contact_email)
+      
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - Performing ContactIdentifyAction with email: #{contact_email}"
       ContactIdentifyAction.new(
         contact: @contact,
         params: { email: contact_email, name: contact_name },
         retain_original_contact_name: true
       ).perform
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - ContactIdentifyAction completed"
     else
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - Non-email type, updating with params: #{message_update_params[:message]}"
       @message.update!(message_update_params[:message])
+      Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE - Message update completed"
     end
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE END - message: #{@message.id}"
   rescue StandardError => e
+    Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE ERROR - message: #{@message.id}, error: #{e.message}"
+    Rails.logger.error "[CONVERSATION DEBUG] 🔧 MESSAGE UPDATE ERROR - backtrace: #{e.backtrace.first(5).join(', ')}"
     render json: { error: @contact.errors, message: e.message }.to_json, status: :internal_server_error
   end
 
@@ -144,7 +157,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     return nil unless @conversation.present?
     
     finder = @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
-    Rails.logger.info "[Widget] Message finder created: #{finder.class} (#{finder.inspect})"
+    Rails.logger.info "[CONVERSATION DEBUG] Message finder created: #{finder.class} (#{finder.inspect})"
     finder
   end
 
@@ -168,7 +181,7 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     
     # Ensure we have a valid conversation object
     unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
-      Rails.logger.error "[Widget] Invalid conversation object for message_params: #{conversation.class}"
+      Rails.logger.error "[CONVERSATION DEBUG] Invalid conversation object for message_params: #{conversation.class}"
       return {}
     end
     

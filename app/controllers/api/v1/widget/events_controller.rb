@@ -2,15 +2,20 @@ class Api::V1::Widget::EventsController < Api::V1::Widget::BaseController
   include Events::Types
 
   def create
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - Event: #{permitted_params[:name]}"
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - User-Agent: #{request.headers['User-Agent']}"
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - Referer: #{request.headers['Referer']}"
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - X-Visitor-ID: #{request.headers['X-Visitor-ID']}"
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - Request IP: #{request.remote_ip}"
-    Rails.logger.info "[Widget] 🔍 EVENT CREATE - Contact Inbox: #{@contact_inbox&.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 EVENT CREATE - Event: #{permitted_params[:name]}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 EVENT CREATE - Event Info: #{permitted_params[:event_info].inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 EVENT CREATE - Caller: #{caller[0..2].join(', ')}"
+    
+    if permitted_params[:name] == 'webwidget.triggered'
+      Rails.logger.warn "[CONVERSATION DEBUG] 🔍 EVENT CREATE - ⚠️ WEBWIDGET.TRIGGERED EVENT DETECTED!"
+      Rails.logger.warn "[CONVERSATION DEBUG] 🔍 EVENT CREATE - ⚠️ This should only happen when widget is first opened"
+      Rails.logger.warn "[CONVERSATION DEBUG] 🔍 EVENT CREATE - ⚠️ If this appears during message_update, it's a bug!"
+    end
     
     Rails.configuration.dispatcher.dispatch(permitted_params[:name], Time.zone.now, contact_inbox: @contact_inbox,
                                                                                     event_info: permitted_params[:event_info].to_h.merge(event_info))
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 EVENT CREATE COMPLETED - Event: #{permitted_params[:name]}"
     head :no_content
   end
 

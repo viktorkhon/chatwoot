@@ -325,8 +325,15 @@ class Message < ApplicationRecord
     # we want to skip the update event if the message is not updated
     return if previous_changes.blank?
 
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 DISPATCH UPDATE EVENT - message: #{id}, conversation: #{conversation_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 DISPATCH UPDATE EVENT - previous_changes: #{previous_changes.inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 DISPATCH UPDATE EVENT - account: #{account_id}, inbox: #{inbox_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 DISPATCH UPDATE EVENT - webhook_sendable?: #{webhook_sendable?}"
+    
     Rails.configuration.dispatcher.dispatch(MESSAGE_UPDATED, Time.zone.now, message: self, performed_by: Current.executed_by,
                                                                             previous_changes: previous_changes)
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 DISPATCH UPDATE EVENT COMPLETED - message: #{id}"
   end
 
   def send_reply

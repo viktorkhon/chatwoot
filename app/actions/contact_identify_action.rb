@@ -11,12 +11,19 @@ class ContactIdentifyAction
   def perform
     @attributes_to_update = [:identifier, :name, :email, :phone_number]
 
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 PERFORM START - contact: #{@contact.id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 PERFORM - params: #{@params.inspect}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 PERFORM - retain_original_contact_name: #{@retain_original_contact_name}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 PERFORM - discard_invalid_attrs: #{@discard_invalid_attrs}"
+
     ActiveRecord::Base.transaction do
       merge_if_existing_identified_contact
       merge_if_existing_email_contact
       merge_if_existing_phone_number_contact
       update_contact
     end
+    
+    Rails.logger.info "[CONVERSATION DEBUG] 🔧 PERFORM COMPLETED - final contact: #{@contact.id}"
     @contact
   end
 

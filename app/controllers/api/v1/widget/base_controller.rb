@@ -482,31 +482,22 @@ class Api::V1::Widget::BaseController < ApplicationController
   end
 
   def find_existing_conversation_without_redis
-    # Try to find existing conversation without triggering Redis operations
+    # Try to find existing conversation using ONLY database lookup
     # This is for message operations where we should already have a conversation
+    # NO Redis operations to maximize performance
     
     return nil unless @contact_inbox.present?
     
-    Rails.logger.info "[Widget] 🔍 Lightweight conversation lookup for visitor: #{visitor_id}"
+    Rails.logger.info "[Widget] 🔍 Database-only conversation lookup for visitor: #{visitor_id}"
     
-    # Try database lookup first (most common case for existing conversations)
+    # Database lookup only - no Redis fallback for message operations
     conversation_from_db = find_conversation_via_database
     if conversation_from_db
       Rails.logger.info "[Widget] ✅ Found existing conversation via database: #{conversation_from_db.id}"
       return conversation_from_db
     end
     
-    # Only try Redis if database lookup fails AND we have visitor_id
-    if visitor_id.present?
-      Rails.logger.info "[Widget] 🔍 Database lookup failed, checking Redis for visitor: #{visitor_id}"
-      conversation_from_redis = find_conversation_via_redis
-      if conversation_from_redis
-        Rails.logger.info "[Widget] ✅ Found conversation via Redis: #{conversation_from_redis.id}"
-        return conversation_from_redis
-      end
-    end
-    
-    Rails.logger.warn "[Widget] ❌ No existing conversation found for visitor: #{visitor_id}"
+    Rails.logger.warn "[Widget] ❌ No existing conversation found via database for visitor: #{visitor_id}"
     nil
   end
 end

@@ -67,7 +67,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     if conversation_from_db
       return conversation_from_db
     end
-    {@contact_inbox&.source_id}
+    
     nil
   end
 
@@ -149,10 +149,11 @@ class Api::V1::Widget::BaseController < ApplicationController
       specific_conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
       
       if specific_conversation.present?
-        
         if specific_conversation.status != 'resolved'
           return specific_conversation
-      elsecontact_inbox #{contact_inbox.source_id}"
+        else
+          Rails.logger.info "[Widget] 🔍 Specific conversation #{specific_conversation.id} is resolved, falling back for contact_inbox #{contact_inbox.source_id}"
+        end
       end
     end
 
@@ -197,7 +198,7 @@ class Api::V1::Widget::BaseController < ApplicationController
       if should_store_in_redis?
         Rails.logger.info "[Widget] 💾 Storing database conversation #{conversation.id} in Redis for future lookups"
         store_conversation_in_redis(conversation)
-      extract_conversation_from_token_data
+      end
     end
     
     conversation

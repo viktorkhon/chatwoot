@@ -255,16 +255,20 @@ class Conversation < ApplicationRecord
   end
 
   def notify_conversation_creation
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] New conversation created - ID: #{id}, Contact: #{contact.id}, Inbox: #{inbox.id}, Source: #{contact_inbox.source_id}"
+    
     # Extract page info from custom_attributes to include in the event data
     event_info = {}
     
     # Add page URL data to custom_attributes if present
     if custom_attributes.present? && custom_attributes['page_url'].present?
+      Rails.logger.info "[🔍 CONVERSATION DEBUG] Conversation has page info - URL: #{custom_attributes['page_url']}, Title: #{custom_attributes['page_title']}"
       # URL information is already in custom_attributes, which is included in webhook data
       # We don't need to duplicate it in event_info
     end
     
     # Include event_info in the dispatched event
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] Dispatching CONVERSATION_CREATED event - Conversation: #{id}"
     Rails.configuration.dispatcher.dispatch(
       CONVERSATION_CREATED, 
       Time.zone.now, 
@@ -272,6 +276,7 @@ class Conversation < ApplicationRecord
       event_info: event_info,
       performed_by: Current.executed_by
     )
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] CONVERSATION_CREATED event dispatched - Conversation: #{id}"
   end
 
   def notify_conversation_updation

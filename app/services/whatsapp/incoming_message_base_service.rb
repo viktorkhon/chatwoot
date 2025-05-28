@@ -95,6 +95,8 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def set_conversation
+    Rails.logger.info "[🔍 WHATSAPP DEBUG] Looking for existing conversation - Contact Inbox: #{@contact_inbox.id}, Lock to single: #{@inbox.lock_to_single_conversation}"
+    
     # if lock to single conversation is disabled, we will create a new conversation if previous conversation is resolved
     @conversation = if @inbox.lock_to_single_conversation
                       @contact_inbox.conversations.last
@@ -102,9 +104,15 @@ class Whatsapp::IncomingMessageBaseService
                       @contact_inbox.conversations
                                     .where.not(status: :resolved).last
                     end
-    return if @conversation
+    
+    if @conversation
+      Rails.logger.info "[🔍 WHATSAPP DEBUG] Found existing conversation - ID: #{@conversation.id}, Status: #{@conversation.status}"
+      return
+    end
 
+    Rails.logger.info "[🔍 WHATSAPP DEBUG] No existing conversation found, creating new one - Contact Inbox: #{@contact_inbox.id}"
     @conversation = ::Conversation.create!(conversation_params)
+    Rails.logger.info "[🔍 WHATSAPP DEBUG] Created new conversation - ID: #{@conversation.id}, Contact: #{@conversation.contact.id}, Inbox: #{@conversation.inbox.id}"
   end
 
   def attach_files

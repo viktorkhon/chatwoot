@@ -14,12 +14,30 @@ class ContactInboxWithContactBuilder
   end
 
   def find_or_create_contact_and_contact_inbox
+    # Log the full call stack to identify what's triggering this contact inbox lookup/creation
+    Rails.logger.info "[🔍 CONTACT DEBUG] ContactInboxWithContactBuilder.find_or_create_contact_and_contact_inbox called"
+    Rails.logger.info "[🔍 CONTACT DEBUG] Call stack trace:"
+    caller.first(10).each_with_index do |line, index|
+      Rails.logger.info "[🔍 CONTACT DEBUG]   #{index + 1}. #{line}"
+    end
+    
+    Rails.logger.info "[🔍 CONTACT DEBUG] Looking for existing contact_inbox with source_id: #{source_id}"
+    
     @contact_inbox = inbox.contact_inboxes.find_by(source_id: source_id) if source_id.present?
-    return @contact_inbox if @contact_inbox
+    
+    if @contact_inbox
+      Rails.logger.info "[🔍 CONTACT DEBUG] Found existing contact_inbox - ID: #{@contact_inbox.id}, Contact: #{@contact_inbox.contact.id}, Source: #{@contact_inbox.source_id}"
+      return @contact_inbox
+    end
 
+    Rails.logger.info "[🔍 CONTACT DEBUG] No existing contact_inbox found, creating new one - Source: #{source_id}, Inbox: #{inbox.id}"
+    
     ActiveRecord::Base.transaction(requires_new: true) do
       build_contact_with_contact_inbox
     end
+    
+    Rails.logger.info "[🔍 CONTACT DEBUG] Created new contact_inbox - ID: #{@contact_inbox.id}, Contact: #{@contact_inbox.contact.id}, Source: #{@contact_inbox.source_id}"
+    
     update_contact_avatar(@contact) unless @contact.avatar.attached?
     @contact_inbox
   end
@@ -27,8 +45,18 @@ class ContactInboxWithContactBuilder
   private
 
   def build_contact_with_contact_inbox
+    Rails.logger.info "[🔍 CONTACT DEBUG] Building contact with contact_inbox - Inbox: #{@inbox.id}, Contact attributes: #{contact_attributes.except(:avatar_url)}"
+    
     @contact = find_contact || create_contact
+    
+    if @contact.persisted? && @contact.id.present?
+      Rails.logger.info "[🔍 CONTACT DEBUG] Using existing contact - ID: #{@contact.id}, Email: #{@contact.email}, Phone: #{@contact.phone_number}"
+    else
+      Rails.logger.info "[🔍 CONTACT DEBUG] Created new contact - ID: #{@contact.id}, Email: #{@contact.email}, Phone: #{@contact.phone_number}"
+    end
+    
     @contact_inbox = create_contact_inbox
+    Rails.logger.info "[🔍 CONTACT DEBUG] Created contact_inbox - ID: #{@contact_inbox.id}, Contact: #{@contact.id}, Source: #{@source_id}"
   end
 
   def account

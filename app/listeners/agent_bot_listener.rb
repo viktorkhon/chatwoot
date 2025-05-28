@@ -30,13 +30,22 @@ class AgentBotListener < BaseListener
   end
 
   def message_updated(event)
+    Rails.logger.info "[🔍 AGENT BOT DEBUG] message_updated event received - extracting message and account"
+    
     message = extract_message_and_account(event)[0]
     inbox = message.inbox
+    
+    Rails.logger.info "[🔍 AGENT BOT DEBUG] Processing message_updated - Message: #{message.id}, Conversation: #{message.conversation.id}, Inbox: #{inbox.id}, Has agent bot: #{connected_agent_bot_exist?(inbox)}"
+    
     return unless connected_agent_bot_exist?(inbox)
     return unless message.webhook_sendable?
 
+    Rails.logger.info "[🔍 AGENT BOT DEBUG] Agent bot processing message_updated - Message: #{message.id}, Bot: #{inbox.agent_bot.id}"
+
     method_name = __method__.to_s
     process_message_event(method_name, inbox.agent_bot, message, event)
+    
+    Rails.logger.info "[🔍 AGENT BOT DEBUG] Agent bot message_updated processing completed - Message: #{message.id}"
   end
 
   def webwidget_triggered(event)

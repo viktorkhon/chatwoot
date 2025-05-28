@@ -80,21 +80,32 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def update
+    Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Message update started - Message ID: #{@message.id}, Conversation: #{@message.conversation.id}, Content Type: #{@message.content_type}"
+    
     # Message update should not trigger conversation lookups
     # The message already exists and has a conversation associated
     Rails.logger.info "[Widget] Message update - message: #{@message.id}, conversation: #{@message.conversation.id}"
     
     if @message.content_type == 'input_email'
+      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Updating email input message - Email: #{contact_email}, Name: #{contact_name}"
+      
       @message.update!(submitted_email: contact_email)
       ContactIdentifyAction.new(
         contact: @contact,
         params: { email: contact_email, name: contact_name },
         retain_original_contact_name: true
       ).perform
+      
+      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Email input message updated successfully - Message: #{@message.id}, Contact updated: #{@contact.id}"
     else
+      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Updating regular message - Params: #{message_update_params[:message]}"
       @message.update!(message_update_params[:message])
+      Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Regular message updated successfully - Message: #{@message.id}"
     end
+    
+    Rails.logger.info "[🔍 MESSAGE UPDATE DEBUG] Message update completed - Message: #{@message.id}, will trigger message_updated event"
   rescue StandardError => e
+    Rails.logger.error "[🔍 MESSAGE UPDATE DEBUG] Message update failed - Message: #{@message.id}, Error: #{e.message}, Backtrace: #{e.backtrace.first(3).join(', ')}"
     render json: { error: @contact.errors, message: e.message }.to_json, status: :internal_server_error
   end
 

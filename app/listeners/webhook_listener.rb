@@ -50,6 +50,9 @@ class WebhookListener < BaseListener
   def conversation_created(event)
     conversation = extract_conversation_and_account(event)[0]
     inbox = conversation.inbox
+    
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] conversation_created webhook triggered - Conversation ID: #{conversation.id}, Contact: #{conversation.contact.id}, Inbox: #{inbox.id}, Source: #{conversation.contact_inbox.source_id}"
+    
     payload = conversation.webhook_data.merge(event: __method__.to_s)
     
     # Ensure custom_attributes exists
@@ -58,7 +61,11 @@ class WebhookListener < BaseListener
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, conversation)
     
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] Sending conversation_created webhook to external systems - Conversation: #{conversation.id}, Event: conversation_created"
+    
     deliver_webhook_payloads(payload, inbox)
+    
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] conversation_created webhook delivery completed - Conversation: #{conversation.id}"
   end
 
   def message_created(event)
@@ -85,6 +92,8 @@ class WebhookListener < BaseListener
 
     return unless message.webhook_sendable?
 
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] message_updated webhook triggered - Message ID: #{message.id}, Conversation ID: #{message.conversation.id}, Contact: #{message.conversation.contact.id}, Inbox: #{inbox.id}"
+
     # Create the base payload
     payload = message.webhook_data.merge(event: __method__.to_s)
     
@@ -94,7 +103,11 @@ class WebhookListener < BaseListener
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, message.conversation, message)
     
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] Sending message_updated webhook to external systems - Conversation: #{message.conversation.id}, Message: #{message.id}, Event: message_updated"
+    
     deliver_webhook_payloads(payload, inbox)
+    
+    Rails.logger.info "[🔍 WEBHOOK DEBUG] message_updated webhook delivery completed - Conversation: #{message.conversation.id}, Message: #{message.id}"
   end
 
   def webwidget_triggered(event)

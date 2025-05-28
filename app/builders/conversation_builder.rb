@@ -14,6 +14,13 @@ class ConversationBuilder
   end
 
   def create_new_conversation
+    # Log the full call stack to identify what's triggering this conversation creation
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] ConversationBuilder.create_new_conversation called"
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] Call stack trace:"
+    caller.first(10).each_with_index do |line, index|
+      Rails.logger.info "[🔍 CONVERSATION DEBUG]   #{index + 1}. #{line}"
+    end
+    
     conversation_params_with_page_info = conversation_params.dup
     
     # Check if custom_attributes already has page URL info
@@ -49,7 +56,10 @@ class ConversationBuilder
       end
     end
     
-    ::Conversation.create!(conversation_params_with_page_info)
+    new_conversation = ::Conversation.create!(conversation_params_with_page_info)
+    Rails.logger.info "[🔍 CONVERSATION DEBUG] ConversationBuilder created new conversation - ID: #{new_conversation.id}, Contact: #{new_conversation.contact.id}, Inbox: #{new_conversation.inbox.id}"
+    
+    new_conversation
   end
 
   def conversation_params

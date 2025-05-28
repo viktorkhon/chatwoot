@@ -27,12 +27,28 @@ class Messages::MessageBuilder
   end
 
   def perform
+    # Log the full call stack to identify what's triggering this message creation
+    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] MessageBuilder.perform called"
+    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] Call stack trace:"
+    caller.first(10).each_with_index do |line, index|
+      Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG]   #{index + 1}. #{line}"
+    end
+    
+    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] Creating message - Conversation: #{@conversation.id}, User: #{@user&.class}, Message Type: #{@message_type}, Content: #{@params[:content]&.truncate(100)}"
+    
     @message = @conversation.messages.build(message_params)
+    
+    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] Message built - ID will be assigned on save, Conversation: #{@conversation.id}, Sender: #{@message.sender&.class}"
+    
     process_attachments
     process_emails
     # Use the unified @custom_cards_data variable here
     process_custom_cards if @custom_cards_data
+    
     @message.save!
+    
+    Rails.logger.info "[🔍 MESSAGE BUILDER DEBUG] Message saved successfully - ID: #{@message.id}, Conversation: #{@conversation.id}, Type: #{@message.message_type}"
+    
     @message
   end
 

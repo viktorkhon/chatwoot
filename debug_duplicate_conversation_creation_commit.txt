@@ -1,0 +1,54 @@
+feat: Add comprehensive call stack logging to debug duplicate conversation creation during message_update events
+
+## Problem
+User reported that when entering email in widget, message_update event triggers webhook to n8n, and when n8n sends reply back, a duplicate conversation is created despite existing one.
+
+## Solution
+Added detailed call stack logging to identify the exact execution flow that leads to duplicate conversation creation:
+
+### Files Modified:
+
+**app/builders/conversation_builder.rb**
+- Added call stack trace to `create_new_conversation` method
+- Logs full execution path leading to new conversation creation
+- Debug prefix: `[🔍 CONVERSATION DEBUG]`
+
+**app/builders/contact_inbox_with_contact_builder.rb**
+- Added call stack trace to `find_or_create_contact_and_contact_inbox` method  
+- Tracks contact inbox lookups/creation that might trigger conversation creation
+- Debug prefix: `[🔍 CONTACT DEBUG]`
+
+**app/builders/messages/message_builder.rb**
+- Added call stack trace to `perform` method
+- Identifies what triggers message creation that might lead to conversation creation
+- Debug prefix: `[🔍 MESSAGE BUILDER DEBUG]`
+
+**app/controllers/api/v1/accounts/conversations/messages_controller.rb**
+- Added call stack trace to `create` method
+- Tracks when n8n API calls create messages
+- Debug prefix: `[🔍 N8N DEBUG]`
+
+**app/controllers/api/v1/accounts/conversations/base_controller.rb**
+- Added detailed logging to `conversation` method
+- Tracks conversation lookup process and authorization
+- Debug prefix: `[🔍 CONVERSATION LOOKUP DEBUG]`
+
+### Debugging Strategy:
+1. Track message_update webhook trigger
+2. Follow n8n API call execution path
+3. Monitor conversation lookup process
+4. Identify if new conversation/contact creation occurs
+5. Analyze call stack to find root cause
+
+### Log Search Patterns:
+- `[🔍 CONVERSATION DEBUG]` - New conversation creation
+- `[🔍 CONTACT DEBUG]` - Contact/ContactInbox operations
+- `[🔍 MESSAGE BUILDER DEBUG]` - Message creation
+- `[🔍 N8N DEBUG]` - n8n API interactions  
+- `[🔍 CONVERSATION LOOKUP DEBUG]` - Conversation lookup process
+- `[🔍 WEBHOOK DEBUG]` - Webhook events (existing)
+
+This comprehensive logging will reveal the exact execution flow that leads to duplicate conversation creation, enabling targeted fixes.
+
+## Context File
+Created: `.cursor/project_context/Tuesday, May 27, 2025 - Debug Duplicate Conversation Creation During Message Update Events [54].md` 

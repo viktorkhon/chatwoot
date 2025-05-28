@@ -67,7 +67,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     if conversation_from_db
       return conversation_from_db
     end
-    {@contact_inbox&.source_id}"
+    
     nil
   end
 
@@ -77,9 +77,9 @@ class Api::V1::Widget::BaseController < ApplicationController
     conversation_token = VisitorConversationMapping.get_conversation_for_visitor(visitor_id, @web_widget.website_token)
     
     if conversation_token.present?
-      Rails.logger.info "[Widget] 🔍 Found Redis conversation token for visitor: #{visitor_id}"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 Found Redis conversation token for visitor: #{visitor_id}"
     else
-      Rails.logger.info "[Widget] 🔍 No Redis conversation token found for visitor: #{visitor_id}"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 No Redis conversation token found for visitor: #{visitor_id}"
       return nil
     end
     
@@ -97,7 +97,7 @@ class Api::V1::Widget::BaseController < ApplicationController
       
       conversation
     else
-      Rails.logger.warn "[Widget] ❌ Redis mapping validation failed - clearing stale mapping for visitor: #{visitor_id}"
+      Rails.logger.warn "[CONVERSATION DEBUG] ❌ Redis mapping validation failed - clearing stale mapping for visitor: #{visitor_id}"
       VisitorConversationMapping.clear_visitor_data(visitor_id, @web_widget.website_token)
       nil
     end
@@ -122,13 +122,13 @@ class Api::V1::Widget::BaseController < ApplicationController
       # Find contact_inbox from token
       contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: token_data[:source_id])
       unless contact_inbox
-        Rails.logger.warn "[Widget] ❌ Contact_inbox not found for source_id: #{token_data[:source_id]}"
+        Rails.logger.warn "[CONVERSATION DEBUG] ❌ Contact_inbox not found for source_id: #{token_data[:source_id]}"
         return nil
       end
       
       # If we have a current contact_inbox, verify it matches the token
       if @contact_inbox.present? && token_data[:source_id] != @contact_inbox.source_id
-        Rails.logger.warn "[Widget] ❌ Token source_id mismatch: token=#{token_data[:source_id]}, current=#{@contact_inbox.source_id}"
+        Rails.logger.warn "[CONVERSATION DEBUG] ❌ Token source_id mismatch: token=#{token_data[:source_id]}, current=#{@contact_inbox.source_id}"
         return nil
       end
 
@@ -137,8 +137,8 @@ class Api::V1::Widget::BaseController < ApplicationController
       
       conversation
     rescue StandardError => e
-      Rails.logger.error "[Widget] ❌ Redis validation and extraction exception: #{e.message}"
-      Rails.logger.error "[Widget] ❌ Exception backtrace: #{e.backtrace.first(3).join(', ')}"
+      Rails.logger.error "[CONVERSATION DEBUG] ❌ Redis validation and extraction exception: #{e.message}"
+      Rails.logger.error "[CONVERSATION DEBUG] ❌ Exception backtrace: #{e.backtrace.first(3).join(', ')}"
       nil
     end
   end
@@ -149,37 +149,39 @@ class Api::V1::Widget::BaseController < ApplicationController
       specific_conversation = contact_inbox.conversations.find_by(id: token_data[:conversation_id])
       
       if specific_conversation.present?
-        
+        Rails.logger.info "[CONVERSATION DEBUG] ✅ Found specific conversation: #{specific_conversation.id} for contact_inbox #{contact_inbox.source_id}"
         if specific_conversation.status != 'resolved'
           return specific_conversation
-      elsecontact_inbox #{contact_inbox.source_id}"
+        else
+          Rails.logger.info "[CONVERSATION DEBUG] 🔍 Specific conversation #{specific_conversation.id} is resolved, falling back to open conversation for contact_inbox #{contact_inbox.source_id}"
+        end
       end
     end
 
     # Fallback to last open conversation
-    Rails.logger.info "[Widget] 🔍 Falling back to last open conversation for contact_inbox #{contact_inbox.source_id}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 Falling back to last open conversation for contact_inbox #{contact_inbox.source_id}"
     inbox_id = auth_token_params[:inbox_id] || @web_widget&.inbox&.id
     open_conversation = contact_inbox.conversations.where(inbox_id: inbox_id, status: [:open, :pending]).last
     
     if open_conversation
-      Rails.logger.info "[Widget] ✅ Found fallback conversation: #{open_conversation.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] ✅ Found fallback conversation: #{open_conversation.id}"
       update_redis_mapping_for_conversation(open_conversation)
       open_conversation
     else
-      Rails.logger.info "[Widget] 🔍 No open conversations found for fallback"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 No open conversations found for fallback"
       nil
     end
   end
 
   def find_conversation_via_database
     conversations_scope = conversations
-    Rails.logger.info "[Widget] 🔍 Database lookup - open conversations: #{conversations_scope.where(status: [:open, :pending]).count}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 Database lookup - open conversations: #{conversations_scope.where(status: [:open, :pending]).count}"
     
     conversation = conversations_scope.where(status: [:open, :pending]).last
     if conversation
-      Rails.logger.info "[Widget] ✅ Found conversation via database: #{conversation.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] ✅ Found conversation via database: #{conversation.id}"
     else
-      Rails.logger.info "[Widget] 🔍 Database lookup - no open conversations found"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 Database lookup - no open conversations found"
     end
     
     conversation
@@ -187,17 +189,17 @@ class Api::V1::Widget::BaseController < ApplicationController
 
   def find_conversation_via_database_with_redis_storage
     conversations_scope = conversations
-    Rails.logger.info "[Widget] 🔍 Database lookup with Redis Storage- open conversations: #{conversations_scope.where(status: [:open, :pending]).count}"
+    Rails.logger.info "[CONVERSATION DEBUG] 🔍 Database lookup with Redis Storage- open conversations: #{conversations_scope.where(status: [:open, :pending]).count}"
     
     conversation = conversations_scope.where(status: [:open, :pending]).last
     if conversation
-      Rails.logger.info "[Widget] ✅ Found conversation with Redis Storage: #{conversation.id}"
+      Rails.logger.info "[CONVERSATION DEBUG] ✅ Found conversation with Redis Storage: #{conversation.id}"
       
       # Store in Redis for future lookups (only for conversation management operations)
       if should_store_in_redis?
-        Rails.logger.info "[Widget] 💾 Storing database conversation #{conversation.id} in Redis for future lookups"
+        Rails.logger.info "[CONVERSATION DEBUG] 💾 Storing database conversation #{conversation.id} in Redis for future lookups"
         store_conversation_in_redis(conversation)
-      extract_conversation_from_token_data
+      end
     end
     
     conversation
@@ -241,7 +243,7 @@ class Api::V1::Widget::BaseController < ApplicationController
 
     conversation_token = generate_conversation_token_for_conversation(conversation)
     unless conversation_token
-      Rails.logger.error "[Widget] ❌ Failed to generate conversation token for conversation #{conversation.id}"
+      Rails.logger.error "[CONVERSATION DEBUG] ❌ Failed to generate conversation token for conversation #{conversation.id}"
       return
     end
     
@@ -276,8 +278,8 @@ class Api::V1::Widget::BaseController < ApplicationController
     token = ::Widget::TokenService.new(payload: payload).generate_token
     token
   rescue StandardError => e
-    Rails.logger.error "[Widget] ❌ Token generation exception: #{e.message}"
-    Rails.logger.error "[Widget] ❌ Exception backtrace: #{e.backtrace.first(3).join(', ')}"
+    Rails.logger.error "[CONVERSATION DEBUG] ❌ Token generation exception: #{e.message}"
+    Rails.logger.error "[CONVERSATION DEBUG] ❌ Exception backtrace: #{e.backtrace.first(3).join(', ')}"
     nil
   end
 
@@ -383,15 +385,15 @@ class Api::V1::Widget::BaseController < ApplicationController
     case "#{controller_name}##{action_name}"
     when 'api/v1/widget/conversations#index', 'api/v1/widget/conversations#create'
       # These actions need full conversation lookup with Redis
-      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using FULL lookup for conversation management"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 CONVERSATION LOOKUP - Using FULL lookup for conversation management"
       find_or_build_conversation
     when 'api/v1/widget/messages#index', 'api/v1/widget/messages#create'
       # For message operations, try to use existing conversation without Redis lookup
-      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for message operations"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for message operations"
       find_existing_conversation_without_redis
     else
       # For other actions, try lightweight lookup
-      Rails.logger.info "[Widget] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for other operations (#{controller_name}##{action_name})"
+      Rails.logger.info "[CONVERSATION DEBUG] 🔍 CONVERSATION LOOKUP - Using LIGHTWEIGHT lookup for other operations (#{controller_name}##{action_name})"
       find_existing_conversation_without_redis
     end
   end
@@ -408,7 +410,7 @@ class Api::V1::Widget::BaseController < ApplicationController
     if conversation_from_db
       return conversation_from_db
     end
-    Rails.logger.warn "[Widget] ❌ No existing conversation found via database for visitor: #{visitor_id}"
+    Rails.logger.warn "[CONVERSATION DEBUG] ❌ No existing conversation found via database for visitor: #{visitor_id}"
     nil
   end
 end

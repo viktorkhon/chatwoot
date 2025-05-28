@@ -31,7 +31,7 @@ module WebsiteTokenHelper
         source_id: auth_token_params[:source_id]
       )
       @contact = @contact_inbox&.contact
-     end
+    end
 
     # If no contact found via auth token and we have a visitor ID, try Redis mapping
     if @contact.blank? && visitor_id.present?
@@ -40,6 +40,7 @@ module WebsiteTokenHelper
       if contact_source_id.present?
         @contact_inbox = @web_widget.inbox.contact_inboxes.find_by(source_id: contact_source_id)
         @contact = @contact_inbox&.contact
+      end
     end
 
     # If still no contact, create a new one
@@ -50,6 +51,7 @@ module WebsiteTokenHelper
       if visitor_id.present?
         VisitorConversationMapping.set_contact_for_visitor(visitor_id, @web_widget.website_token, @contact_inbox.source_id)
       end
+    end
 
     Current.contact = @contact
   end

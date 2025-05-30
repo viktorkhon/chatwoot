@@ -11,8 +11,10 @@
 #  limits                :jsonb
 #  locale                :integer          default("en")
 #  name                  :string           not null
+#  shopify_name          :string
 #  status                :integer          default("active")
 #  support_email         :string(100)
+#  vector_database_namespace :string
 #  created_at            :datetime         not null
 #  updated_at            :datetime         not null
 #

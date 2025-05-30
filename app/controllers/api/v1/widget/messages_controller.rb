@@ -140,36 +140,4 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   def set_message
     @message = @web_widget.inbox.messages.find(permitted_params[:id])
   end
-
-  def build_message_params_for_conversation(conversation)
-    message_data = permitted_params[:message] || {}
-    
-    # Ensure we have a valid conversation object
-    unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
-      return {}
-    end
-    
-    return {} unless conversation.account_id && conversation.inbox_id
-    
-    {
-      account_id: conversation.account_id,
-      sender: @contact,
-      content: message_data[:content],
-      inbox_id: conversation.inbox_id,
-      content_attributes: build_message_content_attributes(message_data),
-      echo_id: message_data[:echo_id],
-      message_type: :incoming
-    }
-  end
-
-  def build_message_content_attributes(message_data)
-    {
-      in_reply_to: message_data[:reply_to],
-      page_info: {
-        page_url: message_data[:page_url],
-        page_title: message_data[:page_title],
-        referer_url: message_data[:referer_url]
-      }.compact
-    }.compact
-  end
 end

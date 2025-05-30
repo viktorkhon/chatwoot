@@ -139,6 +139,7 @@ class Api::V1::Widget::BaseController < ApplicationController
       if specific_conversation.present?
         if specific_conversation.status != 'resolved'
           return specific_conversation
+        end
       end
     end
 
@@ -326,14 +327,6 @@ class Api::V1::Widget::BaseController < ApplicationController
     request.headers['X-Visitor-ID'] || permitted_params[:visitor_id]
   end
 
-  def message_params    
-    message_data = permitted_params[:message] || {}
-    # DEPRECATED: This method should not be used anymore
-    # Use build_message_params_for_conversation instead to avoid conversation lookups
-    
-    return {}
-  end
-
   def build_message_content_attributes(message_data)
     {
       in_reply_to: message_data[:reply_to],
@@ -343,6 +336,27 @@ class Api::V1::Widget::BaseController < ApplicationController
         referer_url: message_data[:referer_url]
       }.compact
     }.compact
+  end
+
+  def build_message_params_for_conversation(conversation)
+    message_data = permitted_params[:message] || {}
+    
+    # Ensure we have a valid conversation object
+    unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
+      return {}
+    end
+    
+    return {} unless conversation.account_id && conversation.inbox_id
+    
+    {
+      account_id: conversation.account_id,
+      sender: @contact,
+      content: message_data[:content],
+      inbox_id: conversation.inbox_id,
+      content_attributes: build_message_content_attributes(message_data),
+      echo_id: message_data[:echo_id],
+      message_type: :incoming
+    }
   end
 
   def find_conversation_for_context

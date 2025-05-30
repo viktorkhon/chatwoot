@@ -222,12 +222,12 @@ RSpec.describe '/api/v1/widget/conversations/toggle_typing', type: :request do
     end
   end
 
-  describe 'POST /api/v1/widget/conversations/toggle_status' do
+  describe 'GET /api/v1/widget/conversations/toggle_status' do
     context 'when user end conversation from widget' do
       it 'resolves the conversation' do
         expect(conversation.open?).to be true
 
-        post '/api/v1/widget/conversations/toggle_status',
+        get '/api/v1/widget/conversations/toggle_status',
             headers: { 'X-Auth-Token' => token },
             params: { website_token: web_widget.website_token },
             as: :json
@@ -255,7 +255,7 @@ RSpec.describe '/api/v1/widget/conversations/toggle_typing', type: :request do
       it 'returns action not permitted status' do
         expect(conversation.open?).to be true
 
-        post '/api/v1/widget/conversations/toggle_status',
+        get '/api/v1/widget/conversations/toggle_status',
             headers: { 'X-Auth-Token' => token },
             params: { website_token: web_widget.website_token },
             as: :json
@@ -267,7 +267,7 @@ RSpec.describe '/api/v1/widget/conversations/toggle_typing', type: :request do
 
     context 'when a token without any conversation is used' do
       it 'returns not found status' do
-        post '/api/v1/widget/conversations/toggle_status',
+        get '/api/v1/widget/conversations/toggle_status',
             headers: { 'X-Auth-Token' => token_without_conversation },
             params: { website_token: web_widget.website_token },
             as: :json

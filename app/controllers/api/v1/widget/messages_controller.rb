@@ -3,18 +3,70 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   before_action :set_message, only: [:update]
 
   def index
-    @messages = conversation.nil? ? [] : message_finder.perform
+    # Handle case where no conversation exists yet
+    begin
+      
+      # Use lightweight lookup for message operations to avoid Redis overhead
+      @conversation = find_existing_conversation_without_redis
+      
+      if @conversation.nil?
+        @messages = []
+      else
+        finder = message_finder
+        if finder && finder.respond_to?(:perform)
+          @messages = finder.perform
+          @messages = @messages.to_a if @messages.respond_to?(:to_a) # Ensure it's an array
+        else
+          @messages = []
+        end
+      end
+    rescue => e
+      @conversation = nil
+      @messages = []
+    end
   end
 
   def create
-    @message = conversation.messages.new(message_params)
-    build_attachment
-    @message.save!
+    begin
+      # Use lightweight lookup for message operations to avoid Redis overhead
+      current_conversation = find_existing_conversation_without_redis
+      
+      if current_conversation.nil?
+        render json: { error: 'No conversation available' }, status: :unprocessable_entity
+        return
+      end
+      
+      # Ensure we have a valid conversation object
+      unless current_conversation.respond_to?(:messages)
+        render json: { error: 'Invalid conversation state' }, status: :unprocessable_entity
+        return
+      end
+
+      # Build message params with the conversation we already have
+      message_params_data = build_message_params_for_conversation(current_conversation)
+      
+      if message_params_data.empty?
+        render json: { error: 'Invalid message data' }, status: :unprocessable_entity  
+        return
+      end
+
+      @message = current_conversation.messages.new(message_params_data)
+      build_attachment
+      @message.save!
+    rescue ActiveRecord::RecordInvalid => e
+      render json: { error: 'Message validation failed', message: e.message }, status: :unprocessable_entity
+    rescue => e
+      render json: { error: 'Message creation failed' }, status: :internal_server_error
+    end
   end
 
   def update
+    # Message update should not trigger conversation lookups
+    # The message already exists and has a conversation associated
+    
     if @message.content_type == 'input_email'
       @message.update!(submitted_email: contact_email)
+      
       ContactIdentifyAction.new(
         contact: @contact,
         params: { email: contact_email, name: contact_name },
@@ -23,7 +75,6 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     else
       @message.update!(message_update_params[:message])
     end
-  rescue StandardError => e
     render json: { error: @contact.errors, message: e.message }.to_json, status: :internal_server_error
   end
 
@@ -43,7 +94,21 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def set_conversation
-    @conversation = create_conversation if conversation.nil?
+    # Use lightweight lookup for message operations to avoid Redis overhead
+    current_conversation = find_existing_conversation_without_redis
+    
+    if current_conversation.nil?
+      
+      # Instead of creating a new conversation, return an error
+      # Messages should only be sent to existing conversations
+      render json: { 
+        error: 'No active conversation found. Please start a conversation first.',
+        code: 'NO_CONVERSATION'
+      }, status: :unprocessable_entity
+      return
+    else
+      @conversation = current_conversation
+    end
   end
 
   def message_finder_params
@@ -55,7 +120,10 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   end
 
   def message_finder
-    @message_finder ||= MessageFinder.new(conversation, message_finder_params)
+    return nil unless @conversation.present?
+    
+    finder = @message_finder ||= MessageFinder.new(@conversation, message_finder_params)
+    finder
   end
 
   def message_update_params
@@ -64,12 +132,44 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def permitted_params
     # timestamp parameter is used in create conversation method
-    params.permit(:id, :before, :after, :website_token, contact: [:name, :email], 
+    params.permit(:id, :before, :after, :website_token, :visitor_id, contact: [:name, :email], 
                   message: [:content, :referer_url, :page_url, :page_title, :timestamp, :echo_id, :reply_to, 
                            { content_attributes: { page_info: [:referer_url, :page_url, :page_title] } }])
   end
 
   def set_message
     @message = @web_widget.inbox.messages.find(permitted_params[:id])
+  end
+
+  def build_message_params_for_conversation(conversation)
+    message_data = permitted_params[:message] || {}
+    
+    # Ensure we have a valid conversation object
+    unless conversation.respond_to?(:account_id) && conversation.respond_to?(:inbox_id)
+      return {}
+    end
+    
+    return {} unless conversation.account_id && conversation.inbox_id
+    
+    {
+      account_id: conversation.account_id,
+      sender: @contact,
+      content: message_data[:content],
+      inbox_id: conversation.inbox_id,
+      content_attributes: build_message_content_attributes(message_data),
+      echo_id: message_data[:echo_id],
+      message_type: :incoming
+    }
+  end
+
+  def build_message_content_attributes(message_data)
+    {
+      in_reply_to: message_data[:reply_to],
+      page_info: {
+        page_url: message_data[:page_url],
+        page_title: message_data[:page_title],
+        referer_url: message_data[:referer_url]
+      }.compact
+    }.compact
   end
 end

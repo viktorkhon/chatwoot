@@ -1,0 +1,39 @@
+Decoding feature flags value: 5772603293583
+Binary representation: 101001001010111010110111001000011100010011111
+Binary length: 45 bits
+Total features in features.yml: 51
+
+Assuming the positions match the features.yml, here are the enabled features based on bit positions:
+
+Position 1 (bit 1): inbound_emails - ENABLED
+Position 2 (bit 0): channel_email - DISABLED
+Position 3 (bit 1): channel_facebook - ENABLED
+Position 4 (bit 1): channel_twitter - ENABLED
+Position 5 (bit 1): ip_lookup - ENABLED
+Position 6 (bit 0): disable_branding - DISABLED
+Position 7 (bit 0): email_continuity_on_api_channel - DISABLED
+Position 8 (bit 0): help_center - DISABLED
+Position 9 (bit 1): agent_bots - ENABLED
+Position 10 (bit 0): macros - DISABLED
+Position 11 (bit 0): agent_management - DISABLED
+Position 12 (bit 0): team_management - DISABLED
+Position 13 (bit Enabled?): inbox_management
+Position 14 (bit Enabled?): labels
+Position 15 (bit Enabled?): custom_attributes
+Position 16 (bit Enabled?): automations
+Position 17 (bit Enabled?): canned_responses
+Position 18 (bit Enabled?): integrations
+Position 19 (bit Enabled?): voice_recorder
+Position 20 (bit Enabled?): mobile_v2
+Position 21 (bit Enabled?): channel_website
+Position 22 (bit Enabled?): campaigns
+
+...
+
+Position 52 (bit Enabled?): shopify_integration - This is ENABLED based on your binary representation if in this position
+
+If the last bit (rightmost or LSB) in the binary representation corresponds to the first feature in the list, then shopify_integration (at position 52) would map to the 52nd bit from the right. Since your binary representation is only 45 bits long, this would be outside the range of the provided value.
+
+Based on the features.yml order, shopify_integration is at position 47, and if we count from the right in your binary representation (10100100101011101011011100100001110001001111), bit 47 would be outside the range. However, if we count from the left, it would have the value "1" indicating it's enabled.
+
+Since there's some ambiguity in the exact mapping, I recommend checking your application logs or configuration to verify which bit position corresponds to shopify_integration. 

@@ -316,7 +316,7 @@ Rails.application.routes.draw do
             post :update_last_seen
             post :toggle_typing
             post :transcript
-            post :toggle_status
+            get :toggle_status
           end
         end
         resource :contact, only: [:show, :update] do

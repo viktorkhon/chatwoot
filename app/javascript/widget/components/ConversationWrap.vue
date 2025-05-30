@@ -44,7 +44,7 @@ export default {
     colorSchemeClass() {
       return `${this.darkMode === 'dark' ? 'dark-scheme' : 'light-scheme'}`;
     },
-    showStatusIndicator() {      
+    showStatusIndicator() {
       // Always show if an agent is actually typing
       if (this.isAgentTyping) {
         return true;
@@ -67,6 +67,7 @@ export default {
       return false;
     },
   },
+  
   watch: {
     allMessagesLoaded() {
       this.previousScrollHeight = 0;

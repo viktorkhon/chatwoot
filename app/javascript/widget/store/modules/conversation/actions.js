@@ -269,22 +269,20 @@ export const actions = {
 
   resolveConversation: async ({ commit, dispatch }) => {
     try {
-      await toggleStatus();
+      // First mark the conversation as resolved on the backend
+      await toggleStatus(); // Let's assume this tells the backend the convo is ending
+      // Now, clear the local state and reset the widget
       commit('clearConversations'); 
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
-      dispatch('clearVisitorData');
+      localStorage.removeItem('cw_conversation'); 
+      localStorage.removeItem('cw_contact');    
       
-      // Clear both webwidget triggered session flag and conversation existence flag
-      // This allows new webhook for next conversation
-      sessionStorage.removeItem('chatwoot_webwidget_triggered_session');
-      sessionStorage.removeItem('chatwoot_conversation_exists');
-      console.log('[Chatwoot] Cleared conversation state - next widget open will send webwidget.triggered');
+      // Reset the widget state entirely
+      window.$chatwoot.reset(); 
       
-      if (window.$chatwoot?.reset) {
-        window.$chatwoot.reset(); 
-      }
     } catch (error) {
-      console.error('[Chatwoot] Error resolving conversation:', error.message);
+      // Consider logging the error here instead of just ignoring
+      console.error("Error in resolveConversation:", error);
     }
   },
 

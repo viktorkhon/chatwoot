@@ -17,16 +17,9 @@ import { IFrameHelper } from 'widget/helpers/utils';
 
 export const actions = {
   createConversation: async ({ commit, dispatch, state }, params) => {
-    console.log('[🔍 Chatwoot Debug] Creating conversation with params:', {
-      hasMessage: !!params.message,
-      messageContent: params.message?.substring(0, 50) + '...',
-      fullName: params.fullName,
-      emailAddress: params.emailAddress
-    });
     
     // Prevent multiple conversation creation calls
     if (state.uiFlags.isCreating) {
-      console.log('[🔍 Chatwoot Debug] Conversation creation already in progress, skipping...');
       return;
     }
     
@@ -36,13 +29,6 @@ export const actions = {
       const { messages } = data;
       const [message = {}] = messages;
       
-      console.log('[🔍 Chatwoot Debug] Conversation created successfully:', {
-        conversationId: data.id,
-        hasMessages: messages?.length > 0,
-        messageCount: messages?.length || 0,
-        firstMessageId: message?.id
-      });
-      
       commit('pushMessageToConversation', message);
       dispatch('conversationAttributes/getAttributes', {}, { root: true });
       emitter.emit(ON_CONVERSATION_CREATED);
@@ -51,10 +37,7 @@ export const actions = {
       // Only set if not already set (to preserve the original timestamp from IFrameHelper)
       if (!sessionStorage.getItem('chatwoot_conversation_exists')) {
         sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
-        console.log('[Chatwoot] Conversation created - marked as existing to prevent duplicate webhooks');
-      } else {
-        console.log('[Chatwoot] Conversation created - already marked as existing (preserving original timestamp)');
-      }
+      } 
     } catch (error) {
       console.error('[🔍 Chatwoot Debug] Conversation creation failed:', error.message);
     } finally {
@@ -79,15 +62,11 @@ export const actions = {
       commit('pushMessageToConversation', { ...data, status: 'sent' });
     } catch (error) {
       if (error.response?.data?.code === 'NO_CONVERSATION') {
-        console.log('[🔍 Chatwoot Debug] NO_CONVERSATION error received');
         
         // Check if we already have conversations - if so, this is a backend lookup issue
         const conversationSize = getters.getConversationSize;
-        console.log('[🔍 Chatwoot Debug] Current conversation size:', conversationSize);
         
         if (conversationSize > 0) {
-          console.error('[🔍 Chatwoot Debug] ❌ CRITICAL: Backend cannot find conversation that frontend knows exists!');
-          console.error('[🔍 Chatwoot Debug] This indicates a conversation lookup issue in MessagesController');
           
           // Don't create a new conversation - show error instead
           commit('pushMessageToConversation', { ...message, status: 'failed' });
@@ -98,11 +77,8 @@ export const actions = {
           return;
         }
         
-        console.log('[🔍 Chatwoot Debug] No conversations exist, this should not happen after widget is opened');
-        
         // Only create conversation if we truly have no conversations
         try {
-          console.log('[🔍 Chatwoot Debug] Creating new conversation for message');
           await dispatch('createConversation', {
             message: content,
             fullName: '',
@@ -110,9 +86,7 @@ export const actions = {
             phoneNumber: '',
             customAttributes: {}
           });
-          console.log('[🔍 Chatwoot Debug] New conversation created successfully');
         } catch (conversationError) {
-          console.error('[🔍 Chatwoot Debug] Failed to create conversation:', conversationError.message);
           commit('pushMessageToConversation', { ...message, status: 'failed' });
           commit('updateMessageMeta', {
             id,

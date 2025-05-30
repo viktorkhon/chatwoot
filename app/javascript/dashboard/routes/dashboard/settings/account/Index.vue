@@ -13,6 +13,7 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import V4Button from 'dashboard/components-next/button/Button.vue';
 import WootConfirmDeleteModal from 'dashboard/components/widgets/modal/ConfirmDeleteModal.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import alertMixin from 'shared/mixins/alertMixin';
 
 export default {
   components: {
@@ -21,6 +22,7 @@ export default {
     WootConfirmDeleteModal,
     NextButton,
   },
+  mixins: [alertMixin],
   setup() {
     const { updateUISettings } = useUISettings();
     const { enabledLanguages } = useConfig();
@@ -180,19 +182,46 @@ export default {
         return;
       }
       try {
-        await this.$store.dispatch('accounts/update', {
+        // Track previous values for logging
+        const previousShopifyName = this.$store.getters['accounts/getAccount'].shopify_name;
+        
+        // Ensure auto_resolve_duration is at least 1 if it's provided
+        const autoResolveDuration = this.autoResolveDuration !== null 
+          ? Math.max(1, Number(this.autoResolveDuration))
+          : null;
+
+        // eslint-disable-next-line no-unused-vars
+        const response = await this.$store.dispatch('accounts/update', {
           locale: this.locale,
           name: this.name,
           domain: this.domain,
           support_email: this.supportEmail,
-          auto_resolve_duration: this.autoResolveDuration,
+          auto_resolve_duration: autoResolveDuration,
           shopify_name: this.shopifyName,
           vector_database_namespace: this.vectorDatabaseNamespace,
         });
-        this.$root.$i18n.locale = this.locale;
-        this.getAccount(this.id).locale = this.locale;
-        this.updateDirectionView(this.locale);
-        useAlert(this.$t('GENERAL_SETTINGS.UPDATE.SUCCESS'));
+        
+        // Log changes to Shopify Name
+        if (previousShopifyName !== this.shopifyName) {
+          console.log('🔔 Shopify Name updated from', 
+            previousShopifyName || 'empty', 
+            'to', 
+            this.shopifyName || 'empty'
+          );
+          
+          // Show notification
+          this.showAlert(
+            this.$t('GENERAL_SETTINGS.SHOPIFY_NAME_UPDATED_TITLE'),
+            this.$t('GENERAL_SETTINGS.SHOPIFY_NAME_UPDATED_MESSAGE', {
+              webhookUrl: 'N8N_SHOPIFY_WEBHOOK_URL'
+            })
+          );
+        }
+
+        this.showAlert(
+          this.$t('GENERAL_SETTINGS.UPDATE_SUCCESSFUL_TITLE'),
+          this.$t('GENERAL_SETTINGS.UPDATE_SUCCESSFUL_MESSAGE')
+        );
       } catch (error) {
         useAlert(this.$t('GENERAL_SETTINGS.UPDATE.ERROR'));
       }
@@ -373,8 +402,12 @@ export default {
           </div>
         </div>
 
-        <div class="flex flex-row border-b border-slate-25 dark:border-slate-800">
-          <div class="flex-grow-0 flex-shrink-0 flex-[25%] min-w-0 py-4 pr-6 pl-0">
+        <div
+          class="flex flex-row border-b border-slate-25 dark:border-slate-800"
+        >
+          <div
+            class="flex-grow-0 flex-shrink-0 flex-[25%] min-w-0 py-4 pr-6 pl-0"
+          >
             <h4 class="text-lg font-medium text-black-900 dark:text-slate-200">
               {{ $t('GENERAL_SETTINGS.FORM.VECTOR_DB_SECTION.TITLE') }}
             </h4>
@@ -386,12 +419,13 @@ export default {
               <input
                 v-model="vectorDatabaseNamespace"
                 type="text"
-                :placeholder="$t('GENERAL_SETTINGS.FORM.VECTOR_DB_NAMESPACE.PLACEHOLDER')"
+                :placeholder="
+                  $t('GENERAL_SETTINGS.FORM.VECTOR_DB_NAMESPACE.PLACEHOLDER')
+                "
               />
             </label>
           </div>
         </div>
-
       </form>
 
       <woot-loading-state v-if="uiFlags.isFetchingItem" />

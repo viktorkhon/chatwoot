@@ -8,7 +8,8 @@ import { getConversationAPI } from '../../api/conversation';
 const state = {
   id: null,
   status: '',
-  assignee_id: null,
+  assignee: null,
+  team: null,
 };
 
 export const getters = {
@@ -46,7 +47,8 @@ export const mutations = {
   [CLEAR_CONVERSATION_ATTRIBUTES]($state) {
     $state.id = null;
     $state.status = '';
-    $state.assignee_id = null;
+    $state.assignee = null;
+    $state.team = null;
   },
 };
 

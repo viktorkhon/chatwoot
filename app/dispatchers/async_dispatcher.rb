@@ -19,6 +19,7 @@ class AsyncDispatcher < BaseDispatcher
       NotificationListener.instance,
       ParticipationListener.instance,
       ReportingEventListener.instance,
+      ShopifyWebhookListener.instance,
       WebhookListener.instance
     ]
   end

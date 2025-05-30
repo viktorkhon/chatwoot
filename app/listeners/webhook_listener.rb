@@ -82,7 +82,6 @@ class WebhookListener < BaseListener
   def message_updated(event)
     message = extract_message_and_account(event)[0]
     inbox = message.inbox
-
     return unless message.webhook_sendable?
 
     # Create the base payload
@@ -93,41 +92,68 @@ class WebhookListener < BaseListener
     
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, message.conversation, message)
-    
     deliver_webhook_payloads(payload, inbox)
+    
   end
 
   def webwidget_triggered(event)
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
-
-    # Extract event info with page URL
-    event_info = event.data[:event_info] || {}
+    # Prevent duplicate webwidget_triggered webhooks during the same session
+    # Check if we've already sent this webhook for this contact_inbox recently
+    session_key = "webwidget_triggered:#{contact_inbox.source_id}:#{inbox.account_id}"
     
-    payload = contact_inbox.webhook_data.merge(event: __method__.to_s)
-    
-    # Ensure custom_attributes exists
-    payload[:custom_attributes] ||= {}
-    
-    # Add page URL to custom_attributes for easier access in webhooks
-    if event_info.present?
-      # Make sure URLs don't have trailing semicolons
-      referer = event_info[:referer]&.gsub(/;$/, '')
-      page_url = event_info[:page_url]&.gsub(/;$/, '')
+    begin
+      # Check if webhook was already sent in the last 30 minutes (session duration)
+      if $alfred.with { |conn| conn.get(session_key) }
+        return
+      end
       
-      # Add to custom_attributes
-      payload[:custom_attributes]['page_url'] = page_url if page_url.present?
-      payload[:custom_attributes]['page_title'] = event_info[:page_title] if event_info[:page_title].present?
-      payload[:custom_attributes]['referer_url'] = referer if referer.present?
+      # Mark this session as having sent the webhook (expires in 30 minutes)
+      $alfred.with do |conn|
+        conn.set(session_key, Time.current.to_i)
+        conn.expire(session_key, 30.minutes.to_i)
+      end
+    rescue => e
+      Rails.logger.error "[DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Redis error in webwidget_triggered: #{e.message}"
+      # Continue with webhook if Redis fails
     end
+
+    event_info = event.data[:event_info] || {}
+    page_url_from_event = event_info[:page_url]
+    referer_url_from_event = event_info[:referer]
+    actual_page_url = page_url_from_event
+    browser_details = event_info[:browser] || {}
+
+    # Prepare the data from ContactInbox that will be merged at the top level
+    contact_inbox_payload_data = contact_inbox.webhook_data
+
+    payload = {
+      # id: SecureRandom.uuid, # This will be overwritten by contact_inbox_payload_data[:id]
+      event: __method__.to_s,
+      # 'account' key will come from contact_inbox_payload_data after merge
+      website: { 
+        url: actual_page_url
+      },
+      # 'visitor' key is removed as its contents will be merged.
+      browser: {
+        browser_name: browser_details['browser_name'],
+        browser_version: browser_details['browser_version'],
+        platform_name: browser_details['platform_name'],
+        platform_version: browser_details['platform_version']
+      }.compact,
+      triggered_at: Time.now,
+      custom_attributes: {} # Initialize event-specific custom_attributes
+    }
+
+    payload[:custom_attributes]['page_url'] = actual_page_url if actual_page_url.present?
+    payload[:custom_attributes]['referer_url'] = referer_url_from_event if referer_url_from_event.present?
     
-    # Keep event_info in the payload for backwards compatibility
-    # but remove any URL data from it
-    if event_info.present?
-      event_info = event_info.except(:page_url, :page_title, :referer)
-      payload[:event_info] = event_info unless event_info.empty?
-    end
-    
+    # Note: page_title is not directly available from event.data for webwidget_triggered.
+    # Merge contact_inbox_payload_data into the main payload.
+    # This will add keys like 'id', 'contact', 'inbox', 'account', 'source_id' to the top level,
+    # overwriting 'id' and providing 'account' from contact_inbox context.
+    payload.merge!(contact_inbox_payload_data)
     deliver_webhook_payloads(payload, inbox)
   end
 
@@ -176,6 +202,31 @@ class WebhookListener < BaseListener
 
     inbox_webhook_data = Inbox::EventDataPresenter.new(inbox).push_data
     payload = inbox_webhook_data.merge(event: __method__.to_s, changed_attributes: changed_attributes)
+    deliver_account_webhooks(payload, account)
+  end
+
+  def shopify_name_updated(event)
+    account = event.data[:account]
+    shopify_name_change = event.data[:shopify_name_change]
+    
+    # Only proceed if we have valid data
+    return if account.blank? || shopify_name_change.blank?
+    
+    # Get previous and current values
+    previous_value = shopify_name_change[0]
+    current_value = shopify_name_change[1]
+    
+    # Create the payload
+    payload = {
+      event: __method__.to_s,
+      account: account.webhook_data,
+      shopify_name: {
+        previous_value: previous_value,
+        current_value: current_value
+      }
+    }
+    
+    # Deliver to subscribed webhooks
     deliver_account_webhooks(payload, account)
   end
 

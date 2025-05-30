@@ -1,17 +1,37 @@
-.bundle
+# .dockerignore
+
+# Git stuff
+.git
+.gitignore
+
+# Docker stuff
+Dockerfile
+Dockerfile.base
+docker-compose.yml
+docker-compose.*.yml
+
+# Credentials and local environment
 .env
 .env.*
-docker-compose.*
-docker/Dockerfile
-docker/dockerfiles
-log
-storage
-public/system
-tmp
-.codeclimate.yml
+*.env
+
+# Ruby/Rails specifics
+log/*
+tmp/*
+public/assets
 public/packs
-node_modules
-vendor/bundle
+public/packs-test
+coverage/
+.rubocop.yml
+.rspec
+spec/
+
+# Node specifics (these are built into the base image or during assets:precompile)
+node_modules/
+.pnpm-store/ # If pnpm creates this locally and it's large
+
+# IDE & OS specific
+.vscode/
+.idea/
 .DS_Store
 *.swp
-*~

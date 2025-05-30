@@ -1,77 +1,121 @@
 <script>
-import DatePicker from 'vue-datepicker-next';
-import NextButton from 'dashboard/components-next/button/Button.vue';
+import WootModal from 'dashboard/components/Modal.vue';
+import WootButton from 'dashboard/components-next/button/Button.vue';
+import DateTimePicker from 'dashboard/components/ui/DateTimePicker.vue';
+import { addDays, addHours, startOfTomorrow, startOfDay, addWeeks } from 'date-fns';
 
 export default {
   components: {
-    DatePicker,
-    NextButton,
+    WootModal,
+    WootButton,
+    DateTimePicker,
   },
-  emits: ['close', 'chooseTime'],
-
+  props: {
+    show: {
+      type: Boolean,
+      default: false,
+    },
+    conversationId: {
+      type: [String, Number],
+      default: null,
+    },
+  },
+  emits: ['close', 'snooze'],
   data() {
     return {
-      snoozeTime: null,
-      lang: {
-        days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        yearFormat: 'YYYY',
-        monthFormat: 'MMMM',
-      },
+      showCustomDatePicker: false,
+      customDateTime: new Date(),
+      snoozeOptions: [
+        {
+          id: 'until_next_reply',
+          label: 'CONVERSATION.RESOLVE_DROPDOWN.SNOOZE.NEXT_REPLY',
+          value: null,
+        },
+        {
+          id: 'an_hour_from_now',
+          label: 'COMMAND_BAR.COMMANDS.AN_HOUR_FROM_NOW',
+          value: () => addHours(new Date(), 1),
+        },
+        {
+          id: 'until_tomorrow',
+          label: 'CONVERSATION.RESOLVE_DROPDOWN.SNOOZE.TOMORROW',
+          value: () => startOfTomorrow(),
+        },
+        {
+          id: 'until_next_week',
+          label: 'CONVERSATION.RESOLVE_DROPDOWN.SNOOZE.NEXT_WEEK',
+          value: () => addWeeks(startOfDay(new Date()), 1),
+        },
+      ],
     };
   },
-
   methods: {
     onClose() {
+      this.showCustomDatePicker = false;
       this.$emit('close');
     },
-    chooseTime() {
-      this.$emit('chooseTime', this.snoozeTime);
+    selectOption(optionId) {
+      const option = this.snoozeOptions.find(o => o.id === optionId);
+      if (!option) return;
+      
+      let snoozedUntil = null;
+      if (option.value) {
+        snoozedUntil = option.value();
+      }
+      
+      this.$emit('snooze', this.conversationId, 'snoozed', snoozedUntil);
+      this.onClose();
     },
-    disabledDate(date) {
-      // Disable all the previous dates
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      return date < yesterday;
-    },
-    disabledTime(date) {
-      // Allow only time after 1 hour
-      const now = new Date();
-      now.setHours(now.getHours() + 1);
-      return date < now;
+    selectCustomOption() {
+      if (!this.customDateTime) return;
+      
+      this.$emit('snooze', this.conversationId, 'snoozed', this.customDateTime);
+      this.onClose();
     },
   },
 };
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <woot-modal-header :header-title="$t('CONVERSATION.CUSTOM_SNOOZE.TITLE')" />
-    <form
-      class="modal-content w-full pt-2 px-5 pb-6"
-      @submit.prevent="chooseTime"
-    >
-      <DatePicker
-        v-model:value="snoozeTime"
-        type="datetime"
-        inline
-        input-class="mx-input "
-        :lang="lang"
-        :disabled-date="disabledDate"
-        :disabled-time="disabledTime"
-      />
-      <div class="flex flex-row justify-end w-full gap-2 px-0 py-2">
-        <NextButton
-          faded
-          slate
-          type="reset"
-          :label="$t('CONVERSATION.CUSTOM_SNOOZE.CANCEL')"
-          @click.prevent="onClose"
-        />
-        <NextButton
-          type="submit"
-          :label="$t('CONVERSATION.CUSTOM_SNOOZE.APPLY')"
-        />
+  <teleport to="#custom-snooze-modal">
+    <woot-modal :show.sync="show" :on-close="onClose">
+      <div class="p-4">
+        <div class="mb-4">
+          <h3 class="text-lg font-medium leading-6 text-slate-900 dark:text-slate-100">
+            {{ $t('CONVERSATION.RESOLVE_DROPDOWN.SNOOZE.TITLE') }}
+          </h3>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <woot-button
+            v-for="option in snoozeOptions"
+            :key="option.id"
+            variant="clear"
+            color="slate"
+            sm
+            class="w-full justify-start"
+            @click="selectOption(option.id)"
+          >
+            {{ $t(option.label) }}
+          </woot-button>
+          <woot-button
+            variant="clear"
+            color="slate"
+            sm
+            class="w-full justify-start"
+            @click="showCustomDatePicker = true"
+          >
+            {{ $t('CONVERSATION.RESOLVE_DROPDOWN.SNOOZE.CUSTOM') }}
+          </woot-button>
+        </div>
+        <div v-if="showCustomDatePicker" class="mt-4">
+          <div class="flex items-center space-x-2">
+            <date-time-picker v-model="customDateTime" class="flex-1" />
+            <woot-button variant="primary" size="small" @click="selectCustomOption">
+              {{ $t('CONVERSATION.CUSTOM_SNOOZE.APPLY') }}
+            </woot-button>
+          </div>
+        </div>
       </div>
-    </form>
-  </div>
+    </woot-modal>
+  </teleport>
 </template>

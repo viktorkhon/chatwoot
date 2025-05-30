@@ -268,21 +268,30 @@ export const actions = {
   },
 
   resolveConversation: async ({ commit, dispatch }) => {
+    console.log('[Store] resolveConversation action called');
     try {
+      console.log('[Store] About to call toggleStatus');
       // First mark the conversation as resolved on the backend
       await toggleStatus(); // Let's assume this tells the backend the convo is ending
+      console.log('[Store] toggleStatus completed successfully');
+      
       // Now, clear the local state and reset the widget
+      console.log('[Store] Clearing conversations and attributes');
       commit('clearConversations'); 
       dispatch('conversationAttributes/clearConversationAttributes', {}, { root: true }); 
+      
+      console.log('[Store] Removing localStorage items');
       localStorage.removeItem('cw_conversation'); 
       localStorage.removeItem('cw_contact');    
       
       // Reset the widget state entirely
+      console.log('[Store] Calling window.$chatwoot.reset()');
       window.$chatwoot.reset(); 
       
+      console.log('[Store] resolveConversation completed successfully');
     } catch (error) {
       // Consider logging the error here instead of just ignoring
-      console.error("Error in resolveConversation:", error);
+      console.error("[Store] Error in resolveConversation:", error);
     }
   },
 

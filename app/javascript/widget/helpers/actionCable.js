@@ -104,8 +104,6 @@ class ActionCableConnector extends BaseActionCableConnector {
     const activeConversationId =
       this.app.$store.getters['conversationAttributes/getConversationParams']
         .id;
-    const conversationAttributes = 
-      this.app.$store.getters['conversationAttributes/getConversationParams'];
     const isUserTypingOnAnotherConversation =
       data.conversation && data.conversation.id !== activeConversationId;
 
@@ -158,6 +156,7 @@ class ActionCableConnector extends BaseActionCableConnector {
     }
     
     // For unassigned conversations or real agent typing, show the indicator
+
     this.clearTimer();
     this.app.$store.dispatch('conversation/toggleAgentTyping', {
       status: 'on',

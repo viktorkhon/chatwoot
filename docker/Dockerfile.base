@@ -1,0 +1,106 @@
+# Dockerfile.base
+# This image contains OS dependencies, Ruby, Node, PNPM,
+# installed gems, and installed pnpm packages.
+
+# ----- Stage 1: Node Source (to get a specific Node version consistently) -----
+FROM node:23-alpine AS node_source
+# No further action needed in this stage, just using it as a source for Node bits.
+
+# ----- Stage 2: Base Builder & Runtime Dependencies -----
+FROM ruby:3.3.3-alpine3.19
+
+# --- Environment Arguments and Variables ---
+# Use _ARG suffix for build-time args to avoid clashes with ENVs if set later
+ARG NODE_VERSION_ARG="23.7.0"
+ARG PNPM_VERSION_ARG="10.2.0"
+ARG BUNDLER_VERSION_ARG="2.5.11"
+
+ENV NODE_VERSION=${NODE_VERSION_ARG}
+ENV PNPM_VERSION=${PNPM_VERSION_ARG}
+ENV BUNDLER_VERSION=${BUNDLER_VERSION_ARG}
+
+# Default ENVs for the base image (can be overridden by Railway at runtime for the final image)
+ENV RAILS_ENV="production"
+ENV NODE_ENV="production"
+ENV BUNDLE_WITHOUT="development:test"
+ENV NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
+ENV BUNDLE_PATH="/gems"
+ENV BUNDLE_BIN="$BUNDLE_PATH/bin"
+ENV GEM_HOME=$BUNDLE_PATH
+ENV GEM_PATH=$BUNDLE_PATH
+
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${BUNDLE_BIN}:/usr/local/bin:${PATH}"
+
+# --- Install System & Build Dependencies ---
+# Combining dependencies from your original pre-builder and final stage
+# to ensure this base has everything for building and running.
+RUN apk update && apk add --no-cache \
+    build-base \
+    tzdata \
+    postgresql-dev \
+    postgresql-client \
+    git \
+    curl \
+    xz \
+    # For grpc/protobuf/nokogiri/vips
+    musl-dev \
+    # ruby-dev is usually part of ruby:<version>-dev, but ruby:<version>-alpine might need it explicitly for native extensions.
+    # ruby-full is not typically needed if using the official ruby image.
+    # gcc make g++ linux-headers are part of build-base or implicitly available.
+    openssl \
+    openssl-dev \
+    vips \
+    imagemagick \
+    && rm -rf /var/cache/apk/*
+
+# --- Install Bundler ---
+RUN gem install bundler -v "${BUNDLER_VERSION}" --no-document \
+    && bundle config --global silence_root_warning 1
+
+# --- Install Node.js & PNPM ---
+COPY --from=node_source /usr/local/bin/node /usr/local/bin/
+COPY --from=node_source /usr/local/lib/node_modules /usr/local/lib/node_modules
+# Create symlinks for npm and npx if they are not already there (they should be with node_modules copy)
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && npm install -g pnpm@${PNPM_VERSION} \
+    && pnpm --version # Verify pnpm installation
+
+WORKDIR /app
+
+# --- Install Gems ---
+    COPY Gemfile Gemfile.lock ./
+    RUN bundle config set --local force_ruby_platform true \
+        && bundle config set without ${BUNDLE_WITHOUT} \
+        && bundle install --jobs "$(nproc)" --retry 3 \
+        # More targeted cleanup:
+        # Remove .gem cache files
+        && rm -rf $BUNDLE_PATH/ruby/*/cache/*.gem \
+        # Remove C and object files from the gems' C extension build directories,
+        # but NOT the final .so files usually found in gem's lib or linked from extensions dir.
+        && find $BUNDLE_PATH/ruby/*/gems/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
+        # Also remove from specific extension build directories, which is often deeper
+        && find $BUNDLE_PATH/ruby/*/extensions/ -type f \( -name "*.c" -o -name "*.o" \) -delete \
+        # Clean up empty directories that might be left after deleting .c/.o files
+        && find $BUNDLE_PATH/ruby/*/gems/ -type d -empty -delete \
+        && find $BUNDLE_PATH/ruby/*/extensions/ -type d -empty -delete
+
+# --- Install PNPM Packages ---
+COPY package.json pnpm-lock.yaml ./
+# If you have a monorepo structure with pnpm-workspace.yaml, copy that too
+# COPY pnpm-workspace.yaml ./
+# Copy client/package.json etc. if they exist and are part of the workspace
+# COPY client/package.json client/yarn.lock ./client/
+
+# Use --frozen-lockfile for CI/production builds to ensure it uses the lockfile strictly
+# --prod might be suitable if devDependencies are not needed for any build steps within pnpm
+RUN pnpm install --frozen-lockfile
+# Optional: pnpm store prune # To clean up the pnpm cache if it gets too large
+
+# --- Create essential directories ---
+RUN mkdir -p /app/log \
+    && mkdir -p /app/tmp/pids
+
+# --- Base image definition stops here ---
+# Application code, asset precompilation, final entrypoint setup will be in the next Dockerfile.

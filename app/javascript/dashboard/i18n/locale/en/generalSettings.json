@@ -82,6 +82,10 @@
         "PLACEHOLDER": "Enter your Shopify store name",
         "ERROR": ""
       },
+      "SHOPIFY_NAME_UPDATED_TITLE": "Shopify Name Updated",
+      "SHOPIFY_NAME_UPDATED_MESSAGE": "Shopify Name has been updated. A webhook notification is being sent to {webhookUrl}",
+      "UPDATE_SUCCESSFUL_TITLE": "Settings Updated",
+      "UPDATE_SUCCESSFUL_MESSAGE": "Your account settings have been updated successfully.",
       "VECTOR_DB_SECTION": {
         "TITLE": "Vector Database Configuration",
         "NOTE": "Configure your vector database settings for enhanced AI capabilities"

@@ -150,7 +150,14 @@ export const actions = {
     commit(types.UPDATE_NOTIFICATION, data);
   },
 
-  addNotification({ commit }, data) {
+  addNotification({ commit, rootGetters }, data) {
+    const { notification } = data;
+    // Only add notification if it's not for the conversation the agent is currently viewing
+    const currentChat = rootGetters.getSelectedChat;
+    if (currentChat && currentChat.id === notification.primary_actor_id) {
+      // Don't add notification for conversation the agent is already viewing
+      return;
+    }
     commit(types.ADD_NOTIFICATION, data);
   },
   deleteNotification({ commit }, data) {
@@ -165,5 +172,22 @@ export const actions = {
   },
   updateNotificationFilters: ({ commit }, filters) => {
     commit(types.UPDATE_NOTIFICATION_FILTERS, filters);
+  },
+
+  // New action to remove notifications for a specific conversation
+  removeNotificationByConversation: ({ commit, state }) => conversationId => {
+    // Find all notifications for this conversation
+    const notificationsToRemove = Object.values(state.records).filter(
+      notification => notification.primary_actor_id === conversationId
+    );
+    
+    // Remove each notification
+    notificationsToRemove.forEach(notification => {
+      commit(types.DELETE_NOTIFICATION, { 
+        notification,
+        unread_count: state.meta.unreadCount,
+        count: state.meta.count
+      });
+    });
   },
 };

@@ -25,11 +25,13 @@ export default {
       conversationAttributes: 'conversationAttributes/getConversationParams',
     }),
     canLeaveConversation() {
-      return [
+      const canLeave = [
         CONVERSATION_STATUS.OPEN,
         CONVERSATION_STATUS.SNOOZED,
         CONVERSATION_STATUS.PENDING,
       ].includes(this.conversationStatus);
+      console.log('[HeaderActions] canLeaveConversation:', canLeave, 'status:', this.conversationStatus);
+      return canLeave;
     },
     isIframe() {
       return IFrameHelper.isIFrame();
@@ -46,6 +48,15 @@ export default {
     hasWidgetOptions() {
       return this.showPopoutButton || this.conversationStatus === 'open';
     },
+  },
+  mounted() {
+    console.log('[HeaderActions] Mounted - Debug Info:');
+    console.log('- canLeaveConversation:', this.canLeaveConversation);
+    console.log('- hasEndConversationEnabled:', this.hasEndConversationEnabled);
+    console.log('- showEndConversationButton:', this.showEndConversationButton);
+    console.log('- conversationStatus:', this.conversationStatus);
+    console.log('- conversationAttributes:', this.conversationAttributes);
+    console.log('- enabledFeatures:', this.channelConfig?.enabledFeatures);
   },
   methods: {
     popoutWindow() {
@@ -70,6 +81,7 @@ export default {
       }
     },
     resolveConversation() {
+      console.log('[HeaderActions] resolveConversation called - starting resolution process');
       this.$store.dispatch('conversation/resolveConversation');
     },
   },

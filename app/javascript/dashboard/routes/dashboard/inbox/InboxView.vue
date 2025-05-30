@@ -139,7 +139,7 @@ export default {
         id,
         primary_actor_id: primaryActorId,
         primary_actor_type: primaryActorType,
-        primary_actor: { meta: { unreadCount } = {} },
+        primary_actor: { id: conversationId },
         notification_type: notificationType,
       } = notification;
 
@@ -151,12 +151,16 @@ export default {
         id,
         primaryActorId,
         primaryActorType,
-        unreadCount,
+        unreadCount: this.meta.unreadCount,
       });
 
+      // Navigate to the actual conversation using conversationId (primary_actor.id), not primaryActorId
       this.$router.push({
-        name: 'inbox_view_conversation',
-        params: { notification_id: id },
+        name: 'inbox_conversation',
+        params: {
+          accountId: this.$route.params.accountId,
+          conversation_id: conversationId,
+        },
       });
     },
     onClickNext() {

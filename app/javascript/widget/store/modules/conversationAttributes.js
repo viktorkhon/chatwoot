@@ -6,7 +6,7 @@ import {
 import { getConversationAPI } from '../../api/conversation';
 
 const state = {
-  id: '',
+  id: null,
   status: '',
   assignee: null,
   team: null,
@@ -36,22 +36,16 @@ export const actions = {
 };
 
 export const mutations = {
-  [SET_CONVERSATION_ATTRIBUTES]($state, data) {
-    $state.id = data.id;
-    $state.status = data.status;
-    $state.assignee = data.assignee;
-    $state.team = data.team;
+  [SET_CONVERSATION_ATTRIBUTES]($state, apiResponseData) {
+    Object.assign($state, apiResponseData);
   },
-  [UPDATE_CONVERSATION_ATTRIBUTES]($state, data) {
-    if (data.id === $state.id) {
-      $state.id = data.id;
-      $state.status = data.status;
-      $state.assignee = data.assignee;
-      $state.team = data.team;
+  [UPDATE_CONVERSATION_ATTRIBUTES]($state, updatedData) {
+    if (updatedData.id === $state.id) {
+      Object.assign($state, updatedData);
     }
   },
   [CLEAR_CONVERSATION_ATTRIBUTES]($state) {
-    $state.id = '';
+    $state.id = null;
     $state.status = '';
     $state.assignee = null;
     $state.team = null;

@@ -1,28 +1,86 @@
 import endPoints from 'widget/api/endPoints';
 import { API } from 'widget/helpers/axios';
+import { buildSearchParamsWithLocale } from '../helpers/urlParamsHelper';
+import { getVisitorId } from '../helpers/utils';
 
 const createConversationAPI = async content => {
   const urlData = endPoints.createConversation(content);
-  return API.post(urlData.url, urlData.params);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Conversation creation failed:', error);
+    throw error;
+  }
 };
 
 const sendMessageAPI = async (content, replyTo = null) => {
   const urlData = endPoints.sendMessage(content, replyTo);
-  return API.post(urlData.url, urlData.params);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Message sending failed:', error);
+    throw error;
+  }
 };
 
 const sendAttachmentAPI = async (attachment, replyTo = null) => {
   const urlData = endPoints.sendAttachment(attachment, replyTo);
-  return API.post(urlData.url, urlData.params);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Attachment sending failed:', error);
+    throw error;
+  }
 };
 
 const getMessagesAPI = async ({ before, after }) => {
   const urlData = endPoints.getConversation({ before, after });
-  return API.get(urlData.url, { params: urlData.params });
+  
+  try {
+    const response = await API.get(urlData.url, { params: urlData.params });
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Messages retrieval failed:', error);
+    throw error;
+  }
 };
 
 const getConversationAPI = async () => {
-  return API.get(`/api/v1/widget/conversations${window.location.search}`);
+  const search = buildSearchParamsWithLocale(window.location.search);
+  const visitorId = getVisitorId();
+  
+  try {
+    // Use the messages endpoint to fetch conversation data without creating a new one
+    const response = await API.get(`/api/v1/widget/messages${search}`, {
+      params: { visitor_id: visitorId }
+    });
+    
+    // Transform the response to match the expected conversation format
+    if (response.data && response.data.payload && response.data.payload.length > 0) {
+      const firstMessage = response.data.payload[0];
+      return {
+        data: {
+          id: firstMessage.conversation_id,
+          contact_last_seen_at: response.data.meta?.contact_last_seen_at,
+          status: 'open', // Default status for active conversations
+          assignee: null, // Will be updated by other mechanisms if needed
+          team: null // Will be updated by other mechanisms if needed
+        }
+      };
+    } else {
+      // No conversation exists yet
+      return { data: null };
+    }
+  } catch (error) {
+    console.error('[Chatwoot] API: Conversation retrieval failed:', error);
+    throw error;
+  }
 };
 
 const toggleTyping = async ({ typingStatus, sourceType = 'user' }) => {
@@ -36,38 +94,63 @@ const toggleTyping = async ({ typingStatus, sourceType = 'user' }) => {
 };
 
 const setUserLastSeenAt = async ({ lastSeen }) => {
-  return API.post(
-    `/api/v1/widget/conversations/update_last_seen${window.location.search}`,
-    { contact_last_seen_at: lastSeen }
-  );
+  const urlData = endPoints.updateLastSeen(lastSeen);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Update last seen failed:', error);
+    throw error;
+  }
 };
+
 const sendEmailTranscript = async () => {
-  return API.post(
-    `/api/v1/widget/conversations/transcript${window.location.search}`
-  );
+  const urlData = endPoints.sendEmailTranscript();
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Send email transcript failed:', error);
+    throw error;
+  }
 };
+
 const toggleStatus = async () => {
-  return API.get(
-    `/api/v1/widget/conversations/toggle_status${window.location.search}`
-  );
+  const urlData = endPoints.toggleStatus();
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Toggle status failed:', error);
+    throw error;
+  }
 };
 
 const setCustomAttributes = async customAttributes => {
-  return API.post(
-    `/api/v1/widget/conversations/set_custom_attributes${window.location.search}`,
-    {
-      custom_attributes: customAttributes,
-    }
-  );
+  const urlData = endPoints.setCustomAttributes(customAttributes);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Set custom attributes failed:', error);
+    throw error;
+  }
 };
 
 const deleteCustomAttribute = async customAttribute => {
-  return API.post(
-    `/api/v1/widget/conversations/destroy_custom_attributes${window.location.search}`,
-    {
-      custom_attribute: [customAttribute],
-    }
-  );
+  const urlData = endPoints.deleteCustomAttribute(customAttribute);
+  
+  try {
+    const response = await API.post(urlData.url, urlData.params);
+    return response;
+  } catch (error) {
+    console.error('[Chatwoot] API: Delete custom attribute failed:', error);
+    throw error;
+  }
 };
 
 export {

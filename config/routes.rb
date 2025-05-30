@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  # Health check route - should be one of the first routes
+  # This ensures it's not caught by other wildcard routes and is easily accessible
+  get '/healthz', to: proc { [200, {}, ['OK']] }
+  
   # AUTH STARTS
   mount_devise_token_auth_for 'User', at: 'auth', controllers: {
     confirmations: 'devise_overrides/confirmations',
@@ -548,4 +552,11 @@ Rails.application.routes.draw do
   # ----------------------------------------------------------------------
   # Routes for testing
   resources :widget_tests, only: [:index] unless Rails.env.production?
+
+  # Development-only routes
+  unless Rails.env.production?
+    scope :dev_tools do
+      get 'check_env/:var_name', to: 'dev_tools#check_env'
+    end
+  end
 end

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 // Import the shared component responsible for rendering the visual card layout
 import CustomCard from 'dashboard/components/widgets/conversation/bubble/CustomCard.vue';
 
@@ -34,6 +34,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+});
+
+onMounted(() => {
+  // Component mounted
 });
 
 /**
@@ -94,11 +98,5 @@ const items = computed(() => {
 <style lang="scss" scoped>
 .custom-cards-wrapper {
   @apply flex flex-col gap-2 w-full;
-  
-  /* Add a subtle visual indicator when in dev mode */
-  &::before {
-    content: '';
-    @apply h-1 w-full bg-gradient-to-r from-transparent via-green-100 to-transparent;
-  }
 }
 </style> 

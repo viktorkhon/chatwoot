@@ -54,4 +54,7 @@ module Events::Types
   # agent events
   AGENT_ADDED = 'agent.added'
   AGENT_REMOVED = 'agent.removed'
+  
+  # account custom fields events
+  SHOPIFY_NAME_UPDATED = 'shopify_name.updated'
 end

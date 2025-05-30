@@ -208,7 +208,7 @@ export const mutations = {
   },
 
   [types.UPDATE_CONVERSATION](_state, conversation) {
-    const { allConversations } = _state;
+    const { allConversations, chatStatusFilter, selectedChatId } = _state;
     const index = allConversations.findIndex(c => c.id === conversation.id);
 
     if (index > -1) {
@@ -220,13 +220,35 @@ export const mutations = {
       }
 
       const { messages, ...updates } = conversation;
-      allConversations[index] = { ...selectedConversation, ...updates };
+      const newConversationData = { ...selectedConversation, ...updates };
+
+      // Check if the conversation should be removed based on the current status filter
+      const shouldRemove =
+        updates.status && // status was part of the update
+        chatStatusFilter !== wootConstants.STATUS_TYPE.ALL && // not filtering for 'all'
+        updates.status !== chatStatusFilter && // new status doesn't match filter
+        selectedChatId !== conversation.id; // not the currently active chat
+
+      if (shouldRemove) {
+        allConversations.splice(index, 1);
+      } else {
+        allConversations[index] = newConversationData;
+      }
+
       if (_state.selectedChatId === conversation.id) {
         emitter.emit(BUS_EVENTS.FETCH_LABEL_SUGGESTIONS);
         emitter.emit(BUS_EVENTS.SCROLL_TO_MESSAGE);
       }
     } else {
-      _state.allConversations.push(conversation);
+      // If conversation is not in the list, add it only if it matches the current filter or filter is 'all'
+      // Or if it's the selected chat (it might have been filtered out before and now it's selected)
+      const matchesFilter =
+        chatStatusFilter === wootConstants.STATUS_TYPE.ALL ||
+        conversation.status === chatStatusFilter;
+
+      if (matchesFilter || selectedChatId === conversation.id) {
+        _state.allConversations.push(conversation);
+      }
     }
   },
 

@@ -263,6 +263,10 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
+  const statusFilter = activeStatus.value === 'default_filter' 
+    ? 'open_and_pending' 
+    : activeStatus.value;
+
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,
     assigneeType: activeAssigneeTab.value,
@@ -726,6 +730,14 @@ function toggleConversationStatus(conversationId, status, snoozedUntil) {
     })
     .then(() => {
       useAlert(t('CONVERSATION.CHANGE_STATUS'));
+      
+      // If conversation is resolved and the current filter doesn't include resolved,
+      // refresh the conversation list to remove it from view
+      if (status === wootConstants.STATUS_TYPE.RESOLVED && 
+          activeStatus.value !== wootConstants.STATUS_TYPE.ALL &&
+          activeStatus.value !== wootConstants.STATUS_TYPE.RESOLVED) {
+        resetAndFetchData();
+      }
     });
 }
 
@@ -749,6 +761,17 @@ useEmitter('fetch_conversation_stats', () => {
 });
 
 useEventListener(conversationDynamicScroller, 'scroll', handleScroll);
+
+// Listen for global conversation status changes to update the UI
+useEmitter('conversation_status_changed', ({ conversationId, status }) => {
+  // If the status changed to RESOLVED and our current view shouldn't include resolved items,
+  // refresh the list to make it disappear
+  if (status === wootConstants.STATUS_TYPE.RESOLVED &&
+      activeStatus.value !== wootConstants.STATUS_TYPE.ALL && 
+      activeStatus.value !== wootConstants.STATUS_TYPE.RESOLVED) {
+    resetAndFetchData();
+  }
+});
 
 onMounted(() => {
   store.dispatch('setChatListFilters', conversationFilters.value);

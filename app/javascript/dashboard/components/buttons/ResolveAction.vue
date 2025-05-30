@@ -99,6 +99,21 @@ const toggleStatus = (status, snoozedUntil) => {
     .then(() => {
       useAlert(t('CONVERSATION.CHANGE_STATUS'));
       isLoading.value = false;
+      
+      // If conversation is resolved, refresh the conversation list
+      // This will ensure it disappears from views that exclude resolved conversations
+      if (status === wootConstants.STATUS_TYPE.RESOLVED) {
+        // Use emitter to notify that conversation list should be refreshed
+        useEmitter('fetch_conversation_stats');
+        
+        // If in a view where the item would be filtered out, 
+        // trigger a full re-fetch to update the list
+        const currentStatusFilter = store.state.conversations.chatStatusFilter;
+        if (currentStatusFilter !== wootConstants.STATUS_TYPE.ALL && 
+            currentStatusFilter !== wootConstants.STATUS_TYPE.RESOLVED) {
+          store.dispatch('fetchAllConversations');
+        }
+      }
     });
 };
 

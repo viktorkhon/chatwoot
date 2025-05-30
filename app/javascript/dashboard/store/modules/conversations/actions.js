@@ -12,6 +12,7 @@ import {
 import messageReadActions from './actions/messageReadActions';
 import messageTranslateActions from './actions/messageTranslateActions';
 import * as Sentry from '@sentry/vue';
+import { emitter } from 'shared/helpers/mitt';
 
 export const hasMessageFailedWithExternalError = pendingMessage => {
   // This helper is used to check if the message has failed with an external error.
@@ -256,6 +257,14 @@ const actions = {
         status: updatedStatus,
         snoozedUntil: updatedSnoozedUntil,
       });
+      
+      // Emit an event so other components can react to the status change
+      emitter.emit('conversation_status_changed', {
+        conversationId,
+        status: updatedStatus,
+        snoozedUntil: updatedSnoozedUntil,
+      });
+      
     } catch (error) {
       // Handle error
     }

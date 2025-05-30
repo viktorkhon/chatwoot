@@ -83,16 +83,14 @@ const getConversationAPI = async () => {
   }
 };
 
-const toggleTyping = async ({ typingStatus }) => {
-  const urlData = endPoints.toggleTyping(typingStatus);
-  
-  try {
-    const response = await API.post(urlData.url, urlData.params);
-    return response;
-  } catch (error) {
-    console.error('[Chatwoot] API: Toggle typing failed:', error);
-    throw error;
-  }
+const toggleTyping = async ({ typingStatus, sourceType = 'user' }) => {
+  return API.post(
+    `/api/v1/widget/conversations/toggle_typing${window.location.search}`,
+    { 
+      typing_status: typingStatus,
+      source_type: sourceType
+    }
+  );
 };
 
 const setUserLastSeenAt = async ({ lastSeen }) => {

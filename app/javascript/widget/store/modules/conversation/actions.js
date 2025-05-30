@@ -235,7 +235,10 @@ export const actions = {
 
   toggleUserTyping: async (_, data) => {
     try {
-      await toggleTyping(data);
+      await toggleTyping({
+        typingStatus: data.typingStatus,
+        sourceType: data.sourceType || 'user'
+      });
     } catch (error) {
       // Silent fail for typing indicators
     }

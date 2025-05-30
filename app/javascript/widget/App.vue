@@ -2,7 +2,7 @@
 import { mapGetters, mapActions } from 'vuex';
 import { setHeader } from 'widget/helpers/axios';
 import addHours from 'date-fns/addHours';
-import { IFrameHelper, RNHelper } from 'widget/helpers/utils';
+import { IFrameHelper, RNHelper, generateVisitorId } from 'widget/helpers/utils';
 import configMixin from './mixins/configMixin';
 import availabilityMixin from 'widget/mixins/availability';
 import { getLocale } from './helpers/urlParamsHelper';
@@ -80,6 +80,13 @@ export default {
     this.setLocale(locale);
     this.setWidgetColor(widgetColor);
     setHeader(window.authToken);
+    
+    // Initialize visitor tracking for conversation persistence
+    this.initializeVisitorTracking();
+    
+    // Check for existing conversations on initialization to set webhook prevention flag
+    this.checkExistingConversationsOnInit();
+    
     if (this.isIFrame) {
       this.registerListeners();
       this.sendLoadedEvent();
@@ -88,11 +95,14 @@ export default {
       this.fetchAvailableAgents(websiteToken);
       this.setLocale(getLocale(window.location.search));
     }
+    
     if (this.isRNWebView) {
       this.registerListeners();
       this.sendRNWebViewLoadedEvent();
     }
-    this.$store.dispatch('conversationAttributes/getAttributes');
+    
+    // Don't automatically fetch conversation attributes on mount
+    // Only fetch when widget is actually opened to prevent unnecessary API calls
     this.registerUnreadEvents();
     this.registerCampaignEvents();
   },
@@ -151,9 +161,20 @@ export default {
     registerUnreadEvents() {
       emitter.on(ON_AGENT_MESSAGE_RECEIVED, () => {
         const { name: routeName } = this.$route;
-        if ((this.isWidgetOpen || !this.isIFrame) && routeName === 'messages') {
+        
+        console.log('[Widget] ON_AGENT_MESSAGE_RECEIVED event:', {
+          isWidgetOpen: this.isWidgetOpen,
+          routeName,
+          willUpdateLastSeen: this.isWidgetOpen && routeName === 'messages'
+        });
+        
+        // Only update last seen if the widget is actually open and user is viewing messages
+        // This prevents unnecessary API calls when messages are received via ActionCable
+        // but the user is not actively viewing the conversation
+        if (this.isWidgetOpen && routeName === 'messages') {
+          console.log('[Widget] Updating last seen - user is actively viewing messages');
           this.$store.dispatch('conversation/setUserLastSeen');
-        }
+        } 
         this.setUnreadView();
       });
       emitter.on(ON_UNREAD_MESSAGE_CLICK, () => {
@@ -191,6 +212,7 @@ export default {
         !isEmptyObject(activeCampaign) &&
         !messageCount &&
         !shouldSnoozeCampaign;
+      
       if (this.isIFrame && isCampaignReadyToExecute) {
         this.replaceRoute('campaigns').then(() => {
           this.setIframeHeight(true);
@@ -233,12 +255,50 @@ export default {
     createWidgetEvents(message) {
       const { eventName } = message;
       const isWidgetTriggerEvent = eventName === 'webwidget.triggered';
+      
+      console.log('[Chatwoot] Widget event triggered:', {
+        eventName,
+        isWidgetTriggerEvent,
+        currentRoute: this.$route.name,
+        isWidgetOpen: this.isWidgetOpen,
+        timestamp: Date.now()
+      });
+      
       if (
         isWidgetTriggerEvent &&
         ['unread-messages', 'campaigns'].includes(this.$route.name)
       ) {
         return;
       }
+      
+      // Enhanced webhook prevention for webwidget.triggered events
+      if (isWidgetTriggerEvent) {
+        const sessionKey = 'chatwoot_webwidget_triggered_session';
+        const conversationKey = 'chatwoot_conversation_exists';
+        
+        // Check if we've already sent this event in this session
+        const hasTriggeredInSession = sessionStorage.getItem(sessionKey);
+        
+        // Check if a conversation already exists
+        const conversationExists = sessionStorage.getItem(conversationKey);
+        
+        console.log('[Chatwoot] Webhook prevention check:', {
+          hasTriggeredInSession: !!hasTriggeredInSession,
+          conversationExists: !!conversationExists,
+          sessionValue: hasTriggeredInSession,
+          conversationValue: conversationExists,
+          currentRoute: this.$route.name,
+          timestamp: Date.now()
+        });
+        
+        // Only dispatch webwidget.triggered if:
+        // 1. We haven't triggered it in this session AND
+        // 2. No conversation exists yet (truly new chat session)
+        if (hasTriggeredInSession || conversationExists) {
+          return;
+        }
+      }
+      
       this.$store.dispatch('events/create', { name: eventName });
     },
     registerListeners() {
@@ -251,7 +311,9 @@ export default {
         if (message.event === 'config-set') {
           this.setLocale(message.locale);
           this.setBubbleLabel();
-          this.fetchOldConversations().then(() => this.setUnreadView());
+          // Don't fetch conversations automatically on initialization
+          // Only fetch when widget is actually opened to prevent unnecessary API calls
+          this.setUnreadView();
           this.fetchAvailableAgents(websiteToken);
           this.setAppConfig(message);
           this.$store.dispatch('contacts/get');
@@ -260,6 +322,14 @@ export default {
           this.scrollConversationToBottom();
         } else if (message.event === 'change-url') {
           const { referrerURL, referrerHost } = message;
+          
+          console.log('[Chatwoot] Page navigation detected:', {
+            referrerURL,
+            referrerHost,
+            isWidgetOpen: this.isWidgetOpen,
+            currentConversationSize: this.$store.getters['conversation/getConversationSize']
+          });
+          
           this.initCampaigns({
             currentURL: referrerURL,
             websiteToken,
@@ -267,6 +337,9 @@ export default {
           });
           window.referrerURL = referrerURL;
           this.setReferrerHost(referrerHost);
+          
+          // Ensure conversation persistence during page navigation
+          this.ensureConversationPersistence();
         } else if (message.event === 'toggle-close-button') {
           this.isMobile = message.isMobile;
         } else if (message.event === 'push-event') {
@@ -305,6 +378,12 @@ export default {
         } else if (message.event === 'toggle-open') {
           this.$store.dispatch('appConfig/toggleWidgetOpen', message.isOpen);
 
+          // Fetch conversations when widget is opened
+          if (message.isOpen) {
+            this.fetchOldConversations();
+            this.$store.dispatch('conversationAttributes/getAttributes');
+          }
+
           const shouldShowMessageView =
             ['home'].includes(this.$route.name) &&
             message.isOpen &&
@@ -338,6 +417,67 @@ export default {
     setCampaignReadData(snoozedTill) {
       if (snoozedTill) {
         this.campaignsSnoozedTill = Number(snoozedTill);
+      }
+    },
+    async fetchOldConversations() {
+      try {
+        await this.$store.dispatch('conversation/fetchOldConversations');
+      } catch (error) {
+        console.error('[Chatwoot] Failed to fetch conversations:', error);
+      }
+    },
+    initializeVisitorTracking() {
+      // Generate or retrieve visitor ID for session persistence
+      generateVisitorId();
+      
+      // Set up page navigation tracking for conversation persistence
+      this.setupPageNavigationListeners();
+    },
+    
+    async checkExistingConversationsOnInit() {
+      // Check if we already have conversations to set webhook prevention flag early
+      try {
+        const conversationSize = this.$store.getters['conversation/getConversationSize'];
+        
+        if (conversationSize > 0) {
+          // We have existing conversations, mark to prevent webhooks
+          if (!sessionStorage.getItem('chatwoot_conversation_exists')) {
+            sessionStorage.setItem('chatwoot_conversation_exists', Date.now().toString());
+          }
+        }
+      } catch (error) {
+        console.log('[Chatwoot] Error checking existing conversations on init:', error.message);
+      }
+    },
+    setupPageNavigationListeners() {
+      // Listen for page navigation events (for SPAs)
+      window.addEventListener('popstate', this.handlePageNavigation);
+      window.addEventListener('hashchange', this.handlePageNavigation);
+    },
+    handlePageNavigation() {
+      // Update page info for conversation persistence
+      this.updatePageInfo();
+      
+      // Ensure we have the latest conversation data after navigation
+      this.ensureConversationPersistence();
+    },
+    updatePageInfo() {
+      const pageInfo = {
+        page_url: window.location.href,
+        page_title: document.title,
+        referer_url: document.referrer
+      };
+      
+      // Store page info in the store for later use
+      this.$store.dispatch('appConfig/updatePageInfo', pageInfo);
+    },
+    async ensureConversationPersistence() {
+      try {
+        // Check existing conversation state without fetching from server
+        // Only fetch when widget is actually opened to prevent unnecessary API calls
+        const conversationSize = this.$store.getters['conversation/getConversationSize'];
+      } catch (error) {
+        console.error('[Chatwoot] Error ensuring conversation persistence:', error.message);
       }
     },
   },

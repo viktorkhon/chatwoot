@@ -82,7 +82,6 @@ class WebhookListener < BaseListener
   def message_updated(event)
     message = extract_message_and_account(event)[0]
     inbox = message.inbox
-
     return unless message.webhook_sendable?
 
     # Create the base payload
@@ -93,13 +92,32 @@ class WebhookListener < BaseListener
     
     # Add page information to custom_attributes
     add_page_info_to_custom_attributes(payload, message.conversation, message)
-    
     deliver_webhook_payloads(payload, inbox)
+    
   end
 
   def webwidget_triggered(event)
     contact_inbox = event.data[:contact_inbox]
     inbox = contact_inbox.inbox
+    # Prevent duplicate webwidget_triggered webhooks during the same session
+    # Check if we've already sent this webhook for this contact_inbox recently
+    session_key = "webwidget_triggered:#{contact_inbox.source_id}:#{inbox.account_id}"
+    
+    begin
+      # Check if webhook was already sent in the last 30 minutes (session duration)
+      if $alfred.with { |conn| conn.get(session_key) }
+        return
+      end
+      
+      # Mark this session as having sent the webhook (expires in 30 minutes)
+      $alfred.with do |conn|
+        conn.set(session_key, Time.current.to_i)
+        conn.expire(session_key, 30.minutes.to_i)
+      end
+    rescue => e
+      Rails.logger.error "[DEBUG] 🔧 WEBWIDGET TRIGGERED WEBHOOK - Redis error in webwidget_triggered: #{e.message}"
+      # Continue with webhook if Redis fails
+    end
 
     event_info = event.data[:event_info] || {}
     page_url_from_event = event_info[:page_url]
@@ -130,13 +148,12 @@ class WebhookListener < BaseListener
 
     payload[:custom_attributes]['page_url'] = actual_page_url if actual_page_url.present?
     payload[:custom_attributes]['referer_url'] = referer_url_from_event if referer_url_from_event.present?
+    
     # Note: page_title is not directly available from event.data for webwidget_triggered.
-
     # Merge contact_inbox_payload_data into the main payload.
     # This will add keys like 'id', 'contact', 'inbox', 'account', 'source_id' to the top level,
     # overwriting 'id' and providing 'account' from contact_inbox context.
     payload.merge!(contact_inbox_payload_data)
-    
     deliver_webhook_payloads(payload, inbox)
   end
 

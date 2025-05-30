@@ -1,0 +1,22 @@
+Fix widget resolve conversation 404 error
+
+## Problem
+When users clicked the "Resolve conversation" button in the widget, they got a 404 error. The issue was a mismatch between the frontend API call and backend route definition:
+- Frontend: Making POST request to `/api/v1/widget/conversations/toggle_status`
+- Backend: Route defined as GET method
+
+## Solution
+Changed the route definition from GET to POST to match the frontend implementation and be consistent with other similar endpoints (toggle_typing, update_last_seen, transcript).
+
+## Changes Made
+1. **config/routes.rb**: Changed `get :toggle_status` to `post :toggle_status` in the widget conversations collection routes
+2. **spec/controllers/api/v1/widget/conversations_controller_spec.rb**: Updated all test cases to use POST instead of GET for toggle_status endpoint
+
+## Testing
+Updated all existing tests to use POST method. The controller action itself didn't need changes as it works correctly with both GET and POST.
+
+## Impact
+- ✅ Fixes 404 error when resolving conversations from widget
+- ✅ Makes endpoint consistent with other similar widget endpoints  
+- ✅ Maintains backward compatibility with existing functionality
+- ✅ All tests updated to reflect the change 

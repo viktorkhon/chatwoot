@@ -1,22 +1,43 @@
-Fix widget resolve conversation 404 error
+Fix widget reset TypeError by creating window.$chatwoot in widget context
 
 ## Problem
-When users clicked the "Resolve conversation" button in the widget, they got a 404 error. The issue was a mismatch between the frontend API call and backend route definition:
-- Frontend: Making POST request to `/api/v1/widget/conversations/toggle_status`
-- Backend: Route defined as GET method
+Widget resolve conversation and start new conversation functions were failing with:
+`TypeError: Cannot read properties of undefined (reading 'reset')`
+
+This occurred because the widget was trying to call `window.$chatwoot.reset()` directly,
+but the widget runs in iframe mode where `window.$chatwoot` exists in the parent window,
+not in the iframe context.
+
+## Root Cause Analysis
+The widget has two execution modes:
+1. **Iframe Mode**: `window.self !== window.top` - widget runs in iframe, no direct access to parent's $chatwoot
+2. **Direct Mode**: `window.self === window.top` - widget runs in same window, has direct access to $chatwoot
+
+The broken branch was missing the widget-specific `window.$chatwoot` object that handles both modes.
 
 ## Solution
-Changed the route definition from GET to POST to match the frontend implementation and be consistent with other similar endpoints (toggle_typing, update_last_seen, transcript).
+Implemented the correct architecture pattern by creating a widget-specific `window.$chatwoot`
+object that handles both iframe and direct modes:
 
-## Changes Made
-1. **config/routes.rb**: Changed `get :toggle_status` to `post :toggle_status` in the widget conversations collection routes
-2. **spec/controllers/api/v1/widget/conversations_controller_spec.rb**: Updated all test cases to use POST instead of GET for toggle_status endpoint
+1. **Created widget-specific $chatwoot object** (`app/javascript/entrypoints/widget.js`):
+   - In iframe mode: Sends reset message to parent via `IFrameHelper.sendMessage({ event: 'reset' })`
+   - In direct mode: Performs local reset (clears storage, navigates to pre-chat form)
+
+2. **Added reset event handler in SDK** (`app/javascript/sdk/IFrameHelper.js`):
+   - Handles reset messages from widget iframe
+   - Calls parent window's `window.$chatwoot.reset()` when receiving reset event
+
+## Technical Details
+- Widget creates its own `window.$chatwoot` object that intelligently handles both execution modes
+- Uses existing `IFrameHelper.sendMessage()` mechanism for iframe-to-parent communication
+- Maintains backward compatibility with direct mode via local reset implementation
+- Follows established patterns used by other widget-to-parent communications
+
+## Files Changed
+- `app/javascript/entrypoints/widget.js` - Created widget-specific $chatwoot object with reset method
+- `app/javascript/sdk/IFrameHelper.js` - Added reset event handler for iframe communication
 
 ## Testing
-Updated all existing tests to use POST method. The controller action itself didn't need changes as it works correctly with both GET and POST.
-
-## Impact
-- ✅ Fixes 404 error when resolving conversations from widget
-- ✅ Makes endpoint consistent with other similar widget endpoints  
-- ✅ Maintains backward compatibility with existing functionality
-- ✅ All tests updated to reflect the change 
+The fix handles both widget execution modes:
+- **Iframe Mode**: Widget sends reset message to parent, parent calls its own $chatwoot.reset()
+- **Direct Mode**: Widget performs local reset operations directly 

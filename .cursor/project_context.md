@@ -4,6 +4,21 @@
 
 <!-- New sessions will be added at the top -->
 
+### Widget Reset TypeError Fix - [Date: 2025-05-30]
+- Fixed TypeError: `Cannot read properties of undefined (reading 'reset')` in widget reset functionality
+- **Root Cause**: Widget was missing its own `window.$chatwoot` object to handle reset functionality in both iframe and direct modes
+- **Architecture Understanding**: Widget needs its own `window.$chatwoot` object that:
+  - **Iframe Mode**: `window.self !== window.top` - sends reset message to parent via IFrameHelper.sendMessage()
+  - **Direct Mode**: `window.self === window.top` - performs local reset operations directly
+- **Solution**: Created widget-specific `window.$chatwoot` object in widget entrypoint
+- Added `window.$chatwoot` object creation in `app/javascript/entrypoints/widget.js` with intelligent reset method
+- In iframe mode: Uses `IFrameHelper.sendMessage({ event: 'reset' })` to communicate with parent
+- In direct mode: Performs local storage cleanup and navigation directly
+- Added corresponding reset event handler in SDK's `IFrameHelper.events` to handle iframe messages
+- Maintains clean separation between widget and SDK contexts while enabling proper communication
+
+### Widget Resolve Conversation Bug Fix - [Date: 2025-05-30]
+
 ### Shopify Integration 404 Error Fix - [Date: 2025-05-21]
 - Fixed 404 error when accessing Shopify integration despite having environment variables set
 - Identified that `check_cloud_env` filter was blocking access because it specifically checks database config

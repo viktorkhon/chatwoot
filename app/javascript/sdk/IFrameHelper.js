@@ -315,6 +315,12 @@ export const IFrameHelper = {
     playAudio: () => {
       window.playAudioAlert();
     },
+
+    reset: () => {
+      if (window.$chatwoot && window.$chatwoot.reset) {
+        window.$chatwoot.reset();
+      }
+    },
   },
   pushEvent: eventName => {
     IFrameHelper.sendMessage('push-event', { eventName });

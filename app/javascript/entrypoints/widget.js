@@ -10,6 +10,7 @@ import router from '../widget/router';
 import { directive as onClickaway } from 'vue3-click-away';
 import { domPurifyConfig } from '../shared/helpers/HTMLSanitizer';
 import { plugin, defaultConfig } from '@formkit/vue';
+import { IFrameHelper } from '../widget/helpers/utils';
 
 import {
   startsWithPlus,
@@ -44,6 +45,30 @@ app.use(
 // Vue.prototype.$emitter = emitter;
 
 // Vue.config.productionTip = false;
+
+// Create widget-specific $chatwoot object for reset functionality
+if (!window.$chatwoot) {
+  window.$chatwoot = {
+    reset() {
+      // In iframe mode, send reset message to parent
+      if (IFrameHelper.isIFrame()) {
+        IFrameHelper.sendMessage({ event: 'reset' });
+      } else {
+        // In direct mode, perform local reset
+        // Clear conversation data
+        localStorage.removeItem('cw_conversation');
+        localStorage.removeItem('cw_contact');
+        sessionStorage.removeItem('chatwoot_webwidget_triggered_session');
+        sessionStorage.removeItem('chatwoot_conversation_exists');
+        
+        // Navigate to pre-chat form
+        if (window.WOOT_WIDGET && window.WOOT_WIDGET.$router) {
+          window.WOOT_WIDGET.$router.push({ name: 'prechat-form' });
+        }
+      }
+    }
+  };
+}
 
 window.onload = () => {
   window.WOOT_WIDGET = app.mount('#app');

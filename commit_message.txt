@@ -29,3 +29,16 @@ The fix includes:
 
 These fields are essential for email functionality in Chatwoot, including email replies,
 conversation continuity, custom domains, and message threading. 
+
+fix: widget reset TypeError by creating window.$chatwoot in widget context
+
+Fixes TypeError when resolving conversations or starting new conversations
+where window.$chatwoot.reset() was undefined in widget iframe context.
+
+- Create widget-specific window.$chatwoot object in widget entrypoint
+- In iframe mode: Send reset message to parent via IFrameHelper 
+- In direct mode: Perform local reset operations directly
+- Add reset event handler in SDK to handle iframe messages
+- Maintain clean separation between widget and SDK contexts
+
+Resolves: TypeError: Cannot read properties of undefined (reading 'reset') 

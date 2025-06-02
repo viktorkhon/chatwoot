@@ -1,0 +1,41 @@
+feat: Add fast Docker development environment for instant code iteration
+
+**Problem Solved:**
+- Eliminated 3-5 minute Docker rebuild times for small code changes
+- Created development environment as fast as local development but with full Docker isolation
+- Solved Windows Ruby dependency installation issues through containerization
+
+**Key Features:**
+- **Instant Code Changes**: Volume mounts for live reloading without container rebuilds
+- **Persistent Dependencies**: Cached Ruby gems and npm packages in Docker volumes
+- **Isolated Services**: Independent PostgreSQL, Redis, Sidekiq containers
+- **Smart Asset Handling**: Skips unnecessary asset compilation in development
+- **Cross-Platform**: Works on Windows (PowerShell), Linux, and macOS
+
+**Files Added:**
+- `docker/Dockerfile.dev` - Development-optimized container image
+- `docker-compose.dev.yaml` - Fast iteration service orchestration
+- `docker/entrypoints/dev.sh` - Intelligent startup script
+- `scripts/dev-setup.sh` - Linux/macOS management script
+- `scripts/dev-setup.ps1` - Windows PowerShell management script
+- `docker/env.development` - Optimized development environment variables
+- `README-DEVELOPMENT.md` - Comprehensive setup and usage guide
+
+**Quick Start:**
+```bash
+# One-time setup
+./scripts/dev-setup.sh setup
+
+# Daily development (no rebuilds needed!)
+./scripts/dev-setup.sh start
+# Make code changes - they're reflected instantly!
+```
+
+**Services Available:**
+- Rails App: http://localhost:3000
+- Vite Dev Server: http://localhost:3036
+- MailHog: http://localhost:8025
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+
+This dramatically improves development velocity by eliminating Docker rebuild wait times while maintaining full containerization benefits. 

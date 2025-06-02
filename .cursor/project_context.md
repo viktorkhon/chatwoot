@@ -4,6 +4,26 @@
 
 <!-- New sessions will be added at the top -->
 
+### Fast Docker Development Environment Setup - [Date: 2025-01-30]
+- **Problem**: User struggling with slow Docker rebuild times (3-5 minutes) for small code changes, making development as slow as deploying to Railway.com
+- **Solution**: Created optimized Docker development environment with live code reloading and persistent dependency caching
+- **Key Components Created**:
+  - `docker/Dockerfile.dev` - Development-optimized Dockerfile with cached dependencies
+  - `docker-compose.dev.yaml` - Fast iteration docker-compose with volume mounts for live reloading
+  - `docker/entrypoints/dev.sh` - Smart entrypoint that skips unnecessary rebuilds
+  - `scripts/dev-setup.sh` - Bash management script for Linux/macOS
+  - `scripts/dev-setup.ps1` - PowerShell management script for Windows
+  - `docker/env.development` - Optimized development environment variables
+  - `README-DEVELOPMENT.md` - Comprehensive guide for the new development workflow
+- **Key Benefits**:
+  - **Instant code changes**: Source code mounted as volume, no container rebuilds needed
+  - **Persistent dependencies**: Ruby gems and npm packages cached in Docker volumes
+  - **Isolated services**: PostgreSQL, Redis, Sidekiq run independently, only restart what's needed
+  - **Smart asset handling**: Only precompiles assets when necessary, skips in development
+- **Quick Start**: `./scripts/dev-setup.sh setup` (one-time), then `./scripts/dev-setup.sh start` for daily development
+- **Services Available**: Rails (3000), Vite (3036), MailHog (8025), PostgreSQL (5432), Redis (6379)
+- **Architecture**: Uses volume mounts for live reloading, cached volumes for dependencies, intelligent entrypoint for minimal startup time
+
 ### Widget Reset TypeError Fix - [Date: 2025-05-30]
 - Fixed TypeError: `Cannot read properties of undefined (reading 'reset')` in widget reset functionality
 - **Root Cause**: Widget was missing its own `window.$chatwoot` object to handle reset functionality in both iframe and direct modes

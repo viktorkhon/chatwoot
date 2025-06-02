@@ -3,12 +3,28 @@ set -e
 
 echo "🚀 Starting Chatwoot Development Environment..."
 
-# Wait for database to be ready
-echo "⏳ Waiting for database..."
-while ! pg_isready -h ${DATABASE_HOST:-postgres} -p ${DATABASE_PORT:-5432} -U ${DATABASE_USERNAME:-postgres}; do
-  sleep 1
+# Wait for external database to be ready (Railway PostgreSQL)
+echo "⏳ Waiting for Railway database..."
+while ! pg_isready -h ${DATABASE_HOST} -p ${DATABASE_PORT} -U ${DATABASE_USERNAME}; do
+  echo "Waiting for database at ${DATABASE_HOST}:${DATABASE_PORT}..."
+  sleep 2
 done
-echo "✅ Database is ready!"
+echo "✅ Railway database is ready!"
+
+# Test Redis connection (Railway Redis)
+echo "⏳ Testing Railway Redis connection..."
+if command -v redis-cli &> /dev/null; then
+  # Extract Redis connection details from REDIS_URL if available
+  if [[ -n "${REDIS_URL}" ]]; then
+    echo "Testing Redis connection with URL: ${REDIS_URL}"
+    # Simple connection test - will exit gracefully if Redis is not available
+    timeout 10 bash -c "echo 'PING' | redis-cli -u '${REDIS_URL}' > /dev/null 2>&1" && echo "✅ Railway Redis is ready!" || echo "⚠️ Redis connection failed, but continuing..."
+  else
+    echo "⚠️ REDIS_URL not set, skipping Redis test"
+  fi
+else
+  echo "⚠️ redis-cli not available, skipping Redis test"
+fi
 
 # Run database setup only if needed
 if ! bundle exec rails runner "ActiveRecord::Base.connection" >/dev/null 2>&1; then
@@ -46,6 +62,8 @@ echo "🧹 Cleaning temporary files..."
 rm -f tmp/pids/server.pid
 
 echo "🎉 Development environment ready!"
+echo "📊 Using Railway PostgreSQL at ${DATABASE_HOST}:${DATABASE_PORT}"
+echo "📊 Using Railway Redis via: ${REDIS_URL}"
 
 # Execute the main command
 exec "$@" 

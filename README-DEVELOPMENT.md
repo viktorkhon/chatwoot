@@ -2,12 +2,15 @@
 
 This guide explains how to set up a **fast iteration Docker development environment** for Chatwoot that solves the problem of slow rebuild times when making small code changes.
 
+**🚀 This setup uses Railway.com for PostgreSQL and Redis services, eliminating the need for local database containers while maintaining fast development iteration.**
+
 ## 🚀 Quick Start
 
 ### 1. Prerequisites
 - Docker Desktop installed and running
 - Git (for cloning the repository)
-- At least 8GB RAM recommended
+- At least 4GB RAM recommended (reduced since we're using Railway for databases)
+- Railway.com account with PostgreSQL and Redis services set up
 
 ### 2. Initial Setup (One-time)
 
@@ -24,11 +27,27 @@ chmod +x scripts/dev-setup.sh
 
 This will:
 - Build the development Docker image (one-time build)
-- Create your `.env` file
-- Start all services (PostgreSQL, Redis, Vite, Rails, Sidekiq)
-- Set up the database
+- Create your `.env` file from `docker/env.development`
+- Start local services (Vite, Rails, Sidekiq, MailHog)
+- Connect to your Railway PostgreSQL and Redis services
 
-### 3. Daily Development Workflow
+### 3. Configure Railway Services
+
+Make sure your `.env` file has the correct Railway credentials:
+
+```bash
+# === Database Configuration (Railway PostgreSQL) ===
+DATABASE_HOST=your-railway-postgres-host
+DATABASE_PORT=your-railway-postgres-port
+DATABASE_NAME=railway
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=your-railway-postgres-password
+
+# === Redis Configuration (Railway Redis) ===
+REDIS_URL=redis://default:your-redis-password@your-redis-host:your-redis-port
+```
+
+### 4. Daily Development Workflow
 
 ```bash
 # Start your development environment
@@ -39,7 +58,7 @@ This will:
 # View logs if needed
 ./scripts/dev-setup.sh logs
 
-# Stop when done
+# Stop when done (Railway services keep running)
 ./scripts/dev-setup.sh stop
 ```
 
@@ -55,10 +74,16 @@ This will:
 - Only rebuild when `Gemfile` or `package.json` changes
 - Dependencies persist between container restarts
 
-### 🔧 **Isolated Services**
-- PostgreSQL, Redis, and Sidekiq run independently
-- Only restart what you need to restart
-- Services keep running while you iterate on code
+### 🌩️ **Railway Integration**
+- Uses your existing Railway PostgreSQL and Redis services
+- Consistent data between development and production
+- No local database overhead - saves system resources
+- Share the same database with your team (optional)
+
+### 🔧 **Minimal Local Services**
+- Only runs Rails, Sidekiq, Vite, and MailHog locally
+- PostgreSQL and Redis run on Railway.com
+- Reduced memory usage and faster startup
 
 ## 🛠️ Available Commands
 
@@ -102,10 +127,10 @@ This will:
 # Restart just the Rails server
 ./scripts/dev-setup.sh restart rails
 
-# Open Rails console
+# Open Rails console (connects to Railway PostgreSQL)
 ./scripts/dev-setup.sh console
 
-# Run migrations
+# Run migrations on Railway PostgreSQL
 ./scripts/dev-setup.sh migrate
 ```
 
@@ -116,8 +141,8 @@ Once running, access your services at:
 - **Rails App**: http://localhost:3000
 - **Vite Dev Server**: http://localhost:3036  
 - **MailHog (Email Testing)**: http://localhost:8025
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
+- **PostgreSQL**: Railway.com (external)
+- **Redis**: Railway.com (external)
 
 ## 📁 How It Works
 
@@ -135,11 +160,10 @@ The `docker/Dockerfile.dev` is optimized for development:
 - Uses cached layers for dependencies
 - Mounts your actual code as a volume for live changes
 
-### Intelligent Entrypoint
-The `docker/entrypoints/dev.sh` script:
-- Checks for new dependencies and installs them if needed
-- Only precompiles assets when necessary
-- Skips unnecessary steps for faster startup
+### Railway Integration
+- Connects to external PostgreSQL and Redis on Railway.com
+- No local database containers needed
+- Intelligent connection testing in entrypoint script
 
 ## 🔧 Troubleshooting
 
@@ -149,8 +173,27 @@ The `docker/entrypoints/dev.sh` script:
 ./scripts/dev-setup.sh status
 
 # View logs for specific service
-./scripts/dev-setup.sh logs postgres
-./scripts/dev-setup.sh logs redis
+./scripts/dev-setup.sh logs rails
+```
+
+### Database Connection Issues
+```bash
+# Test database connection
+./scripts/dev-setup.sh logs rails
+
+# Check your .env file has correct Railway credentials:
+# - DATABASE_HOST
+# - DATABASE_PORT  
+# - DATABASE_PASSWORD
+```
+
+### Redis Connection Issues
+```bash
+# Check Redis URL format in .env:
+# REDIS_URL=redis://default:password@host:port
+
+# View connection logs
+./scripts/dev-setup.sh logs rails
 ```
 
 ### Code Changes Not Reflected
@@ -158,19 +201,10 @@ The `docker/entrypoints/dev.sh` script:
 - Check that volumes are properly mounted
 - Restart the Rails service: `./scripts/dev-setup.sh restart rails`
 
-### Database Issues
-```bash
-# Reset database (will destroy data!)
-./scripts/dev-setup.sh reset-db
-
-# Or just run migrations
-./scripts/dev-setup.sh migrate
-```
-
 ### Performance Issues
-- Ensure Docker Desktop has sufficient resources (8GB+ RAM)
+- Ensure Docker Desktop has sufficient resources (4GB+ RAM)
 - On Windows, consider using WSL2 for better performance
-- Check that no other services are using ports 3000, 3036, 5432, 6379
+- Check that no other services are using ports 3000, 3036, 8025
 
 ### Clean Slate
 ```bash
@@ -181,17 +215,27 @@ The `docker/entrypoints/dev.sh` script:
 
 ## 📝 Environment Configuration
 
-### Default Development Settings
-The system uses optimized development settings in `docker/env.development`:
+### Railway Configuration Required
+Update your `.env` file with Railway service details:
+
+```bash
+# Get these from your Railway project dashboard
+DATABASE_HOST=your-project.railway.app
+DATABASE_PORT=5432
+DATABASE_NAME=railway  
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=your-password
+
+# Redis URL from Railway
+REDIS_URL=redis://default:password@host:port
+```
+
+### Local Development Optimizations
+The system includes optimized development settings:
 - Fast asset compilation disabled in development
 - Debug logging enabled
 - All feature flags enabled for testing
-- MailHog for email testing
-
-### Custom Configuration
-1. Copy `docker/env.development` to your `.env` file
-2. Modify as needed for your specific setup
-3. Restart services: `./scripts/dev-setup.sh restart`
+- MailHog for local email testing
 
 ## 🆚 Comparison: Before vs After
 
@@ -224,7 +268,15 @@ This setup is for **development only**. For production deployment:
 2. Use the Railway/production docker-compose files
 3. Follow your established production deployment process
 
-The development and production environments are completely separate.
+The development and production environments can share the same Railway services or use separate instances.
+
+## 🌩️ Railway Benefits
+
+1. **Consistent Data**: Same database as your deployed application
+2. **Team Collaboration**: Share database with team members
+3. **Backup & Monitoring**: Railway handles database backups and monitoring
+4. **No Local Resources**: Saves RAM and CPU on your development machine
+5. **Production Parity**: Same database engine and version as production
 
 ## 💡 Tips for Maximum Productivity
 
@@ -233,6 +285,7 @@ The development and production environments are completely separate.
 3. **Multiple Terminals**: Keep one terminal for logs, another for commands
 4. **Rails Console**: Use `./scripts/dev-setup.sh console` for quick testing
 5. **Database Seeding**: Use `./scripts/dev-setup.sh seed` to populate test data
+6. **Railway Dashboard**: Monitor your database and Redis usage via Railway dashboard
 
 ## 🤝 Contributing
 
@@ -245,4 +298,4 @@ If you improve this development setup:
 
 **Happy coding! 🎉** 
 
-No more waiting for Docker rebuilds - now you can iterate as fast as you think! 
+No more waiting for Docker rebuilds, and no local database overhead - now you can iterate as fast as you think while using production-grade Railway services! 

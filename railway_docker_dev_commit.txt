@@ -1,0 +1,57 @@
+feat: Update Docker development environment to use Railway PostgreSQL and Redis
+
+**Problem Solved:**
+- Eliminated need for local PostgreSQL and Redis Docker containers
+- Reduced local resource usage while maintaining fast development iteration
+- Enabled consistent data sharing between development and production environments
+
+**Key Changes:**
+
+**Docker Compose Updates:**
+- Removed local `postgres` and `redis` services from `docker-compose.dev.yaml`
+- Eliminated service dependencies on local database containers
+- Kept only essential local services: Rails, Sidekiq, Vite, and MailHog
+- Reduced Docker volumes (removed `postgres_data` and `redis_data`)
+
+**Environment Configuration:**
+- Updated `docker/env.development` to use Railway service endpoints
+- Added Railway PostgreSQL connection settings
+- Updated Redis URL format for Railway Redis service
+- Maintained MailHog for local email testing
+
+**Development Scripts:**
+- Modified `docker/entrypoints/dev.sh` for external database connections
+- Updated connection testing for Railway PostgreSQL and Redis
+- Enhanced error handling and connection validation
+- Added informative logging for Railway service status
+
+**Management Scripts:**
+- Updated `scripts/dev-setup.sh` with Railway-aware functionality
+- Modified service status reporting to show external services
+- Updated help documentation and command descriptions
+- Added Railway credential validation reminders
+
+**Documentation:**
+- Completely updated `README-DEVELOPMENT.md` for Railway integration
+- Added Railway configuration instructions
+- Updated troubleshooting guide for external services
+- Reduced system requirements (4GB vs 8GB RAM)
+
+**Benefits:**
+- **Reduced Resource Usage**: No local PostgreSQL/Redis containers
+- **Production Parity**: Same database as deployed application  
+- **Team Collaboration**: Shared database access capability
+- **Faster Startup**: Fewer containers to initialize
+- **Consistent Data**: Development matches production environment
+
+**Quick Setup:**
+```bash
+# Configure Railway credentials in .env
+DATABASE_HOST=your-railway-host
+REDIS_URL=redis://default:password@host:port
+
+# Start development (much faster now!)
+./scripts/dev-setup.sh start
+```
+
+This change maintains all the fast iteration benefits while using Railway's managed database services, resulting in a more efficient and production-aligned development environment. 

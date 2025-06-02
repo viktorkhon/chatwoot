@@ -2,6 +2,7 @@
 
 # Chatwoot Development Environment Setup Script
 # This script helps you manage your Docker development environment for fast iteration
+# Uses Railway.com for PostgreSQL and Redis services
 
 set -e
 
@@ -56,9 +57,10 @@ check_docker_compose() {
 # Function to create .env file if it doesn't exist
 setup_env() {
     if [ ! -f .env ]; then
-        print_status "Creating .env file from .env.example..."
-        cp .env.example .env
-        print_warning "Please review and update the .env file with your configuration"
+        print_status "Creating .env file from docker/env.development..."
+        cp docker/env.development .env
+        print_warning "Please review and update the .env file with your Railway credentials"
+        print_warning "Make sure to update REDIS_URL with your Railway Redis connection string"
     else
         print_success ".env file already exists"
     fi
@@ -74,8 +76,11 @@ build_image() {
 # Function to start services
 start_services() {
     print_status "Starting development services..."
-    $DOCKER_COMPOSE -f docker-compose.dev.yaml up -d postgres redis mailhog
-    print_success "Infrastructure services started"
+    print_status "Using Railway.com for PostgreSQL and Redis"
+    
+    # Start MailHog for local email testing
+    print_status "Starting MailHog for email testing..."
+    $DOCKER_COMPOSE -f docker-compose.dev.yaml up -d mailhog
     
     print_status "Starting Vite development server..."
     $DOCKER_COMPOSE -f docker-compose.dev.yaml up -d vite
@@ -84,12 +89,17 @@ start_services() {
     $DOCKER_COMPOSE -f docker-compose.dev.yaml up -d rails sidekiq
     
     print_success "All services started successfully!"
+    print_status "PostgreSQL and Redis are running on Railway.com"
 }
 
 # Function to show service status
 show_status() {
     print_status "Service Status:"
     $DOCKER_COMPOSE -f docker-compose.dev.yaml ps
+    print_status ""
+    print_status "External Services (Railway.com):"
+    print_status "- PostgreSQL: ${DATABASE_HOST:-Not configured}"
+    print_status "- Redis: ${REDIS_URL:-Not configured}"
 }
 
 # Function to show logs
@@ -112,6 +122,7 @@ stop_services() {
     print_status "Stopping development services..."
     $DOCKER_COMPOSE -f docker-compose.dev.yaml down
     print_success "Services stopped"
+    print_status "PostgreSQL and Redis on Railway.com remain running"
 }
 
 # Function to clean up
@@ -120,6 +131,7 @@ cleanup() {
     $DOCKER_COMPOSE -f docker-compose.dev.yaml down -v --remove-orphans
     docker image prune -f
     print_success "Cleanup completed"
+    print_status "PostgreSQL and Redis on Railway.com remain running"
 }
 
 # Function to run Rails console
@@ -130,25 +142,25 @@ rails_console() {
 
 # Function to run migrations
 run_migrations() {
-    print_status "Running database migrations..."
+    print_status "Running database migrations on Railway PostgreSQL..."
     $DOCKER_COMPOSE -f docker-compose.dev.yaml exec rails bundle exec rails db:migrate
     print_success "Migrations completed"
 }
 
 # Function to seed database
 seed_database() {
-    print_status "Seeding database..."
+    print_status "Seeding Railway PostgreSQL database..."
     $DOCKER_COMPOSE -f docker-compose.dev.yaml exec rails bundle exec rails db:seed
     print_success "Database seeded"
 }
 
 # Function to reset database
 reset_database() {
-    print_warning "This will destroy all data in your development database!"
+    print_warning "This will destroy all data in your Railway PostgreSQL database!"
     read -p "Are you sure? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Resetting database..."
+        print_status "Resetting Railway PostgreSQL database..."
         $DOCKER_COMPOSE -f docker-compose.dev.yaml exec rails bundle exec rails db:drop db:create db:migrate db:seed
         print_success "Database reset completed"
     else
@@ -159,6 +171,7 @@ reset_database() {
 # Function to show help
 show_help() {
     echo "Chatwoot Development Environment Manager"
+    echo "Using Railway.com for PostgreSQL and Redis"
     echo ""
     echo "Usage: $0 [COMMAND]"
     echo ""
@@ -186,14 +199,15 @@ show_help() {
     echo "  - Rails App: http://localhost:3000"
     echo "  - Vite Dev:  http://localhost:3036"
     echo "  - MailHog:   http://localhost:8025"
-    echo "  - PostgreSQL: localhost:5432"
-    echo "  - Redis:     localhost:6379"
+    echo "  - PostgreSQL: Railway.com (external)"
+    echo "  - Redis:     Railway.com (external)"
 }
 
 # Main command handling
 case "${1:-help}" in
     setup)
         print_status "Setting up Chatwoot development environment..."
+        print_status "This setup uses Railway.com for PostgreSQL and Redis"
         check_docker
         check_docker_compose
         setup_env
@@ -202,6 +216,7 @@ case "${1:-help}" in
         show_status
         print_success "Setup completed! Your development environment is ready."
         print_status "Access your app at: http://localhost:3000"
+        print_warning "Make sure your .env file has correct Railway credentials"
         ;;
     start)
         check_docker

@@ -97,7 +97,7 @@ gem 'koala'
 gem 'slack-ruby-client', '~> 2.5.2'
 # for dialogflow integrations
 gem 'google-cloud-dialogflow-v2', '>= 0.24.0'
-gem 'grpc'
+# gem 'grpc' # Moved to production group - not needed in development
 # Translate integrations
 # 'google-cloud-translate' gem depends on faraday 2.0 version
 # this dependency breaks the slack-ruby-client gem
@@ -187,6 +187,7 @@ group :production do
   # for heroku autoscaling
   gem 'judoscale-rails', require: false
   gem 'judoscale-sidekiq', require: false
+  gem 'grpc'
 end
 
 group :development do

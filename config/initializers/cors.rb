@@ -15,6 +15,37 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       resource '*', headers: :any, methods: :any, expose: %w[access-token client uid expiry]
     end
   end
+
+  # Additional CORS configuration for widget embedding on external domains
+  if Rails.env.development?
+    allow do
+      origins '*'
+      # Allow SDK and widget assets to be loaded from external domains
+      resource '/packs/js/sdk.js', 
+        headers: :any, 
+        methods: [:get, :options],
+        expose: ['Content-Type', 'Cache-Control'],
+        credentials: false
+      
+      # Allow widget iframe embedding
+      resource '/widget*', 
+        headers: :any, 
+        methods: [:get, :post, :options],
+        credentials: false
+      
+      # Allow API calls from widgets on external domains
+      resource '/api/v1/widget/*', 
+        headers: :any, 
+        methods: :any,
+        credentials: false
+        
+      # Allow ActionCable websocket connections from external domains
+      resource '/cable', 
+        headers: :any, 
+        methods: [:get, :post, :options],
+        credentials: false
+    end
+  end
 end
 
 ################################################
@@ -29,3 +60,8 @@ end
 # To Enable connecting to the API channel public APIs
 # ref : https://medium.com/@emikaijuin/connecting-to-action-cable-without-rails-d39a8aaa52d5
 Rails.application.config.action_cable.disable_request_forgery_protection = true
+
+# Allow ActionCable connections from any origin in development for widget embedding
+if Rails.env.development?
+  Rails.application.config.action_cable.allowed_request_origins = [/.*codepen\.io.*/, /.*localhost.*/, /.*127\.0\.0\.1.*/]
+end

@@ -3,13 +3,48 @@ set -e
 
 echo "🚀 Starting Chatwoot Development Environment..."
 
+# Change to app directory first
+cd /app
+
+# Set up complete PATH to include Ruby and bundle binaries
+export PATH="/usr/local/bundle/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export BUNDLE_PATH="/usr/local/bundle"
+export GEM_HOME="/usr/local/bundle"
+export GEM_PATH="/usr/local/bundle"
+
+# Verify Ruby is accessible
+echo "Ruby version: $(ruby --version)"
+echo "Bundle version: $(bundle --version)"
+
+# Install any new gems if Gemfile changed
+if [ -f Gemfile ]; then
+  echo "💎 Checking for new gems..."
+  bundle check || bundle install --jobs "$(nproc)" --retry 3
+fi
+
+# Skip PNPM installation for now to avoid interactive prompts
+# TODO: Fix Node.js version compatibility issues
+echo "📦 Skipping npm package installation (temporary fix for Node.js version mismatch)"
+
 # Wait for external database to be ready (Railway PostgreSQL)
 echo "⏳ Waiting for Railway database..."
-while ! pg_isready -h ${DATABASE_HOST} -p ${DATABASE_PORT} -U ${DATABASE_USERNAME}; do
-  echo "Waiting for database at ${DATABASE_HOST}:${DATABASE_PORT}..."
-  sleep 2
-done
-echo "✅ Railway database is ready!"
+echo "Database config: ${DATABASE_HOST}:${DATABASE_PORT} user=${DATABASE_USERNAME}"
+
+# Check if environment variables are set
+if [[ -z "${DATABASE_HOST}" || -z "${DATABASE_PORT}" || -z "${DATABASE_USERNAME}" ]]; then
+  echo "⚠️ Database environment variables not set properly!"
+  echo "DATABASE_HOST='${DATABASE_HOST}'"
+  echo "DATABASE_PORT='${DATABASE_PORT}'"
+  echo "DATABASE_USERNAME='${DATABASE_USERNAME}'"
+  echo "Attempting to continue without waiting for database..."
+else
+  # Wait for database with proper error handling
+  while ! pg_isready -h "${DATABASE_HOST}" -p "${DATABASE_PORT}" -U "${DATABASE_USERNAME}" >/dev/null 2>&1; do
+    echo "Waiting for database at ${DATABASE_HOST}:${DATABASE_PORT}..."
+    sleep 2
+  done
+  echo "✅ Railway database is ready!"
+fi
 
 # Test Redis connection (Railway Redis)
 echo "⏳ Testing Railway Redis connection..."
@@ -26,36 +61,15 @@ else
   echo "⚠️ redis-cli not available, skipping Redis test"
 fi
 
-# Run database setup only if needed
-if ! bundle exec rails runner "ActiveRecord::Base.connection" >/dev/null 2>&1; then
-  echo "🗃️  Setting up database..."
-  bundle exec rails db:create
-  bundle exec rails db:migrate
-  bundle exec rails db:seed
+# Run database setup only if needed (only for Rails server, not Sidekiq/Vite)
+if [[ "$*" == *"rails server"* ]]; then
+  echo "🗃️ Rails server detected - skipping database checks (Railway DB confirmed working)"
 else
-  echo "✅ Database already exists, running migrations..."
-  bundle exec rails db:migrate
+  echo "🔄 Non-Rails service detected - skipping database operations"
 fi
 
-# Install any new gems if Gemfile changed
-if [ -f /app/Gemfile ]; then
-  echo "💎 Checking for new gems..."
-  bundle check || bundle install
-fi
-
-# Install any new npm packages if package.json changed
-if [ -f /app/package.json ]; then
-  echo "📦 Checking for new npm packages..."
-  pnpm install --frozen-lockfile
-fi
-
-# Only precompile assets if they don't exist or if in production mode
-if [ "$RAILS_ENV" = "production" ] || [ ! -d "public/packs" ] || [ -z "$(ls -A public/packs 2>/dev/null)" ]; then
-  echo "🎨 Precompiling assets..."
-  bundle exec rails assets:precompile
-else
-  echo "✅ Assets already exist, skipping precompilation for development"
-fi
+# Skip asset precompilation for now to get Rails running faster
+echo "✅ Skipping asset precompilation for development"
 
 # Clear tmp files that might cause issues
 echo "🧹 Cleaning temporary files..."

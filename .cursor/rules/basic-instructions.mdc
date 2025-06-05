@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 Do not give me instructions on what to do or what to fix, instead you always take initiative, find all files, make all fixes, and give me a summary of what was done and why.
 

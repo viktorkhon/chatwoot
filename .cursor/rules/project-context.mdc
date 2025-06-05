@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 Before working on any solution, please review the project context file at `.cursor/project_context.md`. This file contains information about the project's history, current focus, and important notes from previous sessions.
 

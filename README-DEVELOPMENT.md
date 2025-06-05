@@ -4,22 +4,157 @@
 
 This guide provides a comprehensive solution for Chatwoot development that eliminates the traditional Docker rebuild bottlenecks while maintaining production parity through Railway.com integration.
 
-## 📊 Performance Achievements
 
-| Metric | Before Optimization | After Optimization | Improvement |
-|--------|-------------------|-------------------|-------------|
-| **Container Startup** | 10-20 minutes | 30-60 seconds | **95% faster** |
-| **Vite Dev Server** | 10-20 minutes | 400ms | **99.6% faster** |
-| **Code Changes** | Rebuild required | Instant HMR | **Instant** |
-| **First-time Setup** | 15-20 minutes | 2-3 minutes | **83% faster** |
+**🔄 Daily Workflow:**
+1. **Start tunnel:** Double-click `start_cloudflare.cmd`
+2. **Copy new URL** from terminal (e.g., `https://abc-123.trycloudflare.com`)
+3. **Update everywhere instantly:** Double-click `quick_update_url.cmd`
+4. **Paste URL** when prompted
+5. **Done!** No restart needed, changes are live immediately
 
-## 🎯 Quick Start (5 Minutes to Running)
+### Smart URL Update System
 
-### Prerequisites
-- **Docker Desktop** (running)
-- **Railway.com account** with PostgreSQL/Redis services
-- **4GB+ RAM recommended** 
-- **Git** for repository cloning
+**What gets updated automatically:**
+- ✅ `.env.local` file
+- ✅ Database configuration (`InstallationConfig`)
+- ✅ All account domains
+- ✅ Widget settings for all inboxes
+- ✅ Live application configuration (no restart needed)
+
+**Files created for you:**
+- `update_tunnel_url.ps1` - Smart PowerShell script
+- `quick_update_url.cmd` - Double-click interface
+
+**Cloudflare Tunnel (Recommended):**
+```bash
+# Quick tunnel (URL changes each session)
+cloudflared tunnel --url localhost:3000
+
+# Named tunnel (stable URL, requires account)
+cloudflared tunnel login
+cloudflared tunnel create chatwoot-dev
+cloudflared tunnel route dns chatwoot-dev dev.yourcompany.com
+```
+### Tunnel Management Commands
+
+**Start development with tunnel:**
+```bash
+# Terminal 1: Start Chatwoot
+docker-compose -f docker-compose.dev.yaml up -d
+
+# Terminal 2: Start tunnel
+start_cloudflare.cmd  # or your preferred method
+
+# Terminal 3: Update URL everywhere
+quick_update_url.cmd  # paste new URL when prompted
+```
+
+**Verify updates worked:**
+```bash
+# Check environment
+docker-compose -f docker-compose.dev.yaml exec rails printenv FRONTEND_URL
+
+# Check database
+docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "puts InstallationConfig.find_by(name: 'FRONTEND_URL')&.value"
+
+```
+
+### Update FRONTEND_URL for n8n Integration
+
+**Using the smart updater (recommended):**
+1. Run `quick_update_url.cmd`
+2. Paste your stable tunnel URL
+3. Everything updates automatically - no manual steps needed!
+
+**Manual method (if needed):**
+```ruby
+# In Rails console
+docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails console
+
+# Update all configuration manually
+config = InstallationConfig.find_or_create_by(name: 'FRONTEND_URL')
+config.update!(value: 'https://your-tunnel-url.trycloudflare.com')
+
+# Update account domains
+Account.all.each { |account| account.update!(domain: 'your-tunnel-url.trycloudflare.com') }
+
+# Update widget settings
+Inbox.where(channel_type: 'Channel::WebWidget').each do |inbox|
+  settings = inbox.channel.widget_settings || {}
+  settings['website_url'] = 'https://your-tunnel-url.trycloudflare.com'
+  inbox.channel.update!(widget_settings: settings)
+end
+```
+
+## 🤖 n8n Integration Workflow
+
+### Streamlined Setup for n8n Testing
+
+1. **Start Development Environment:**
+   ```bash
+   docker-compose -f docker-compose.dev.yaml up -d
+   ```
+
+2. **Start Tunnel & Update URLs:**
+   ```bash
+   # Start tunnel (any method)
+   start_cloudflare.cmd
+   # or: cloudflared tunnel --url localhost:3000
+   # or: ssh -p 443 -R0:localhost:3000 a.pinggy.io
+   
+   # Copy the tunnel URL, then update everything instantly
+   quick_update_url.cmd  # paste URL when prompted
+   ```
+
+3. **Verify Configuration:**
+   ```bash
+   # Check that URL is updated everywhere
+   docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "
+   puts 'FRONTEND_URL: ' + (InstallationConfig.find_by(name: 'FRONTEND_URL')&.value || 'Not set')
+   puts 'Account domains: ' + Account.pluck(:domain).join(', ')
+   puts 'Widget URLs: ' + Inbox.where(channel_type: 'Channel::WebWidget').map { |i| i.channel.widget_settings&.dig('website_url') }.compact.join(', ')
+   "
+   ```
+
+4. **Test n8n Webhooks:**
+   - All webhook types automatically work: `conversation_created`, `conversation_status_changed`, `message_created`, `message_updated`
+   - n8n can reach your local Chatwoot via the tunnel URL
+   - Widget interactions trigger the full webhook flow
+
+### Expected Webhook Flow
+```
+Widget/API → Local Chatwoot → n8n (Railway) → Tunnel URL → Local Chatwoot → Response
+```
+
+**Key Benefits of Smart Update System:**
+- ✅ **No container restarts** when tunnel URL changes
+- ✅ **Instant updates** across all configurations
+- ✅ **One command** updates everything
+- ✅ **Zero downtime** - users stay connected
+- ✅ **Works with any tunnel provider**
+
+### Widget Testing Script
+
+**For external testing (CodePen, etc.):**
+```html
+<script>
+(function(d,t) {
+  // Use your current tunnel URL here
+  var BASE_URL="https://your-tunnel-url.trycloudflare.com";
+  var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+  g.src=BASE_URL+"/packs/js/sdk.js";
+  g.defer = true;
+  g.async = true;
+  s.parentNode.insertBefore(g,s);
+  g.onload=function(){
+    window.chatwootSDK.run({
+      websiteToken: 'ZNe7yaenZAqPimUSkPJr8ovx',  // Your widget token
+      baseUrl: BASE_URL
+    })
+  }
+})(document,"script");
+</script>
+```
 
 ### One-Command Setup
 
@@ -185,237 +320,151 @@ docker-compose -f docker-compose.dev.yaml down
 | **PostgreSQL** | Railway.com | Database (external) |
 | **Redis** | Railway.com | Cache & job queue (external) |
 
-## 🌉 Stable Tunneling Solutions
+## 🌉 External Access & Tunneling Solutions
 
-### Problem: Cloudflare Tunnel Instability
-Cloudflare tunnels (`npx cloudflared tunnel --url localhost:3000`) die when terminal closes, breaking n8n webhook testing.
+### Problem: Changing Tunnel URLs
+Modern tunnel services (ngrok, Cloudflare tunnels, Pinggy) generate new URLs frequently, breaking:
+- n8n webhook integrations
+- External widget testing
+- Shared development URLs
 
-### Solution 1: PM2 Process Manager (Recommended)
+### ✨ Smart Solution: Auto-Update Without Restarts
 
-**Install PM2:**
+**🚀 One-Time Setup:**
 ```bash
-npm install -g pm2
+# Install Cloudflare tunnel (Windows)
+winget install --id Cloudflare.cloudflared
+
+# Create quick launcher
+echo 'start "Cloudflare Tunnel" /min cloudflared tunnel --url localhost:3000' > start_cloudflare.cmd
 ```
 
-**Create tunnel configuration:**
-```bash
-# Create ecosystem.config.js
-cat > ecosystem.config.js << 'EOF'
-module.exports = {
-  apps: [{
-    name: 'cloudflare-tunnel',
-    script: 'npx',
-    args: 'cloudflared tunnel --url localhost:3000',
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '200M',
-    env: {
-      NODE_ENV: 'development'
-    },
-    log_file: './logs/tunnel.log',
-    out_file: './logs/tunnel-out.log',
-    error_file: './logs/tunnel-error.log',
-    time: true
-  }]
-};
-EOF
+### Troubleshooting Tunnel Issues
 
-mkdir -p logs
-```
+**Common Problems & Solutions:**
 
-**Start persistent tunnel:**
-```bash
-# Start tunnel (survives terminal close)
-pm2 start ecosystem.config.js
-
-# View tunnel URL and status
-pm2 logs cloudflare-tunnel
-
-# Stop tunnel when done
-pm2 stop cloudflare-tunnel
-pm2 delete cloudflare-tunnel
-```
-
-### Solution 2: Docker-Based Tunnel
-
-**Create tunnel service in docker-compose.dev.yaml:**
-```yaml
-# Add to your docker-compose.dev.yaml services section
-tunnel:
-  container_name: chatwoot_tunnel_dev
-  image: cloudflare/cloudflared:latest
-  command: tunnel --url http://rails:3000
-  depends_on:
-    - rails
-  restart: unless-stopped
-  volumes:
-    - ./logs:/logs
-```
-
-**Start with tunnel:**
-```bash
-docker-compose -f docker-compose.dev.yaml up -d
-docker logs chatwoot_tunnel_dev  # Get the tunnel URL
-```
-
-### Solution 3: ngrok with Authentication (Most Stable)
-
-**Setup ngrok with persistent subdomain:**
-```bash
-# Install ngrok
-# Windows: Download from https://ngrok.com/download
-# macOS: brew install ngrok
-# Linux: snap install ngrok
-
-# Add your authtoken (free account required)
-ngrok authtoken YOUR_AUTHTOKEN_FROM_NGROK_DASHBOARD
-
-# Start tunnel with custom subdomain (paid plan) or random stable URL (free)
-ngrok http 3000 --subdomain=chatwoot-dev  # Paid plan
-# OR
-ngrok http 3000  # Free plan (stable until restart)
-```
-
-**ngrok configuration file (`~/.ngrok2/ngrok.yml`):**
-```yaml
-version: "2"
-authtoken: YOUR_AUTHTOKEN
-tunnels:
-  chatwoot:
-    addr: 3000
-    proto: http
-    subdomain: chatwoot-dev  # Requires paid plan
-    # OR for free accounts:
-    # bind_tls: true
-    # hostname: your-stable-url.ngrok.io
-```
-
-**Start persistent ngrok:**
-```bash
-# Start tunnel in background
-ngrok start chatwoot &
-
-# Or use screen/tmux for persistence
-screen -S ngrok
-ngrok start chatwoot
-# Ctrl+A, D to detach
-```
-
-### Tunnel Management Script
-
-**Create `scripts/tunnel.ps1`:**
-```powershell
-param(
-    [Parameter(Mandatory=$true)]
-    [ValidateSet("start", "stop", "status", "url")]
-    [string]$Action
-)
-
-switch ($Action) {
-    "start" {
-        Write-Host "🚀 Starting persistent tunnel..."
-        pm2 start ecosystem.config.js
-        Start-Sleep 5
-        pm2 logs cloudflare-tunnel --lines 10
-    }
-    "stop" {
-        Write-Host "🛑 Stopping tunnel..."
-        pm2 stop cloudflare-tunnel
-        pm2 delete cloudflare-tunnel
-    }
-    "status" {
-        pm2 status cloudflare-tunnel
-    }
-    "url" {
-        Write-Host "📋 Getting tunnel URL from logs..."
-        pm2 logs cloudflare-tunnel --lines 50 | Select-String "https://.*\.trycloudflare\.com"
-    }
-}
-```
-
-**Usage:**
-```bash
-# Start persistent tunnel
-.\scripts\tunnel.ps1 start
-
-# Get current tunnel URL
-.\scripts\tunnel.ps1 url
-
-# Stop tunnel
-.\scripts\tunnel.ps1 stop
-```
-
-### Update FRONTEND_URL for n8n Integration
-
-**Once tunnel is stable:**
-```bash
-# Update environment for current session
-export FRONTEND_URL=https://your-stable-tunnel-url.trycloudflare.com
-
-# OR update database for n8n workflows
-docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails console
-```
-
-**In Rails console:**
-```ruby
-# Update frontend_url for n8n dynamic endpoint usage
-account = Account.find(2)  # Replace with your account ID
-account.custom_attributes = account.custom_attributes.merge({
-  'frontend_url' => 'https://your-stable-tunnel-url.trycloudflare.com'
-})
-account.save!
-
-puts "✅ Frontend URL updated for n8n integration"
-puts "Current URL: #{account.custom_attributes['frontend_url']}"
-```
-
-## 🤖 n8n Integration Workflow
-
-### Complete Setup for Stable n8n Testing
-
-1. **Start Development Environment:**
+1. **PowerShell script syntax errors:**
    ```bash
-   .\scripts\dev-setup.ps1 start
+   # If you get "string is missing terminator" errors
+   # Delete and recreate the script file:
+   del update_tunnel_url.ps1
+   # Then re-download or recreate the script
    ```
 
-2. **Start Persistent Tunnel:**
+2. **Database update errors (InstallationConfig):**
    ```bash
-   .\scripts\tunnel.ps1 start
-   # Note the stable tunnel URL
+   # If you get "null value in column serialized_value" error
+   # The script tries to use 'value' instead of 'serialized_value'
+   # OR if you get "can't serialize serialized_value" error
+   # The field expects a hash, not a string
+   # Run this manual fix:
+   docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails console
    ```
-
-3. **Configure n8n Integration:**
+   
+   **In Rails console:**
    ```ruby
-   # In Rails console
-   account = Account.find(2)
-   account.custom_attributes['frontend_url'] = 'https://your-stable-tunnel.trycloudflare.com'
-   account.save!
+   # Manual database update (use hash format)
+   config = InstallationConfig.find_by(name: 'FRONTEND_URL')
+   if config
+     config.update!(serialized_value: { 'value' => 'https://your-tunnel-url.trycloudflare.com' })
+   else
+     InstallationConfig.create!(name: 'FRONTEND_URL', serialized_value: { 'value' => 'https://your-tunnel-url.trycloudflare.com' }, locked: true)
+   end
+   
+   # Update account domains
+   Account.all.each { |account| account.update!(domain: 'your-tunnel-url.trycloudflare.com') }
+   
+   # Update widget settings
+   Inbox.where(channel_type: 'Channel::WebWidget').each do |inbox|
+     settings = inbox.channel.widget_settings || {}
+     settings['website_url'] = 'https://your-tunnel-url.trycloudflare.com'
+     settings['widget_website_url'] = 'https://your-tunnel-url.trycloudflare.com'
+     inbox.channel.update!(widget_settings: settings)
+   end
+   
+   puts "✅ All configurations updated manually"
    ```
 
-4. **Test Widget Integration:**
-   ```html
-   <!-- Use in CodePen or external sites -->
-   <script>
-     (function(d,t) {
-       var BASE_URL="http://localhost:3000";
-       var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-       g.src=BASE_URL+"/packs/js/sdk.js";
-       g.defer = true;
-       g.async = true;
-       s.parentNode.insertBefore(g,s);
-       g.onload=function(){
-         window.chatwootSDK.run({
-           websiteToken: 'ZNe7yaenZAqPimUSkPJr8ovx',
-           baseUrl: BASE_URL
-         })
-       }
-     })(document,"script");
-   </script>
+3. **Environment variable not updating:**
+   ```bash
+   # The .env file takes precedence over .env.local
+   # Make sure both files are updated:
+   Get-Content .env | Select-String "FRONTEND_URL"
+   Get-Content .env.local | Select-String "FRONTEND_URL"
+   
+   # Update both files manually if needed:
+   (Get-Content .env) -replace 'FRONTEND_URL=.*', 'FRONTEND_URL=https://your-tunnel-url.trycloudflare.com' | Set-Content .env
+   (Get-Content .env.local) -replace 'FRONTEND_URL=.*', 'FRONTEND_URL=https://your-tunnel-url.trycloudflare.com' | Set-Content .env.local
+   
+   # Then restart Rails
+   docker-compose -f docker-compose.dev.yaml restart rails
    ```
 
-### Expected Webhook Flow
-- Widget interaction → Local Chatwoot → Railway n8n → Stable tunnel URL → Local Chatwoot → Widget
-- All 4 webhook types supported: `conversation_created`, `conversation_status_changed`, `message_created`, `message_updated`
+4. **Tunnel keeps disconnecting:**
+   ```bash
+   # Use screen/tmux for persistent sessions
+   screen -S tunnel
+   cloudflared tunnel --url localhost:3000
+   # Ctrl+A, D to detach
+   
+   # Or use systemd on Linux
+   sudo systemctl enable --now cloudflared
+   ```
+
+5. **URL not updating in app:**
+   ```bash
+   # Re-run the smart updater
+   quick_update_url.cmd
+   
+   # Or restart just Rails (not full stack)
+   docker-compose -f docker-compose.dev.yaml restart rails
+   ```
+
+6. **n8n webhooks not receiving:**
+   ```bash
+   # Test tunnel accessibility
+   curl -I https://your-tunnel-url.trycloudflare.com/api/v1/accounts/2
+   
+   # Check webhook URLs
+   docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "
+   Account.find(2).webhooks.each { |w| puts w.url }
+   "
+   ```
+
+7. **Widget not loading externally:**
+   - Verify CORS settings allow external domains
+   - Check SDK loads: `https://your-tunnel-url.trycloudflare.com/packs/js/sdk.js`
+   - Test WebSocket: `wss://your-tunnel-url.trycloudflare.com/cable`
+
+8. **502 Bad Gateway errors:**
+   ```bash
+   # Check if containers are running
+   docker-compose -f docker-compose.dev.yaml ps
+   
+   # Start containers if needed
+   docker-compose -f docker-compose.dev.yaml up -d
+   
+   # Check Rails logs
+   docker-compose -f docker-compose.dev.yaml logs rails
+   ```
+
+### Verification Commands
+
+**Check all configurations are updated:**
+```bash
+# Environment file
+Get-Content .env.local | Select-String "FRONTEND_URL"
+
+# Database configuration
+docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "
+puts 'FRONTEND_URL: ' + InstallationConfig.find_by(name: 'FRONTEND_URL')&.serialized_value.to_s
+puts 'Account domains: ' + Account.pluck(:domain).join(', ')
+puts 'Widget URLs: ' + Inbox.where(channel_type: 'Channel::WebWidget').map { |i| i.channel.widget_settings&.dig('website_url') }.compact.join(', ')
+"
+
+# Test tunnel accessibility
+Invoke-WebRequest -Uri "https://your-tunnel-url.trycloudflare.com" -Method Head -TimeoutSec 10
+```
 
 ## ⚡ When to Rebuild vs Restart
 
@@ -612,41 +661,3 @@ RAILS_ENV=test docker-compose -f docker-compose.dev.yaml up -d
 # Run test suite
 docker-compose -f docker-compose.dev.yaml exec rails bundle exec rspec
 ```
-
-## 🎯 Best Practices
-
-### Development Workflow
-1. **Start services once per day** - keep containers running
-2. **Use volume mounts** - avoid rebuilds for code changes
-3. **Monitor logs** - use `docker-compose logs -f` for debugging
-4. **Stable tunneling** - use PM2 or ngrok for consistent n8n testing
-5. **Database consistency** - use Railway for team data sharing
-
-### Performance Tips
-1. **Allocate sufficient Docker resources** (4GB+ RAM recommended)
-2. **Use SSD storage** for volume performance
-3. **Close unnecessary applications** to free system resources
-4. **Use Docker Desktop's resource monitoring** to optimize limits
-
-### Team Collaboration
-1. **Share `.env.example** with team-specific Railway credentials
-2. **Document custom integrations** in this README
-3. **Version control tunnel scripts** for consistent team setup
-4. **Use shared Railway projects** for collaborative development
-
----
-
-## 🚀 Summary
-
-This development environment provides:
-
-- **⚡ 95% faster iteration** with persistent caching
-- **🌐 Production parity** via Railway integration  
-- **🔄 Instant feedback** with hot module replacement
-- **🌉 Stable tunneling** for external integration testing
-- **🛡️ Production safety** with conditional optimizations
-- **🤝 Team collaboration** through shared infrastructure
-
-**Development is now as fast as you can think!** 🎉
-
-No more waiting for Docker rebuilds, no local database overhead, and stable external integration testing - this is the complete solution for modern Chatwoot development. 

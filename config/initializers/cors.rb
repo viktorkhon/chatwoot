@@ -27,7 +27,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
         expose: ['Content-Type', 'Cache-Control'],
         credentials: false
       
-      # Allow widget iframe embedding
+      # Allow widget iframe embedding and API calls
       resource '/widget*', 
         headers: :any, 
         methods: [:get, :post, :options],
@@ -39,10 +39,31 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
         methods: :any,
         credentials: false
         
+      # Allow public widget API endpoints
+      resource '/public/api/v1/portals/*',
+        headers: :any,
+        methods: :any,
+        credentials: false
+        
       # Allow ActionCable websocket connections from external domains
       resource '/cable', 
         headers: :any, 
         methods: [:get, :post, :options],
+        credentials: false
+        
+      # Allow Vite dev server assets (prevent direct port 3036 access)
+      resource '/vite-dev/*', 
+        headers: :any, 
+        methods: [:get, :options],
+        credentials: false
+    end
+    
+    # Specific CORS configuration for tunnel domains
+    allow do
+      origins /.*\.trycloudflare\.com.*/, /.*\.ngrok\.io.*/, /.*\.localhost\.run.*/
+      resource '*', 
+        headers: :any, 
+        methods: :any,
         credentials: false
     end
   end
@@ -63,5 +84,12 @@ Rails.application.config.action_cable.disable_request_forgery_protection = true
 
 # Allow ActionCable connections from any origin in development for widget embedding
 if Rails.env.development?
-  Rails.application.config.action_cable.allowed_request_origins = [/.*codepen\.io.*/, /.*localhost.*/, /.*127\.0\.0\.1.*/]
+  Rails.application.config.action_cable.allowed_request_origins = [
+    /.*codepen\.io.*/, 
+    /.*localhost.*/, 
+    /.*127\.0\.0\.1.*/, 
+    /.*\.trycloudflare\.com.*/, 
+    /.*\.ngrok\.io.*/, 
+    /.*\.localhost\.run.*/
+  ]
 end

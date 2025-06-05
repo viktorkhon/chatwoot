@@ -12,6 +12,24 @@ This guide provides a comprehensive solution for Chatwoot development that elimi
 4. **Paste URL** when prompted
 5. **Done!** No restart needed, changes are live immediately
 
+# Terminal 1: Start tunnel
+start_cloudflare.cmd  # or your preferred method
+
+# Terminal 2: Update URL everywhere
+quick_update_url.cmd  # paste new URL when prompted
+
+# Terminal 3: Start Chatwoot
+docker-compose -f docker-compose.dev.yaml up -d
+```
+
+```bash
+# Check environment
+docker-compose -f docker-compose.dev.yaml exec rails printenv FRONTEND_URL
+
+# Check if Rails using Port 3000
+docker-compose -f docker-compose.dev.yaml ps
+```
+
 ### Smart URL Update System
 
 **What gets updated automatically:**
@@ -39,21 +57,9 @@ cloudflared tunnel route dns chatwoot-dev dev.yourcompany.com
 
 **Start development with tunnel:**
 ```bash
-# Terminal 1: Start Chatwoot
-docker-compose -f docker-compose.dev.yaml up -d
-
-# Terminal 2: Start tunnel
-start_cloudflare.cmd  # or your preferred method
-
-# Terminal 3: Update URL everywhere
-quick_update_url.cmd  # paste new URL when prompted
-```
 
 **Verify updates worked:**
 ```bash
-# Check environment
-docker-compose -f docker-compose.dev.yaml exec rails printenv FRONTEND_URL
-
 # Check database
 docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "puts InstallationConfig.find_by(name: 'FRONTEND_URL')&.value"
 
@@ -61,19 +67,10 @@ docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "p
 
 ### Update FRONTEND_URL for n8n Integration
 
-**Using the smart updater (recommended):**
-1. Run `quick_update_url.cmd`
-2. Paste your stable tunnel URL
-3. Everything updates automatically - no manual steps needed!
-
 **Manual method (if needed):**
 ```ruby
 # In Rails console
 docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails console
-
-# Update all configuration manually
-config = InstallationConfig.find_or_create_by(name: 'FRONTEND_URL')
-config.update!(value: 'https://your-tunnel-url.trycloudflare.com')
 
 # Update account domains
 Account.all.each { |account| account.update!(domain: 'your-tunnel-url.trycloudflare.com') }
@@ -85,54 +82,10 @@ Inbox.where(channel_type: 'Channel::WebWidget').each do |inbox|
   inbox.channel.update!(widget_settings: settings)
 end
 ```
-
-## 🤖 n8n Integration Workflow
-
-### Streamlined Setup for n8n Testing
-
-1. **Start Development Environment:**
-   ```bash
-   docker-compose -f docker-compose.dev.yaml up -d
-   ```
-
-2. **Start Tunnel & Update URLs:**
-   ```bash
-   # Start tunnel (any method)
-   start_cloudflare.cmd
-   # or: cloudflared tunnel --url localhost:3000
-   # or: ssh -p 443 -R0:localhost:3000 a.pinggy.io
-   
-   # Copy the tunnel URL, then update everything instantly
-   quick_update_url.cmd  # paste URL when prompted
-   ```
-
-3. **Verify Configuration:**
-   ```bash
-   # Check that URL is updated everywhere
-   docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails runner "
-   puts 'FRONTEND_URL: ' + (InstallationConfig.find_by(name: 'FRONTEND_URL')&.value || 'Not set')
-   puts 'Account domains: ' + Account.pluck(:domain).join(', ')
-   puts 'Widget URLs: ' + Inbox.where(channel_type: 'Channel::WebWidget').map { |i| i.channel.widget_settings&.dig('website_url') }.compact.join(', ')
-   "
-   ```
-
-4. **Test n8n Webhooks:**
-   - All webhook types automatically work: `conversation_created`, `conversation_status_changed`, `message_created`, `message_updated`
-   - n8n can reach your local Chatwoot via the tunnel URL
-   - Widget interactions trigger the full webhook flow
-
 ### Expected Webhook Flow
 ```
 Widget/API → Local Chatwoot → n8n (Railway) → Tunnel URL → Local Chatwoot → Response
 ```
-
-**Key Benefits of Smart Update System:**
-- ✅ **No container restarts** when tunnel URL changes
-- ✅ **Instant updates** across all configurations
-- ✅ **One command** updates everything
-- ✅ **Zero downtime** - users stay connected
-- ✅ **Works with any tunnel provider**
-
 ### Widget Testing Script
 
 **For external testing (CodePen, etc.):**
@@ -263,16 +216,7 @@ The system uses environment variable fallbacks for flexibility:
 
 ## 🚀 Daily Development Workflow
 
-### Start Development Session
-```bash
-# Option 1: Script (recommended)
-.\scripts\dev-setup.ps1 start
-
-# Option 2: Direct Docker
-docker-compose -f docker-compose.dev.yaml up -d
-```
-
-### Monitor Services
+### Monitor Docker Services
 ```bash
 # View all service status
 docker-compose -f docker-compose.dev.yaml ps
@@ -322,96 +266,25 @@ docker-compose -f docker-compose.dev.yaml down
 
 ## 🌉 External Access & Tunneling Solutions
 
-### Problem: Changing Tunnel URLs
-Modern tunnel services (ngrok, Cloudflare tunnels, Pinggy) generate new URLs frequently, breaking:
-- n8n webhook integrations
-- External widget testing
-- Shared development URLs
-
-### ✨ Smart Solution: Auto-Update Without Restarts
-
-**🚀 One-Time Setup:**
-```bash
-# Install Cloudflare tunnel (Windows)
-winget install --id Cloudflare.cloudflared
-
-# Create quick launcher
-echo 'start "Cloudflare Tunnel" /min cloudflared tunnel --url localhost:3000' > start_cloudflare.cmd
-```
 
 ### Troubleshooting Tunnel Issues
 
 **Common Problems & Solutions:**
 
-1. **PowerShell script syntax errors:**
+1. **CORS errors (browser accessing port 3036 directly):**
    ```bash
-   # If you get "string is missing terminator" errors
-   # Delete and recreate the script file:
-   del update_tunnel_url.ps1
-   # Then re-download or recreate the script
-   ```
-
-2. **Database update errors (InstallationConfig):**
-   ```bash
-   # If you get "null value in column serialized_value" error
-   # The script tries to use 'value' instead of 'serialized_value'
-   # OR if you get "can't serialize serialized_value" error
-   # The field expects a hash, not a string
-   # Run this manual fix:
-   docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails console
-   ```
-   
-   **In Rails console:**
-   ```ruby
-   # Manual database update (use hash format)
-   config = InstallationConfig.find_by(name: 'FRONTEND_URL')
-   if config
-     config.update!(serialized_value: { 'value' => 'https://your-tunnel-url.trycloudflare.com' })
-   else
-     InstallationConfig.create!(name: 'FRONTEND_URL', serialized_value: { 'value' => 'https://your-tunnel-url.trycloudflare.com' }, locked: true)
+   # Root cause: Rails timing out when fetching Vite assets
+   # Fix 1: Increase Vite timeouts in config/initializers/vite_ruby.rb
+   ViteRuby.configure do |config|
+     config.build_timeout = 120
    end
    
-   # Update account domains
-   Account.all.each { |account| account.update!(domain: 'your-tunnel-url.trycloudflare.com') }
-   
-   # Update widget settings
-   Inbox.where(channel_type: 'Channel::WebWidget').each do |inbox|
-     settings = inbox.channel.widget_settings || {}
-     settings['website_url'] = 'https://your-tunnel-url.trycloudflare.com'
-     settings['widget_website_url'] = 'https://your-tunnel-url.trycloudflare.com'
-     inbox.channel.update!(widget_settings: settings)
-   end
-   
-   puts "✅ All configurations updated manually"
+   # Fix 2: Add Net::HTTP timeout patches for Vite connections
+   # Fix 3: Add CORS rules for /vite-dev/* and tunnel domains in config/initializers/cors.rb
+   # Fix 4: Disable web console for tunnel access in config/environments/development.rb
    ```
 
-3. **Environment variable not updating:**
-   ```bash
-   # The .env file takes precedence over .env.local
-   # Make sure both files are updated:
-   Get-Content .env | Select-String "FRONTEND_URL"
-   Get-Content .env.local | Select-String "FRONTEND_URL"
-   
-   # Update both files manually if needed:
-   (Get-Content .env) -replace 'FRONTEND_URL=.*', 'FRONTEND_URL=https://your-tunnel-url.trycloudflare.com' | Set-Content .env
-   (Get-Content .env.local) -replace 'FRONTEND_URL=.*', 'FRONTEND_URL=https://your-tunnel-url.trycloudflare.com' | Set-Content .env.local
-   
-   # Then restart Rails
-   docker-compose -f docker-compose.dev.yaml restart rails
-   ```
-
-4. **Tunnel keeps disconnecting:**
-   ```bash
-   # Use screen/tmux for persistent sessions
-   screen -S tunnel
-   cloudflared tunnel --url localhost:3000
-   # Ctrl+A, D to detach
-   
-   # Or use systemd on Linux
-   sudo systemctl enable --now cloudflared
-   ```
-
-5. **URL not updating in app:**
+2. **URL not updating in app:**
    ```bash
    # Re-run the smart updater
    quick_update_url.cmd
@@ -420,7 +293,7 @@ echo 'start "Cloudflare Tunnel" /min cloudflared tunnel --url localhost:3000' > 
    docker-compose -f docker-compose.dev.yaml restart rails
    ```
 
-6. **n8n webhooks not receiving:**
+3. **n8n webhooks not receiving:**
    ```bash
    # Test tunnel accessibility
    curl -I https://your-tunnel-url.trycloudflare.com/api/v1/accounts/2
@@ -431,12 +304,12 @@ echo 'start "Cloudflare Tunnel" /min cloudflared tunnel --url localhost:3000' > 
    "
    ```
 
-7. **Widget not loading externally:**
+4. **Widget not loading externally:**
    - Verify CORS settings allow external domains
    - Check SDK loads: `https://your-tunnel-url.trycloudflare.com/packs/js/sdk.js`
    - Test WebSocket: `wss://your-tunnel-url.trycloudflare.com/cable`
 
-8. **502 Bad Gateway errors:**
+5. **502 Bad Gateway errors:**
    ```bash
    # Check if containers are running
    docker-compose -f docker-compose.dev.yaml ps
@@ -544,11 +417,6 @@ docker-compose -f docker-compose.dev.yaml exec rails bundle exec rails db:versio
 docker-compose -f docker-compose.dev.yaml exec rails printenv DATABASE_URL
 ```
 
-#### 4. Widget Not Loading
-- Verify CORS configuration allows external domains
-- Check browser console for JavaScript errors
-- Confirm SDK file loads: `http://localhost:3000/packs/js/sdk.js`
-- Test WebSocket connection: `ws://localhost:3000/cable`
 
 #### 5. n8n Webhooks Not Working
 ```ruby

@@ -63,8 +63,39 @@ Rails.application.configure do
   # Disable host check during development
   config.hosts = nil
 
-  # Allow web console access from Docker networks
-  config.web_console.permissions = ['127.0.0.0/8', '::1', '172.0.0.0/8', '192.168.0.0/16']
+  # Web console configuration for tunnel access
+  # Disable web console entirely when accessed through tunnels to avoid IP warnings
+  if ENV['FRONTEND_URL']&.include?('trycloudflare.com') || ENV['FRONTEND_URL']&.include?('ngrok.io')
+    # Disable web console for tunnel access
+    config.web_console.permissions = []
+  else
+    # Allow web console access from Docker networks and tunnel IPs
+    # Include specific Cloudflare IP ranges and common tunnel services
+    config.web_console.permissions = [
+      '127.0.0.0/8',      # localhost
+      '::1',              # IPv6 localhost
+      '172.0.0.0/8',      # Docker networks
+      '192.168.0.0/16',   # Private networks
+      '10.0.0.0/8',       # Private networks
+      '66.115.181.0/24',  # Cloudflare tunnel IP range
+      '198.41.200.0/24',  # Cloudflare IP range
+      '173.245.48.0/20',  # Cloudflare IP range
+      '103.21.244.0/22',  # Cloudflare IP range
+      '103.22.200.0/22',  # Cloudflare IP range
+      '103.31.4.0/22',    # Cloudflare IP range
+      '141.101.64.0/18',  # Cloudflare IP range
+      '108.162.192.0/18', # Cloudflare IP range
+      '190.93.240.0/20',  # Cloudflare IP range
+      '188.114.96.0/20',  # Cloudflare IP range
+      '197.234.240.0/22', # Cloudflare IP range
+      '198.41.128.0/17',  # Cloudflare IP range
+      '162.158.0.0/15',   # Cloudflare IP range
+      '104.16.0.0/13',    # Cloudflare IP range
+      '104.24.0.0/14',    # Cloudflare IP range
+      '172.64.0.0/13',    # Cloudflare IP range
+      '131.0.72.0/22'     # Cloudflare IP range
+    ]
+  end
 
   # customize using the environment variables
   config.log_level = ENV.fetch('LOG_LEVEL', 'debug').to_sym
@@ -79,4 +110,13 @@ Rails.application.configure do
     Bullet.bullet_logger = true
     Bullet.rails_logger = true
   end
+
+  # ActionCable configuration for tunnel stability
+  config.action_cable.allowed_request_origins = [
+    /.*\.trycloudflare\.com.*/,
+    /.*\.ngrok\.io.*/,
+    /.*\.localhost\.run.*/,
+    /.*localhost.*/,
+    /.*127\.0\.0\.1.*/
+  ]
 end

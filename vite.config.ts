@@ -49,14 +49,19 @@ export default defineConfig(() => {
     
     // Development server configuration
     server: {
-      host: process.env.VITE_DEV_SERVER_HOST || 'localhost',
+      host: process.env.VITE_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.VITE_DEV_SERVER_PORT || '3036'),
       strictPort: true,
+      // Enable CORS for tunnel access
+      cors: true,
       // Enable hot module replacement
       hmr: {
         port: parseInt(process.env.VITE_DEV_SERVER_PORT || '3036')
       }
     },
+
+    // Cache configuration for faster rebuilds
+    cacheDir: 'node_modules/.vite',
 
     build: {
       rollupOptions: {
@@ -131,14 +136,31 @@ export default defineConfig(() => {
   // Development-specific optimizations
   if (isDevelopment && !isLibraryMode) {
     config.optimizeDeps = {
+      // Pre-bundle these dependencies for faster dev server startup
       include: [
         'vue',
         'vue-router',
         'axios',
-        'vuex'
+        'vuex',
+        '@vue/shared',
+        '@vue/reactivity',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        'lodash',
+        'date-fns'
       ],
-      // Force re-optimization on restarts
-      force: false
+      // Exclude problematic packages from pre-bundling
+      exclude: [
+        'dashboard-icons.json'
+      ],
+      // CRITICAL: Don't force re-optimization on every restart
+      force: false,
+      // Enable dependency caching
+      entries: [
+        'app/javascript/entrypoints/*.js',
+        'app/javascript/dashboard/**/*.vue',
+        'app/javascript/widget/**/*.vue'
+      ]
     };
     
     // Development build optimizations
@@ -146,6 +168,12 @@ export default defineConfig(() => {
       config.build.sourcemap = true;
       config.build.minify = false;
     }
+
+    // Enable file system caching for faster rebuilds
+    config.define = {
+      __VUE_OPTIONS_API__: true,
+      __VUE_PROD_DEVTOOLS__: false,
+    };
   }
 
   return config;
